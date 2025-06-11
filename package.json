@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "ts:check": "node scripts/ts-error/analyzer.js"
+  },
   "dependencies": {
     "pg": "^8.16.0"
   }

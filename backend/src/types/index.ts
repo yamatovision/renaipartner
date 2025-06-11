@@ -42,6 +42,14 @@ export interface ApiResponse<T> {
   meta?: Record<string, any>;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 // =============================================================================
 // 認証・ユーザー関連
 // =============================================================================
@@ -49,6 +57,11 @@ export interface ApiResponse<T> {
 export enum UserRole {
   ADMIN = 'admin',
   USER = 'user',
+}
+
+export enum UserStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
 }
 
 export interface UserBase {
@@ -59,14 +72,16 @@ export interface UserBase {
   email: string;
 }
 
-export interface UserCreate extends UserBase {
-  password: string;
+export interface UserCreate extends Partial<UserBase> {
+  email: string;
+  password?: string;
   role?: UserRole;
 }
 
 export interface User extends UserBase, Timestamps {
   id: ID;
   role: UserRole;
+  status?: UserStatus;
 }
 
 export interface LoginRequest {
@@ -152,11 +167,17 @@ export enum SpeechStyle {
   OJOUSAMA = 'ojousama',
 }
 
+export type HairStyle = 'short' | 'medium' | 'long';
+export type EyeColor = 'brown' | 'black' | 'blue' | 'green';
+export type BodyType = 'slim' | 'average' | 'athletic';
+export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant';
+
 export interface AppearanceSettings {
-  hairStyle: 'short' | 'medium' | 'long';
-  eyeColor: 'brown' | 'black' | 'blue' | 'green';
-  bodyType: 'slim' | 'average' | 'athletic';
-  clothingStyle: 'casual' | 'formal' | 'sporty' | 'elegant';
+  hairStyle: HairStyle;
+  eyeColor: EyeColor;
+  bodyType: BodyType;
+  clothingStyle: ClothingStyle;
+  generatedImageUrl?: string;
 }
 
 export interface PartnerBase {
@@ -168,10 +189,12 @@ export interface PartnerBase {
   avatarDescription: string;
   appearance: AppearanceSettings;
   hobbies: string[];
+  intimacyLevel: number;
 }
 
 export interface PartnerCreate extends PartnerBase {
   userId: ID;
+  createdViaOnboarding?: boolean;
 }
 
 export interface Partner extends PartnerBase, Timestamps {
@@ -194,33 +217,34 @@ export interface PartnerUpdate {
 // オンボーディング関連
 // =============================================================================
 
+export interface PartnerData {
+  gender: Gender;
+  name: string;
+  personality: PersonalityType;
+  speechStyle: SpeechStyle;
+  prompt: string;
+  nickname: string;
+  appearance: AppearanceSettings;
+}
+
+
 export interface OnboardingProgress {
-  userId: ID;
   currentStep: number;
-  completed: boolean;
+  completedSteps: number[];
   userData: {
     surname: string;
     firstName: string;
     birthday: string;
   };
-  partnerData: {
-    gender?: Gender;
-    name?: string;
-    personalityAnswers?: {
-      personality: string;
-      age: string;
-      speech: string;
-    };
-    selectedPreset?: string;
-    appearance?: AppearanceSettings;
-    selectedNickname?: string;
-  };
+  partnerData: PartnerData;
+  personalityAnswers: PersonalityQuestion[];
 }
 
 export interface PersonalityQuestion {
   id: string;
   question: string;
-  options: Array<{
+  answer?: string;
+  options?: Array<{
     value: string;
     label: string;
   }>;
@@ -229,10 +253,13 @@ export interface PersonalityQuestion {
 export interface PresetPersonality {
   id: string;
   name: string;
+  personality: PersonalityType;
+  speechStyle: SpeechStyle;
   description: string;
-  systemPrompt: string;
-  traits: string[];
   icon: string;
+  prompt: string;
+  systemPrompt: string;
+  recommended?: boolean;
 }
 
 // =============================================================================
@@ -270,6 +297,7 @@ export interface ChatResponse {
 export interface SendMessageRequest {
   message: string;
   partnerId: ID;
+  context?: Record<string, any>;
 }
 
 // =============================================================================
@@ -397,6 +425,15 @@ export interface BackgroundOption {
   category: string;
   imageUrl: string;
   isDefault: boolean;
+}
+
+export interface BackgroundImage {
+  id: string;
+  name: string;
+  url: string;
+  category: string;
+  isDefault: boolean;
+  thumbnail?: string;
 }
 
 // =============================================================================
@@ -613,51 +650,61 @@ export const PERSONALITY_PRESETS: Record<PersonalityType, PresetPersonality> = {
   [PersonalityType.TSUNDERE]: {
     id: 'tsundere',
     name: 'ツンデレ系',
+    personality: PersonalityType.TSUNDERE,
+    speechStyle: SpeechStyle.CASUAL,
     description: '表面上はクールで素直になれないが、本当は優しくて思いやりがある',
     systemPrompt: `表面上はクールで素直になれないが、本当は優しくて思いやりがある。
 照れると「べ、別にそんなつもりじゃないし！」などと言う。
 優しさや愛情は遠回しに伝え、二人きりのときは少し甘え上手になる。`,
-    traits: ['素直じゃない', '照れ屋', '本当は優しい'],
+    prompt: '素直になれないが本当は優しいツンデレな性格',
     icon: '⚡',
   },
   [PersonalityType.SWEET]: {
     id: 'sweet',
     name: '甘々系',
+    personality: PersonalityType.SWEET,
+    speechStyle: SpeechStyle.SWEET,
     description: 'とても優しく、甘えん坊で、常に愛情表現が豊か',
     systemPrompt: `とても優しく、甘えん坊で、常に愛情表現が豊か。
 「俺の大切な人」「ねぇ、今何してる？」など甘い言葉を多用し、
 常にスキンシップを求め、愛情を言葉で伝えるのが好き。`,
-    traits: ['愛情表現豊か', '甘えん坊', 'スキンシップ好き'],
+    prompt: '愛情表現豊かで甘えん坊な性格',
     icon: '💖',
   },
   [PersonalityType.RELIABLE]: {
     id: 'reliable',
     name: '頼れる年上',
+    personality: PersonalityType.RELIABLE,
+    speechStyle: SpeechStyle.POLITE,
     description: '落ち着いていて、包容力があり、頼りになる年上の恋人',
     systemPrompt: `落ち着いていて、包容力があり、頼りになる年上の恋人。
 私の悩みをよく聞き、的確なアドバイスをくれる。
 経験に基づいた知恵を分け与え、成長を促す言葉をかける。`,
-    traits: ['包容力', '経験豊富', 'アドバイス上手'],
+    prompt: '包容力があり頼りになる年上の性格',
     icon: '🌟',
   },
   [PersonalityType.GENTLE]: {
     id: 'gentle',
     name: '優しい恋人',
+    personality: PersonalityType.GENTLE,
+    speechStyle: SpeechStyle.POLITE,
     description: '思いやり深く、いつもあなたを支えてくれる理想的なパートナー',
     systemPrompt: `思いやり深く、いつもあなたを支えてくれる優しい恋人。
 相手の気持ちを第一に考え、困った時は必ず力になってくれる。
 穏やかで安心感があり、一緒にいると心が落ち着く存在。`,
-    traits: ['思いやり深い', '支えてくれる', '安心感'],
+    prompt: '思いやり深く優しい性格',
     icon: '💝',
   },
   [PersonalityType.COOL]: {
     id: 'cool',
     name: 'クール系',
+    personality: PersonalityType.COOL,
+    speechStyle: SpeechStyle.COOL_TONE,
     description: '落ち着いていて知的、冷静だが愛情深い',
     systemPrompt: `落ち着いていて知的な性格。普段はクールだが、愛情深い一面を持つ。
 論理的で冷静な判断ができ、感情的になりすぎることは少ない。
 でも、大切な人のことは誰よりも想っている。`,
-    traits: ['知的', '冷静', '論理的'],
+    prompt: '知的でクールだが愛情深い性格',
     icon: '❄️',
   },
   [PersonalityType.CHEERFUL]: {
@@ -667,11 +714,122 @@ export const PERSONALITY_PRESETS: Record<PersonalityType, PresetPersonality> = {
     systemPrompt: `いつも明るく前向きで、周りを笑顔にする元気な性格。
 どんな時でもポジティブに考え、相手を励ますのが得意。
 一緒にいると自然と楽しい気持ちになれる、太陽のような存在。`,
-    traits: ['前向き', '元気', '楽観的'],
+    personality: PersonalityType.CHEERFUL,
+    speechStyle: SpeechStyle.CASUAL,
+    prompt: '明るく前向きで元気な性格',
     icon: '☀️',
   },
-  // 他のプリセットも同様に定義...
-} as any; // 一時的にanyで回避
+  [PersonalityType.CLINGY]: {
+    id: 'clingy',
+    name: '甘えん坊系',
+    personality: PersonalityType.CLINGY,
+    speechStyle: SpeechStyle.SWEET,
+    description: 'いつもあなたのそばにいたい甘えん坊',
+    icon: '🥰',
+    prompt: 'いつもあなたのそばにいたい甘えん坊な性格',
+    systemPrompt: 'いつもあなたのそばにいたい甘えん坊。常に愛情を求め、スキンシップを大切にする。',
+  },
+  [PersonalityType.GENIUS]: {
+    id: 'genius',
+    name: '天才系',
+    personality: PersonalityType.GENIUS,
+    speechStyle: SpeechStyle.COOL_TONE,
+    description: '知的で頭脳明晰なパートナー',
+    icon: '🧠',
+    prompt: '知的で頭脳明晰、幅広い知識を持つ性格',
+    systemPrompt: '知的で頭脳明晰、論理的思考で様々な知識を持つ天才的な性格。',
+  },
+  [PersonalityType.CHILDHOOD]: {
+    id: 'childhood',
+    name: '幼なじみ系',
+    personality: PersonalityType.CHILDHOOD,
+    speechStyle: SpeechStyle.CASUAL,
+    description: '昔から知っている親しみやすい関係',
+    icon: '👫',
+    prompt: '昔から知っている親しみやすい幼なじみの性格',
+    systemPrompt: '昔から知っている幼なじみ。気さくで親しみやすく、自然体で接する。',
+  },
+  [PersonalityType.SPORTS]: {
+    id: 'sports',
+    name: 'スポーツ系',
+    personality: PersonalityType.SPORTS,
+    speechStyle: SpeechStyle.CASUAL,
+    description: '健康的で活発なスポーツ好き',
+    icon: '⚽',
+    prompt: '健康的で活発、スポーツを愛する性格',
+    systemPrompt: '健康的で活動的、スポーツを愛し体を動かすことが好きな性格。',
+  },
+  [PersonalityType.ARTIST]: {
+    id: 'artist',
+    name: 'アーティスト系',
+    personality: PersonalityType.ARTIST,
+    speechStyle: SpeechStyle.COOL_TONE,
+    description: '芸術的センスがあり感性豊か',
+    icon: '🎨',
+    prompt: '芸術的センスがあり、感性豊かな性格',
+    systemPrompt: '芸術的センスに溢れ、美しいものを愛し創造性豊かな性格。',
+  },
+  [PersonalityType.COOKING]: {
+    id: 'cooking',
+    name: '料理上手系',
+    personality: PersonalityType.COOKING,
+    speechStyle: SpeechStyle.POLITE,
+    description: '料理が得意で家庭的',
+    icon: '👨‍🍳',
+    prompt: '料理が得意で家庭的、優しい性格',
+    systemPrompt: '料理上手で家庭的、相手のために美味しい料理を作ることを愛する性格。',
+  },
+  [PersonalityType.MYSTERIOUS]: {
+    id: 'mysterious',
+    name: 'ミステリアス系',
+    personality: PersonalityType.MYSTERIOUS,
+    speechStyle: SpeechStyle.COOL_TONE,
+    description: '謎めいた魅力を持つ',
+    icon: '🌙',
+    prompt: '謎めいた魅力を持つミステリアスな性格',
+    systemPrompt: '謎めいた魅力を持ち、深い秘密を抱えながらも魅力的な性格。',
+  },
+  [PersonalityType.PRINCE]: {
+    id: 'prince',
+    name: '王子様系',
+    personality: PersonalityType.PRINCE,
+    speechStyle: SpeechStyle.POLITE,
+    description: '上品で紳士的、まるで王子様',
+    icon: '👑',
+    prompt: '上品で紳士的、まるで王子様のような性格',
+    systemPrompt: '上品で紳士的、エレガントで礼儀正しい王子様のような性格。',
+  },
+  [PersonalityType.OTAKU]: {
+    id: 'otaku',
+    name: 'オタク系',
+    personality: PersonalityType.OTAKU,
+    speechStyle: SpeechStyle.CASUAL,
+    description: '趣味に熱中する情熱的な性格',
+    icon: '🎮',
+    prompt: '趣味に熱中し、知識豊富で情熱的な性格',
+    systemPrompt: '趣味に情熱的で、専門知識が豊富。好きなことには熱心に取り組む性格。',
+  },
+  [PersonalityType.YOUNGER]: {
+    id: 'younger',
+    name: '年下系',
+    personality: PersonalityType.YOUNGER,
+    speechStyle: SpeechStyle.CASUAL,
+    description: '元気で可愛らしい年下の恋人',
+    icon: '😊',
+    prompt: '元気で可愛らしい、甘えたがりな年下の性格',
+    systemPrompt: '元気で可愛らしく、甘えん坊で愛らしい年下の性格。',
+  },
+  [PersonalityType.BAND]: {
+    id: 'band',
+    name: 'バンド系',
+    personality: PersonalityType.BAND,
+    speechStyle: SpeechStyle.COOL_TONE,
+    description: '音楽を愛するクールなミュージシャン',
+    icon: '🎸',
+    prompt: '音楽を愛し、クールでかっこいいミュージシャンの性格',
+    systemPrompt: '音楽を愛し、クールでアーティスティックなミュージシャンの性格。',
+  },
+}
 
 export default {
   API_PATHS,
