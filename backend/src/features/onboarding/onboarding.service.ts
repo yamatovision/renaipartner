@@ -221,7 +221,7 @@ export class OnboardingService {
         speechStyle: partnerData.speechStyle || 'casual',
         systemPrompt: this.generateSystemPrompt(partnerData, userData),
         avatarDescription: this.generateAvatarDescription(partnerData),
-        appearance: partnerData.appearance || {
+        appearance: partnerData.appearanceSettings || partnerData.appearance || {
           hairStyle: 'medium',
           eyeColor: 'brown',
           bodyType: 'average',
@@ -324,6 +324,12 @@ export class OnboardingService {
       }
       if (!answer.answer) {
         throw new ValidationError('回答が選択されていません');
+      }
+      
+      // 有効な回答値のチェック
+      const validAnswers = ['gentle', 'cool', 'cheerful', 'mysterious', 'reliable', 'older', 'same', 'younger', 'polite', 'casual', 'sweet', 'dialect', 'cool_tone'];
+      if (!validAnswers.includes(answer.answer)) {
+        throw new ValidationError('無効な回答です');
       }
     }
 

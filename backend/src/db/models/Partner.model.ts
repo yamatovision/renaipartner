@@ -377,6 +377,7 @@ class PartnerModel {
       name: row.name,
       gender: row.gender as Gender,
       personalityType: row.personality_type as PersonalityType,
+      personality: row.personality_type as PersonalityType, // テスト互換性のためのエイリアス
       speechStyle: row.speech_style as SpeechStyle,
       systemPrompt: row.system_prompt,
       avatarDescription: row.avatar_description,

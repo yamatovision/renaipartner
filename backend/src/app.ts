@@ -22,6 +22,10 @@ import usersRoutes from '@/features/users/users.routes';
 import partnersRoutes from '@/features/partners/partners.routes';
 import { onboardingRoutes } from '@/features/onboarding/onboarding.routes';
 import chatRoutes from '@/features/chat/chat.routes';
+import memoryRoutes from '@/features/memory/memory.routes';
+import { imagesRoutes } from '@/features/images/images.routes';
+import { settingsRoutes } from '@/features/settings/settings.routes';
+import notificationsRoutes from '@/features/notifications/notifications.routes';
 
 const app = express();
 
@@ -116,6 +120,10 @@ app.use('/api/users', usersRoutes); // 一般ユーザー機能
 app.use('/api/partners', partnersRoutes); // パートナー管理機能
 app.use('/api/onboarding', onboardingRoutes); // オンボーディング機能
 app.use('/api/chat', chatRoutes); // チャット機能
+app.use('/api/memory', memoryRoutes); // メモリシステム機能
+app.use('/api/images', imagesRoutes); // 画像生成機能
+app.use('/api/settings', settingsRoutes); // 設定管理機能
+app.use('/api/notifications', notificationsRoutes); // 通知システム機能
 
 // ===== エラーハンドリング =====
 

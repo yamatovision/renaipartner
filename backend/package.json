@@ -13,7 +13,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/axios": "^0.9.36",
     "@types/sequelize": "^4.28.20",
+    "axios": "^1.9.0",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -30,6 +33,7 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.6",
     "@types/cors": "^2.8.17",

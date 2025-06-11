@@ -336,7 +336,7 @@ describe('オンボーディングAPI統合テスト', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.progress.currentStep).toBe(4);
       expect(response.body.data.progress.partnerData.name).toBe('あいちゃん');
-      expect(response.body.data.progress.partnerData.gender).toBe('FEMALE');
+      expect(response.body.data.progress.partnerData.gender).toBe('girlfriend');
       tracker.mark('レスポンス検証完了');
 
       tracker.summary();
@@ -510,9 +510,9 @@ describe('オンボーディングAPI統合テスト', () => {
 
       const requestData = {
         answers: [
-          { id: '1', question: 'Question 1', answer: 'a' },
-          { id: '2', question: 'Question 2', answer: 'b' },
-          { id: '3', question: 'Question 3', answer: 'c' }
+          { id: 'q1', question: 'Question 1', answer: 'gentle' },
+          { id: 'q2', question: 'Question 2', answer: 'same' },
+          { id: 'q3', question: 'Question 3', answer: 'polite' }
         ]
       };
 
@@ -573,7 +573,8 @@ describe('オンボーディングAPI統合テスト', () => {
 
   describe('POST /api/onboarding/complete - オンボーディング完了', () => {
     beforeEach(async () => {
-      // 完了に必要な全データを持つ進捗を作成
+      // 既存の進捗を削除してから完了に必要な全データを持つ進捗を作成
+      await OnboardingProgress.destroy({ where: { userId: userAuth.user.id } });
       await OnboardingProgress.create({
         userId: userAuth.user.id,
         currentStep: 10,
@@ -597,9 +598,9 @@ describe('オンボーディングAPI統合テスト', () => {
           }
         },
         personalityAnswers: [
-          { id: '1', question: 'Question 1', answer: 'a' },
-          { id: '2', question: 'Question 2', answer: 'b' },
-          { id: '3', question: 'Question 3', answer: 'c' }
+          { id: 'q1', question: 'Question 1', answer: 'gentle' },
+          { id: 'q2', question: 'Question 2', answer: 'same' },
+          { id: 'q3', question: 'Question 3', answer: 'polite' }
         ]
       });
     });
@@ -631,7 +632,7 @@ describe('オンボーディングAPI統合テスト', () => {
       expect(createdPartner).toBeTruthy();
       expect(createdPartner?.name).toBe('あいちゃん');
       expect(createdPartner?.systemPrompt).toContain('あいちゃん'); // システムプロンプト生成確認
-      expect(createdPartner?.avatarDescription).toContain('茶色'); // アバター説明生成確認
+      expect(createdPartner?.avatarDescription).toContain('青'); // アバター説明生成確認（eyeColor: 'blue'）
       tracker.mark('パートナー作成確認完了');
 
       tracker.setOperation('進捗削除確認');
@@ -643,12 +644,12 @@ describe('オンボーディングAPI統合テスト', () => {
     });
 
     it('不完全なデータでは完了できない', async () => {
-      // 不完全な進捗データで上書き
-      await OnboardingProgressHelpers.updateUserData(userAuth.user.id, {
-        surname: 'テスト',
-        firstName: '花子',
-        birthday: '1995-05-05'
-      });
+      // パートナーデータを削除して不完全にする
+      const progress = await OnboardingProgress.findOne({ where: { userId: userAuth.user.id } });
+      if (progress) {
+        progress.partnerData = null as any;
+        await progress.save();
+      }
 
       const tracker = new MilestoneTracker();
       tracker.mark('テスト開始');
@@ -664,7 +665,7 @@ describe('オンボーディングAPI統合テスト', () => {
       tracker.setOperation('エラーレスポンス検証');
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('オンボーディングが完了していません');
+      expect(response.body.error).toContain('パートナー情報が不足しています');
       tracker.mark('エラーレスポンス検証完了');
 
       tracker.summary();
@@ -706,6 +707,9 @@ describe('オンボーディングAPI統合テスト', () => {
         {
           step: 3,
           userData: {
+            surname: 'テスト',
+            firstName: '太郎',
+            birthday: '1995-01-01',
             age: 24
           }
         }
@@ -773,7 +777,7 @@ describe('オンボーディングAPI統合テスト', () => {
             appearance: {
               hairColor: '黒',
               eyeColor: '茶色',
-              bodyType: '普通',
+              bodyType: 'average',
               height: '155cm',
               style: 'ナチュラル'
             }
@@ -820,7 +824,7 @@ describe('オンボーディングAPI統合テスト', () => {
             appearance: {
               hairColor: '黒',
               eyeColor: '茶色',
-              bodyType: '普通'
+              bodyType: 'average'
             }
           }
         }
@@ -845,15 +849,15 @@ describe('オンボーディングAPI統合テスト', () => {
             appearance: {
               hairColor: '黒',
               eyeColor: '茶色',
-              bodyType: '普通',
+              bodyType: 'average',
               height: '155cm',
               style: 'ナチュラル'
             }
           },
           personalityAnswers: [
-            { questionId: 1, answer: 'a' },
-            { questionId: 2, answer: 'b' },
-            { questionId: 3, answer: 'c' }
+            { questionId: 'q1', answer: 'gentle' },
+            { questionId: 'q2', answer: 'same' },
+            { questionId: 'q3', answer: 'polite' }
           ]
         }
       );

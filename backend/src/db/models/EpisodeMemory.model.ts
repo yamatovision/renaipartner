@@ -12,20 +12,20 @@ class EpisodeMemoryModel {
     try {
       const query = `
         INSERT INTO episode_memories (
-          partner_id, title, summary, emotional_weight, 
-          tags, participants, date
+          partner_id, title, description, emotional_impact, 
+          tags, participants, occurred_at
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, partner_id, title, summary, emotional_weight,
-                  tags, participants, date
+        RETURNING id, partner_id, title, description, emotional_impact,
+                  tags, participants, occurred_at
       `;
       
       const values = [
         episodeData.partnerId,
         episodeData.title,
-        episodeData.summary,
+        episodeData.description,
         episodeData.emotionalWeight,
-        JSON.stringify(episodeData.tags),
-        JSON.stringify(episodeData.participants),
+        JSON.stringify(episodeData.tags || []),
+        JSON.stringify(episodeData.participants || []),
         episodeData.date
       ];
 
@@ -36,11 +36,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       };
     } catch (error) {
       console.error('[EpisodeMemory.model] エピソード記憶作成エラー:', error);
@@ -56,11 +56,11 @@ class EpisodeMemoryModel {
     
     try {
       const query = `
-        SELECT id, partner_id, title, summary, emotional_weight,
-               tags, participants, date
+        SELECT id, partner_id, title, description, emotional_impact,
+               tags, participants, occurred_at
         FROM episode_memories 
         WHERE partner_id = $1 
-        ORDER BY date DESC, emotional_weight DESC
+        ORDER BY occurred_at DESC, emotional_impact DESC
         LIMIT $2
       `;
       
@@ -70,11 +70,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       }));
     } catch (error) {
       console.error('[EpisodeMemory.model] エピソード記憶取得エラー:', error);
@@ -94,11 +94,11 @@ class EpisodeMemoryModel {
     
     try {
       const query = `
-        SELECT id, partner_id, title, summary, emotional_weight,
-               tags, participants, date
+        SELECT id, partner_id, title, description, emotional_impact,
+               tags, participants, occurred_at
         FROM episode_memories 
-        WHERE partner_id = $1 AND emotional_weight >= $2
-        ORDER BY emotional_weight DESC, date DESC
+        WHERE partner_id = $1 AND emotional_impact >= $2
+        ORDER BY emotional_impact DESC, occurred_at DESC
         LIMIT $3
       `;
       
@@ -108,11 +108,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       }));
     } catch (error) {
       console.error('[EpisodeMemory.model] 感情重み検索エラー:', error);
@@ -128,12 +128,12 @@ class EpisodeMemoryModel {
     
     try {
       const query = `
-        SELECT id, partner_id, title, summary, emotional_weight,
-               tags, participants, date
+        SELECT id, partner_id, title, description, emotional_impact,
+               tags, participants, occurred_at
         FROM episode_memories 
         WHERE partner_id = $1 
         AND tags::jsonb ?| $2
-        ORDER BY emotional_weight DESC, date DESC
+        ORDER BY emotional_impact DESC, occurred_at DESC
         LIMIT 20
       `;
       
@@ -143,11 +143,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       }));
     } catch (error) {
       console.error('[EpisodeMemory.model] タグ検索エラー:', error);
@@ -167,12 +167,12 @@ class EpisodeMemoryModel {
     
     try {
       const query = `
-        SELECT id, partner_id, title, summary, emotional_weight,
-               tags, participants, date
+        SELECT id, partner_id, title, description, emotional_impact,
+               tags, participants, occurred_at
         FROM episode_memories 
         WHERE partner_id = $1 
-        AND date BETWEEN $2 AND $3
-        ORDER BY date DESC
+        AND occurred_at BETWEEN $2 AND $3
+        ORDER BY occurred_at DESC
       `;
       
       const result = await client.query(query, [partnerId, startDate, endDate]);
@@ -181,11 +181,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       }));
     } catch (error) {
       console.error('[EpisodeMemory.model] 日付範囲検索エラー:', error);
@@ -201,12 +201,12 @@ class EpisodeMemoryModel {
     
     try {
       const query = `
-        SELECT id, partner_id, title, summary, emotional_weight,
-               tags, participants, date
+        SELECT id, partner_id, title, description, emotional_impact,
+               tags, participants, occurred_at
         FROM episode_memories 
         WHERE partner_id = $1 
         AND participants::jsonb ?| $2
-        ORDER BY emotional_weight DESC, date DESC
+        ORDER BY emotional_impact DESC, occurred_at DESC
         LIMIT 20
       `;
       
@@ -216,11 +216,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       }));
     } catch (error) {
       console.error('[EpisodeMemory.model] 参加者検索エラー:', error);
@@ -244,13 +244,13 @@ class EpisodeMemoryModel {
         values.push(updateData.title);
       }
       
-      if (updateData.summary !== undefined) {
-        setParts.push(`summary = $${paramCount++}`);
-        values.push(updateData.summary);
+      if (updateData.description !== undefined) {
+        setParts.push(`description = $${paramCount++}`);
+        values.push(updateData.description);
       }
       
       if (updateData.emotionalWeight !== undefined) {
-        setParts.push(`emotional_weight = $${paramCount++}`);
+        setParts.push(`emotional_impact = $${paramCount++}`);
         values.push(updateData.emotionalWeight);
       }
       
@@ -265,7 +265,7 @@ class EpisodeMemoryModel {
       }
       
       if (updateData.date !== undefined) {
-        setParts.push(`date = $${paramCount++}`);
+        setParts.push(`occurred_at = $${paramCount++}`);
         values.push(updateData.date);
       }
       
@@ -279,8 +279,8 @@ class EpisodeMemoryModel {
         UPDATE episode_memories 
         SET ${setParts.join(', ')}
         WHERE id = $${paramCount}
-        RETURNING id, partner_id, title, summary, emotional_weight,
-                  tags, participants, date
+        RETURNING id, partner_id, title, description, emotional_impact,
+                  tags, participants, occurred_at
       `;
       
       const result = await client.query(query, values);
@@ -294,11 +294,11 @@ class EpisodeMemoryModel {
         id: row.id,
         partnerId: row.partner_id,
         title: row.title,
-        summary: row.summary,
-        emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        participants: JSON.parse(row.participants),
-        date: new Date(row.date)
+        description: row.description,
+        emotionalWeight: row.emotional_impact,
+        tags: row.tags || [],
+        participants: row.participants || [],
+        date: new Date(row.occurred_at)
       };
     } catch (error) {
       console.error('[EpisodeMemory.model] エピソード記憶更新エラー:', error);
@@ -339,7 +339,7 @@ class EpisodeMemoryModel {
       const statsQuery = `
         SELECT 
           COUNT(*) as total_episodes,
-          AVG(emotional_weight) as avg_emotional_weight
+          AVG(emotional_impact) as avg_emotional_impact
         FROM episode_memories 
         WHERE partner_id = $1
       `;
@@ -375,7 +375,7 @@ class EpisodeMemoryModel {
       
       return {
         totalEpisodes: parseInt(stats.total_episodes) || 0,
-        averageEmotionalWeight: parseFloat(stats.avg_emotional_weight) || 0,
+        averageEmotionalWeight: parseFloat(stats.avg_emotional_impact) || 0,
         mostCommonTags,
         frequentParticipants
       };
@@ -388,4 +388,5 @@ class EpisodeMemoryModel {
   }
 }
 
+export { EpisodeMemoryModel };
 export default EpisodeMemoryModel;

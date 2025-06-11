@@ -49,6 +49,24 @@ describe('メモリシステム統合テスト', () => {
       avatarDescription: 'やさしい笑顔の男性',
       intimacyLevel: 50
     });
+    console.log('[TEST DEBUG] 作成されたパートナー:', {
+      id: testPartner.id,
+      userId: testPartner.userId,
+      name: testPartner.name
+    });
+    
+    // データベース内のパートナー存在確認
+    const { pool } = require('../../../src/config/database.config');
+    const client = await pool.connect();
+    try {
+      const result = await client.query('SELECT id, user_id, name FROM partners WHERE id = $1', [testPartner.id]);
+      console.log('[TEST DEBUG] DB内パートナー確認:', result.rows);
+    } catch (error) {
+      console.error('[TEST DEBUG] DB確認エラー:', error);
+    } finally {
+      client.release();
+    }
+    
     tracker.mark('テストパートナー作成完了');
 
     // テスト用メッセージ作成（会話要約のテスト用）
@@ -61,6 +79,11 @@ describe('メモリシステム統合テスト', () => {
     ];
 
     for (const msgData of conversationData) {
+      console.log('[TEST DEBUG] メッセージ作成試行:', {
+        partnerId: testPartner.id,
+        content: msgData.content.substring(0, 20) + '...',
+        sender: msgData.sender
+      });
       const message = await dbTestHelper.createTestMessage(testPartner.id, {
         content: msgData.content,
         sender: msgData.sender

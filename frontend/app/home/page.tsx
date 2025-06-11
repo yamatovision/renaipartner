@@ -56,9 +56,13 @@ export default function HomePage() {
         setPartner(partnersResponse.data)
 
         // メッセージ履歴を取得
-        const messagesResponse = await chatService.getMessages(partnersResponse.data.id)
+        const messagesResponse = await chatService.getMessages({
+          partnerId: partnersResponse.data.id,
+          page: 1,
+          limit: 50
+        })
         if (messagesResponse.success && messagesResponse.data) {
-          setMessages(messagesResponse.data)
+          setMessages(messagesResponse.data.messages)
         }
       } else {
         // パートナーがいない場合はオンボーディングへ

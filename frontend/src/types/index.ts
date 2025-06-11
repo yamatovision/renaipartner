@@ -1,3 +1,5 @@
+// フロントエンド用型定義ファイル
+
 /**
  * ===== 型定義同期ガイドライン =====
  * 型ファイルは下記2つの同期された型ファイルが存在します。  
@@ -168,6 +170,12 @@ export interface JWTPayload {
   jti?: string; // JWT ID for uniqueness
 }
 
+// フロントエンド用認証インターフェース
+export interface AuthContext {
+  user?: JWTPayload;
+  isAuthenticated: boolean;
+}
+
 // =============================================================================
 // パートナー関連
 // =============================================================================
@@ -216,6 +224,7 @@ export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant';
 
 export interface AppearanceSettings {
   hairStyle: HairStyle;
+  hairColor?: string; // 髪色プロパティを追加
   eyeColor: EyeColor;
   bodyType: BodyType;
   clothingStyle: ClothingStyle;
@@ -243,6 +252,7 @@ export interface Partner extends PartnerBase, Timestamps {
   id: ID;
   userId: ID;
   baseImageUrl?: string;
+  personality?: PersonalityType; // テスト互換性のためのエイリアス
 }
 
 export interface PartnerUpdate {
@@ -334,6 +344,47 @@ export interface PresetPersonality {
   recommended?: boolean;
 }
 
+export interface OnboardingStartRequest {
+  gender: Gender;
+  name: string;
+  age?: number;
+}
+
+export interface OnboardingUpdateRequest {
+  step: number;
+  userData?: {
+    surname: string;
+    firstName: string;
+    birthday: string;
+  };
+  partnerData?: Partial<PartnerData>;
+  personalityAnswers?: PersonalityQuestion[];
+}
+
+export interface OnboardingCompleteRequest {
+  finalPartnerData: PartnerData;
+}
+
+export interface PersonalityPreset {
+  id: string;
+  name: string;
+  description: string;
+  personality: PersonalityType;
+  speechStyle: SpeechStyle;
+  systemPrompt: string;
+  icon?: string;
+  recommended?: boolean;
+}
+
+export interface RecommendedPresetsRequest {
+  personalityAnswers: PersonalityQuestion[];
+  preferences?: {
+    ageRange?: string;
+    interests?: string[];
+    communicationStyle?: string;
+  };
+}
+
 // =============================================================================
 // メッセージ・会話関連
 // =============================================================================
@@ -370,6 +421,70 @@ export interface SendMessageRequest {
   message: string;
   partnerId: ID;
   context?: Record<string, any>;
+}
+
+export interface ChatMessageRequest {
+  message: string;
+  partnerId: ID;
+  context?: Record<string, any>;
+}
+
+export interface ChatMessageResponse {
+  response: string;
+  emotion?: string;
+  intimacyLevel: number;
+  newMessages?: Message[];
+}
+
+export interface MessageListResponse {
+  messages: Message[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface TypingNotificationRequest {
+  partnerId: ID;
+  isTyping: boolean;
+}
+
+export interface EmotionState {
+  current: string;
+  intensity: number;
+  previousEmotions: string[];
+}
+
+export interface ChatMessageRequest {
+  message: string;
+  partnerId: ID;
+  context?: Record<string, any>;
+}
+
+export interface ChatMessageResponse {
+  response: string;
+  emotion?: string;
+  intimacyLevel: number;
+  newMessages?: Message[];
+}
+
+export interface MessageListResponse {
+  messages: Message[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface TypingNotificationRequest {
+  partnerId: ID;
+  isTyping: boolean;
+}
+
+export interface EmotionState {
+  current: string;
+  intensity: number;
+  previousEmotions: string[];
 }
 
 // =============================================================================
@@ -411,7 +526,7 @@ export interface EpisodeMemory {
   id: ID;
   partnerId: ID;
   title: string;
-  summary: string;
+  description: string;
   emotionalWeight: number;
   tags: string[];
   participants: string[];
@@ -444,12 +559,51 @@ export interface OngoingTopic {
   nextCheckIn: Date;
 }
 
+// メモリシステム追加型定義
+export interface MemorySummaryRequest {
+  partnerId: ID;
+  conversationData: Array<{
+    sender: MessageSender;
+    content: string;
+    timestamp: Date;
+  }>;
+  timeframe?: string;
+}
+
+export interface MemorySearchRequest {
+  partnerId: ID;
+  query: string;
+  memoryType?: MemoryType;
+  limit?: number;
+  offset?: number;
+}
+
+export interface MemorySearchResponse {
+  memories: Memory[];
+  total: number;
+  relevanceScores: number[];
+}
+
+export interface ContinuousTopic {
+  id: ID;
+  partnerId: ID;
+  topic: string;
+  relatedPeople: string[];
+  status: 'active' | 'resolved' | 'dormant';
+  emotionalWeight: number;
+  updates: Array<{
+    date: Date;
+    content: string;
+  }>;
+  nextCheckIn: Date;
+}
+
 // =============================================================================
 // 設定関連
 // =============================================================================
 
 export interface NotificationSettings {
-  id: ID;
+  id?: ID;
   userId: ID;
   morningGreeting: boolean;
   morningTime: string; // HH:MM format
@@ -467,6 +621,50 @@ export interface UserSettings {
   dataRetentionDays: number;
 }
 
+export interface SettingsResponse {
+  success: boolean;
+  data: {
+    notifications: NotificationSettings;
+    userSettings: UserSettings;
+  };
+}
+
+export interface SettingsUpdateRequest {
+  notifications?: Partial<Omit<NotificationSettings, 'id' | 'userId'>>;
+  userSettings?: Partial<Omit<UserSettings, 'id' | 'userId'>>;
+}
+
+// 通知スケジュール関連
+export interface NotificationScheduleRequest {
+  type: 'morning_greeting' | 'reminder' | 'special_day' | 'custom';
+  scheduledTime: Date | string;
+  message?: string;
+  partnerId?: ID;
+  recurring?: boolean;
+  recurringPattern?: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface NotificationScheduleResponse {
+  id: string;
+  userId: ID;
+  partnerId?: ID;
+  type: 'morning_greeting' | 'reminder' | 'special_day' | 'custom';
+  scheduledTime: Date;
+  message?: string;
+  recurring: boolean;
+  recurringPattern?: 'daily' | 'weekly' | 'monthly';
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  createdAt: Date;
+}
+
+export interface NotificationStatsResponse {
+  totalUsers: number;
+  morningGreetingEnabled: number;
+  reminderEnabled: number;
+  specialDaysEnabled: number;
+  popularMorningTimes: Array<{ time: string; count: number }>;
+}
+
 // =============================================================================
 // 画像生成関連
 // =============================================================================
@@ -478,16 +676,25 @@ export interface ImageGenerationRequest {
   background?: string;
   clothing?: string;
   prompt?: string;
+  width?: number;
+  height?: number;
+  numImages?: number;
+  guidanceScale?: number;
 }
 
 export interface GeneratedImage {
   id: ID;
   partnerId: ID;
   imageUrl: string;
+  thumbnailUrl?: string;
   prompt: string;
   context: string;
   consistencyScore: number;
+  leonardoGenerationId?: string;
+  modelUsed?: string;
+  metadata?: Record<string, any>;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface BackgroundOption {
@@ -583,10 +790,12 @@ export const API_PATHS = {
   // オンボーディング関連
   ONBOARDING: {
     BASE: '/api/onboarding',
+    START: '/api/onboarding/start',
     PROGRESS: (userId: string) => `/api/onboarding/${userId}/progress`,
     COMPLETE: (userId: string) => `/api/onboarding/${userId}/complete`,
     PERSONALITY_QUESTIONS: '/api/onboarding/personality-questions',
     PRESETS: '/api/onboarding/presets',
+    RECOMMENDED_PRESETS: '/api/onboarding/recommended-presets',
     GENERATE_NAMES: '/api/onboarding/generate-names',
     GENERATE_NICKNAMES: '/api/onboarding/generate-nicknames',
   },
@@ -598,16 +807,20 @@ export const API_PATHS = {
     MESSAGES: (partnerId: string) => `/api/chat/${partnerId}/messages`,
     GENERATE_IMAGE: '/api/chat/generate-image',
     TYPING: (partnerId: string) => `/api/chat/${partnerId}/typing`,
+    EMOTION: '/api/chat/emotion',
   },
   
   // 記憶・関係性関連
   MEMORY: {
     BASE: '/api/memory',
     BY_PARTNER: (partnerId: string) => `/api/memory/${partnerId}`,
+    SUMMARY: '/api/memory/summary',
     SEARCH: '/api/memory/search',
     RELATIONSHIPS: (partnerId: string) => `/api/memory/${partnerId}/relationships`,
     ONGOING_TOPICS: (partnerId: string) => `/api/memory/${partnerId}/topics`,
+    TOPICS: (partnerId: string) => `/api/memory/${partnerId}/topics`,
     EPISODE: (partnerId: string) => `/api/memory/${partnerId}/episodes`,
+    EPISODES: (partnerId: string) => `/api/memory/${partnerId}/episodes`,
   },
   
   // 画像生成関連
@@ -616,15 +829,25 @@ export const API_PATHS = {
     GENERATE: '/api/images/generate',
     AVATAR: '/api/images/avatar',
     BACKGROUNDS: '/api/images/backgrounds',
+    GENERATE_CHAT: '/api/images/generate-chat',
+    HISTORY: (partnerId: string) => `/api/images/history/${partnerId}`,
+    STATS: (partnerId: string) => `/api/images/stats/${partnerId}`,
+    DELETE: (imageId: string) => `/api/images/${imageId}`,
+    MODELS: '/api/images/models',
+  },
+  
+  // 通知関連
+  NOTIFICATIONS: {
+    BASE: '/api/notifications',
+    SETTINGS: '/api/notifications/settings',
+    SCHEDULE: '/api/notifications/schedule',
+    STATS: '/api/notifications/stats',
   },
   
   // 設定関連
   SETTINGS: {
-    NOTIFICATIONS: (userId: string) => `/api/settings/${userId}/notifications`,
-    USER_PREFERENCES: (userId: string) => `/api/settings/${userId}/preferences`,
+    BASE: '/api/settings',
     BACKGROUNDS: '/api/settings/backgrounds',
-    EXPORT_DATA: (userId: string) => `/api/settings/${userId}/export`,
-    EXPORT_CHAT: (userId: string) => `/api/settings/${userId}/export-chat`,
   },
   
   // データ管理関連

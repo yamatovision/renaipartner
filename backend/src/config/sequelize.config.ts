@@ -2,6 +2,8 @@ import { Sequelize } from 'sequelize';
 import { ENV_CONFIG } from './env.config';
 import { initOnboardingProgressModel } from '../db/models/OnboardingProgress.model';
 import { Message } from '../db/models/Message.model';
+import { NotificationSetting } from '../db/models/NotificationSetting.model';
+import { NotificationSchedule } from '../db/models/NotificationSchedule.model';
 
 // Sequelizeインスタンスを作成
 export const sequelize = new Sequelize(ENV_CONFIG.DATABASE_URL, {
@@ -26,6 +28,14 @@ export const initializeModels = async (): Promise<void> => {
     
     // Messageモデルを初期化
     Message.initModel(sequelize);
+    
+    // GeneratedImageModel is now pg-based, no Sequelize initialization needed
+    
+    // NotificationSettingモデルを初期化
+    NotificationSetting.initialize(sequelize);
+    
+    // NotificationScheduleモデルを初期化
+    NotificationSchedule.initialize(sequelize);
     
     // データベース接続をテスト
     await sequelize.authenticate();

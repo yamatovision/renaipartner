@@ -87,7 +87,7 @@ export class DbTestHelper {
         role: UserRole.USER
       });
       
-      console.log(`[TEST DB] テスト一般ユーザー作成: ${user.email}`);
+      console.log(`[TEST DB] テスト一般ユーザー作成: ${user.email} (ID: ${user.id})`);
       
       return {
         user,
@@ -115,6 +115,16 @@ export class DbTestHelper {
         DELETE FROM onboarding_progress 
         WHERE user_id IN (
           SELECT id FROM users WHERE email LIKE '%@test.example.com'
+        )
+      `);
+      
+      // generated_imagesテーブルのテストデータ削除
+      await client.query(`
+        DELETE FROM generated_images 
+        WHERE partner_id IN (
+          SELECT id FROM partners WHERE user_id IN (
+            SELECT id FROM users WHERE email LIKE '%@test.example.com'
+          )
         )
       `);
       
@@ -208,46 +218,87 @@ export class DbTestHelper {
 
   // ===== チャット機能テスト用メソッド =====
 
-  // テスト用パートナー作成
+  // テスト用パートナー作成（PostgreSQL直接クエリ版）
   static async createTestPartner(userId: string, partnerData?: Partial<any>): Promise<any> {
-    const timestamp = Date.now().toString().slice(-4); // 4文字
-    const defaultData = {
-      name: `太郎${timestamp}`, // 6文字（太郎=2文字 + 4文字）
-      gender: 'boyfriend', // データベース実値
-      personalityType: 'gentle', // データベース実値
-      speechStyle: 'polite', // データベース実値
-      systemPrompt: 'テストプロンプト',
-      avatarDescription: 'テスト',
-      appearance: {
-        hairStyle: 'short' as const,
-        eyeColor: 'brown' as const,
-        bodyType: 'average' as const,
-        clothingStyle: 'casual' as const
-      },
-      hobbies: ['読書', '映画鑑賞'],
-      intimacyLevel: 0
-    };
-
+    const client = await pool.connect();
+    
     try {
-      const partner = await PartnerModel.create({
-        userId,
-        name: defaultData.name,
-        gender: 'boyfriend' as Gender,
-        personalityType: 'gentle' as PersonalityType,
-        speechStyle: 'polite' as SpeechStyle,
-        systemPrompt: defaultData.systemPrompt,
-        avatarDescription: defaultData.avatarDescription,
-        appearance: defaultData.appearance,
-        hobbies: defaultData.hobbies,
-        intimacyLevel: defaultData.intimacyLevel,
-        ...partnerData
-      });
+      const timestamp = Date.now().toString().slice(-4);
+      const defaultData = {
+        name: `太郎${timestamp}`,
+        gender: 'boyfriend',
+        personalityType: 'gentle',
+        speechStyle: 'polite',
+        systemPrompt: 'テストプロンプト',
+        avatarDescription: 'テスト',
+        appearance: {
+          hairStyle: 'short',
+          eyeColor: 'brown',
+          bodyType: 'average',
+          clothingStyle: 'casual'
+        },
+        hobbies: ['読書', '映画鑑賞'],
+        intimacyLevel: 0
+      };
       
-      console.log(`[TEST DB] テストパートナー作成: ${partner.name}`);
-      return partner;
+      // partnerDataとマージ（appearanceフィールドは深くマージ）
+      const mergedData = {
+        ...defaultData,
+        ...partnerData,
+        appearance: {
+          ...defaultData.appearance,
+          ...(partnerData?.appearance || {})
+        }
+      };
+
+      const query = `
+        INSERT INTO partners (
+          user_id, name, gender, personality_type, speech_style,
+          system_prompt, avatar_description, hair_style, eye_color,
+          body_type, clothing_style, hobbies, intimacy_level
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING id, user_id, name, gender, personality_type, speech_style,
+                  system_prompt, avatar_description, intimacy_level, created_at
+      `;
+      
+      const values = [
+        userId,
+        mergedData.name,
+        mergedData.gender,
+        mergedData.personalityType,
+        mergedData.speechStyle,
+        mergedData.systemPrompt,
+        mergedData.avatarDescription,
+        mergedData.appearance.hairStyle,
+        mergedData.appearance.eyeColor,
+        mergedData.appearance.bodyType,
+        mergedData.appearance.clothingStyle,
+        JSON.stringify(mergedData.hobbies),
+        mergedData.intimacyLevel
+      ];
+
+      const result = await client.query(query, values);
+      const partner = result.rows[0];
+      
+      console.log(`[TEST DB] テストパートナー作成: ${partner.name} (ID: ${partner.id})`);
+      
+      return {
+        id: partner.id,
+        userId: partner.user_id,
+        name: partner.name,
+        gender: partner.gender,
+        personalityType: partner.personality_type,
+        speechStyle: partner.speech_style,
+        systemPrompt: partner.system_prompt,
+        avatarDescription: partner.avatar_description,
+        intimacyLevel: partner.intimacy_level,
+        createdAt: partner.created_at
+      };
     } catch (error) {
       console.error('[TEST DB] テストパートナー作成失敗:', error);
       throw error;
+    } finally {
+      client.release();
     }
   }
 

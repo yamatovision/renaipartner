@@ -27,7 +27,7 @@ class MemoryModel {
         memoryData.vector ? JSON.stringify(memoryData.vector) : null,
         memoryData.importance,
         memoryData.emotionalWeight,
-        JSON.stringify(memoryData.tags),
+        JSON.stringify(memoryData.tags || []),
         memoryData.relatedPeople ? JSON.stringify(memoryData.relatedPeople) : null
       ];
 
@@ -39,11 +39,13 @@ class MemoryModel {
         partnerId: row.partner_id,
         type: row.type as MemoryType,
         content: row.content,
-        vector: row.vector ? JSON.parse(row.vector) : undefined,
+        vector: row.vector ? (typeof row.vector === 'string' ? (() => {
+          try { return JSON.parse(row.vector); } catch { return null; }
+        })() : row.vector) : undefined,
         importance: row.importance,
         emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        relatedPeople: row.related_people ? JSON.parse(row.related_people) : undefined,
+        tags: row.tags || [],
+        relatedPeople: row.related_people || undefined,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       };
@@ -76,11 +78,13 @@ class MemoryModel {
         partnerId: row.partner_id,
         type: row.type as MemoryType,
         content: row.content,
-        vector: row.vector ? JSON.parse(row.vector) : undefined,
+        vector: row.vector ? (typeof row.vector === 'string' ? (() => {
+          try { return JSON.parse(row.vector); } catch { return null; }
+        })() : row.vector) : undefined,
         importance: row.importance,
         emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        relatedPeople: row.related_people ? JSON.parse(row.related_people) : undefined,
+        tags: row.tags || [],
+        relatedPeople: row.related_people || undefined,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       }));
@@ -124,11 +128,13 @@ class MemoryModel {
         partnerId: row.partner_id,
         type: row.type as MemoryType,
         content: row.content,
-        vector: row.vector ? JSON.parse(row.vector) : undefined,
+        vector: row.vector ? (typeof row.vector === 'string' ? (() => {
+          try { return JSON.parse(row.vector); } catch { return null; }
+        })() : row.vector) : undefined,
         importance: row.importance,
         emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        relatedPeople: row.related_people ? JSON.parse(row.related_people) : undefined,
+        tags: row.tags || [],
+        relatedPeople: row.related_people || undefined,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       }));
@@ -151,7 +157,7 @@ class MemoryModel {
         FROM memories 
         WHERE partner_id = $1 
         AND tags::jsonb ?| $2
-        ORDER BY importance DESC, timestamp DESC
+        ORDER BY importance DESC, created_at DESC
         LIMIT 50
       `;
       
@@ -162,11 +168,13 @@ class MemoryModel {
         partnerId: row.partner_id,
         type: row.type as MemoryType,
         content: row.content,
-        vector: row.vector ? JSON.parse(row.vector) : undefined,
+        vector: row.vector ? (typeof row.vector === 'string' ? (() => {
+          try { return JSON.parse(row.vector); } catch { return null; }
+        })() : row.vector) : undefined,
         importance: row.importance,
         emotionalWeight: row.emotional_weight,
-        tags: JSON.parse(row.tags),
-        relatedPeople: row.related_people ? JSON.parse(row.related_people) : undefined,
+        tags: row.tags || [],
+        relatedPeople: row.related_people || undefined,
         createdAt: new Date(row.created_at),
         updatedAt: new Date(row.updated_at)
       }));
@@ -270,4 +278,5 @@ class MemoryModel {
   }
 }
 
+export { MemoryModel };
 export default MemoryModel;

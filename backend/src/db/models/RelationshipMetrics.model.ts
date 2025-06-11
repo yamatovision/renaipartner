@@ -10,13 +10,18 @@ class RelationshipMetricsModel {
     const client = await pool.connect();
     
     try {
+      // パートナー存在確認
+      const partnerCheck = await client.query('SELECT id FROM partners WHERE id = $1', [partnerId]);
+      if (partnerCheck.rows.length === 0) {
+        throw new Error(`パートナーID ${partnerId} が存在しません`);
+      }
       const query = `
         INSERT INTO relationship_metrics (
           partner_id, intimacy_level, trust_level, emotional_connection,
-          conversation_frequency, last_interaction, shared_memories
+          communication_frequency, last_interaction, shared_experiences
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const initialValues = [
@@ -24,9 +29,9 @@ class RelationshipMetricsModel {
         0,                          // intimacy_level: 初期値0
         50,                         // trust_level: 初期値50（中立）
         0,                          // emotional_connection: 初期値0
-        0,                          // conversation_frequency: 初期値0
+        0,                          // communication_frequency: 初期値0
         new Date(),                 // last_interaction: 現在時刻
-        0                           // shared_memories: 初期値0
+        0                           // shared_experiences: 初期値0
       ];
 
       const result = await client.query(query, initialValues);
@@ -38,9 +43,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 関係性メトリクス作成エラー:', error);
@@ -57,7 +62,7 @@ class RelationshipMetricsModel {
     try {
       const query = `
         SELECT id, partner_id, intimacy_level, trust_level, emotional_connection,
-               conversation_frequency, last_interaction, shared_memories
+               communication_frequency, last_interaction, shared_experiences
         FROM relationship_metrics 
         WHERE partner_id = $1
       `;
@@ -75,9 +80,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 関係性メトリクス取得エラー:', error);
@@ -99,7 +104,7 @@ class RelationshipMetricsModel {
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $2
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const result = await client.query(query, [intimacyChange, partnerId]);
@@ -115,9 +120,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 親密度更新エラー:', error);
@@ -139,7 +144,7 @@ class RelationshipMetricsModel {
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $2
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const result = await client.query(query, [trustChange, partnerId]);
@@ -155,9 +160,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 信頼度更新エラー:', error);
@@ -179,7 +184,7 @@ class RelationshipMetricsModel {
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $2
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const result = await client.query(query, [connectionChange, partnerId]);
@@ -195,9 +200,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 感情接続更新エラー:', error);
@@ -215,11 +220,11 @@ class RelationshipMetricsModel {
       const query = `
         UPDATE relationship_metrics 
         SET 
-          conversation_frequency = conversation_frequency + 1,
+          communication_frequency = communication_frequency + 1,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const result = await client.query(query, [partnerId]);
@@ -235,9 +240,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 会話頻度更新エラー:', error);
@@ -252,20 +257,31 @@ class RelationshipMetricsModel {
     const client = await pool.connect();
     
     try {
-      const query = `
+      // まず既存レコードを更新試行
+      const updateQuery = `
         UPDATE relationship_metrics 
         SET 
-          shared_memories = shared_memories + 1,
+          shared_experiences = shared_experiences + 1,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
-      const result = await client.query(query, [partnerId]);
+      let result = await client.query(updateQuery, [partnerId]);
       
+      // レコードが存在しない場合は新規作成
       if (result.rows.length === 0) {
-        throw new Error('関係性メトリクスが見つかりません');
+        const insertQuery = `
+          INSERT INTO relationship_metrics (
+            partner_id, intimacy_level, trust_level, emotional_connection,
+            communication_frequency, last_interaction, shared_experiences
+          ) VALUES ($1, 30, 30, 30, 1, CURRENT_TIMESTAMP, 1)
+          RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+                    communication_frequency, last_interaction, shared_experiences
+        `;
+        
+        result = await client.query(insertQuery, [partnerId]);
       }
       
       const row = result.rows[0];
@@ -275,9 +291,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 共有記憶数更新エラー:', error);
@@ -307,12 +323,12 @@ class RelationshipMetricsModel {
           intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $2)),
           trust_level = GREATEST(0, LEAST(100, trust_level + $3)),
           emotional_connection = GREATEST(0, LEAST(100, emotional_connection + $4)),
-          conversation_frequency = conversation_frequency + $5,
-          shared_memories = shared_memories + $6,
+          communication_frequency = communication_frequency + $5,
+          shared_experiences = shared_experiences + $6,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
         RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  conversation_frequency, last_interaction, shared_memories
+                  communication_frequency, last_interaction, shared_experiences
       `;
       
       const values = [
@@ -337,9 +353,9 @@ class RelationshipMetricsModel {
         intimacyLevel: row.intimacy_level,
         trustLevel: row.trust_level,
         emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.conversation_frequency,
+        conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_memories
+        sharedMemories: row.shared_experiences
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 複合更新エラー:', error);
@@ -362,4 +378,5 @@ class RelationshipMetricsModel {
   }
 }
 
+export { RelationshipMetricsModel };
 export default RelationshipMetricsModel;

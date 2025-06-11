@@ -1,7 +1,6 @@
 // モックサービス統合エクスポート
 export * from './auth.mock'
 export * from './partners.mock'
-export * from './chat.mock'
 export * from './settings.mock'
 export * from './admin.mock'
 

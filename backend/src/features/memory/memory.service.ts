@@ -44,7 +44,9 @@ export class MemoryService {
 
   constructor() {
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 30000, // 30秒タイムアウト
+      maxRetries: 2   // 最大2回リトライ
     });
   }
 
@@ -83,12 +85,13 @@ export class MemoryService {
       // OpenAI APIで会話分析・要約・記憶抽出
       const analysisPrompt = this.buildMemoryAnalysisPrompt(conversationText, summaryType, partner.name);
       
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          { role: 'system', content: analysisPrompt },
-          { role: 'user', content: conversationText }
-        ],
+      const completion = await Promise.race([
+        this.openai.chat.completions.create({
+          model: 'gpt-4-turbo-preview',
+          messages: [
+            { role: 'system', content: analysisPrompt },
+            { role: 'user', content: conversationText }
+          ],
         functions: [
           {
             name: 'extract_memories',
@@ -105,10 +108,10 @@ export class MemoryService {
                   items: {
                     type: 'object',
                     properties: {
-                      type: { type: 'string', enum: Object.values(MemoryType) },
+                      type: { type: 'string', enum: ['conversation', 'fact', 'emotion', 'event', 'relationship'] },
                       content: { type: 'string' },
-                      importance: { type: 'number', minimum: 0, maximum: 10 },
-                      emotionalWeight: { type: 'number', minimum: -10, maximum: 10 },
+                      importance: { type: 'number', minimum: 1, maximum: 10 },
+                      emotionalWeight: { type: 'number', minimum: 1, maximum: 10 },
                       tags: { type: 'array', items: { type: 'string' } },
                       relatedPeople: { type: 'array', items: { type: 'string' } }
                     },
@@ -135,18 +138,29 @@ export class MemoryService {
           }
         ],
         function_call: { name: 'extract_memories' }
-      });
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenAI API request timeout')), 25000)
+        )
+      ]) as any;
 
-      const functionCall = completion.choices[0]?.message?.function_call;
+      const functionCall = (completion as any).choices[0]?.message?.function_call;
       if (!functionCall) {
         throw new Error('メモリ抽出に失敗しました');
       }
 
       const extractedData = JSON.parse(functionCall.arguments);
+      console.log('[MemoryService] OpenAI抽出データ:', JSON.stringify(extractedData, null, 2));
       const memoriesCreated: Memory[] = [];
 
       // 抽出されたメモリを保存
       for (const memoryData of extractedData.memories) {
+        console.log('[MemoryService] メモリ作成試行:', {
+          type: memoryData.type,
+          importance: memoryData.importance,
+          emotionalWeight: memoryData.emotionalWeight
+        });
+        
         // ベクトル化（検索用）
         const vector = await this.generateEmbedding(memoryData.content);
         
@@ -175,7 +189,7 @@ export class MemoryService {
           await EpisodeMemoryModel.create({
             partnerId,
             title: episodeData.title,
-            summary: episodeData.summary,
+            description: episodeData.description,
             emotionalWeight: episodeData.emotionalWeight,
             tags: episodeData.tags || [],
             participants: episodeData.participants || [partner.name],
@@ -194,6 +208,20 @@ export class MemoryService {
 
     } catch (error) {
       console.error('[MemoryService] 会話要約作成エラー:', error);
+      
+      // OpenAI API関連エラーの詳細処理
+      if ((error as any).message?.includes('timeout')) {
+        throw new Error('OpenAI APIタイムアウト: リクエストが時間内に完了しませんでした');
+      }
+      
+      if ((error as any).status === 429) {
+        throw new Error('OpenAI APIレート制限: しばらく時間をおいて再試行してください');
+      }
+      
+      if ((error as any).status === 401) {
+        throw new Error('OpenAI API認証エラー: APIキーを確認してください');
+      }
+      
       throw new Error('会話要約の作成に失敗しました');
     }
   }
@@ -336,14 +364,25 @@ export class MemoryService {
       const metrics = await RelationshipMetricsModel.findByPartnerId(partnerId);
       
       if (!metrics) {
-        // 関係性メトリクスが存在しない場合は作成
-        const newMetrics = await RelationshipMetricsModel.create(partnerId);
-        return {
-          current: newMetrics,
-          stage: RelationshipMetricsModel.getRelationshipStage(newMetrics),
-          insights: ['新しい関係が始まりました'],
-          recommendations: ['定期的にコミュニケーションを取りましょう']
-        };
+        // 関係性メトリクスが存在しない場合は作成を試行
+        try {
+          const newMetrics = await RelationshipMetricsModel.create(partnerId);
+          return {
+            current: newMetrics,
+            stage: RelationshipMetricsModel.getRelationshipStage(newMetrics),
+            insights: ['新しい関係が始まりました'],
+            recommendations: ['定期的にコミュニケーションを取りましょう']
+          };
+        } catch (createError) {
+          console.warn('[MemoryService] 関係性メトリクス作成失敗 - デフォルト値を返します:', (createError as any).message);
+          // パートナーが存在しない場合はデフォルト値を返す
+          return {
+            current: null,
+            stage: 'stranger',
+            insights: ['関係性データが見つかりません'],
+            recommendations: ['まずはパートナーとの会話を始めましょう']
+          };
+        }
       }
 
       const stage = RelationshipMetricsModel.getRelationshipStage(metrics);
@@ -410,14 +449,30 @@ export class MemoryService {
    */
   private async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await this.openai.embeddings.create({
-        model: 'text-embedding-ada-002',
-        input: text
-      });
+      const response = await Promise.race([
+        this.openai.embeddings.create({
+          model: 'text-embedding-ada-002',
+          input: text
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenAI Embeddings API timeout')), 15000)
+        )
+      ]);
       
-      return response.data[0].embedding;
+      return (response as any).data[0].embedding;
     } catch (error) {
       console.error('[MemoryService] ベクトル化エラー:', error);
+      
+      // OpenAI API関連エラーの詳細ログ
+      if ((error as any).message?.includes('timeout')) {
+        console.warn('[MemoryService] OpenAI Embeddings APIタイムアウト - ベクトル検索をスキップ');
+      } else if ((error as any).status === 429) {
+        console.warn('[MemoryService] OpenAI APIレート制限 - ベクトル検索をスキップ');
+      } else if ((error as any).status === 401) {
+        console.error('[MemoryService] OpenAI API認証エラー - APIキーを確認してください');
+      }
+      
+      // ベクトル化に失敗した場合は空配列を返してテキスト検索のみ実行
       return [];
     }
   }
