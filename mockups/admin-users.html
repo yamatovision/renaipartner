@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー管理 - 恋AIパートナー管理画面</title>
+    
+    <!-- Material UI CSS -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        /* ヘッダー */
+        .header {
+            background-color: #1976d2;
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        /* メインコンテンツ */
+        .main-container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+
+        /* ページタイトルとアクション */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 300;
+            color: #333;
+        }
+
+        .create-user-btn {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .create-user-btn:hover {
+            background-color: #1565c0;
+        }
+
+        /* 検索・フィルターセクション */
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .filter-select {
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            background: white;
+        }
+
+        /* ユーザーテーブル */
+        .users-table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th {
+            background-color: #f5f5f5;
+            padding: 16px;
+            text-align: left;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 1px solid #eee;
+        }
+
+        .users-table td {
+            padding: 16px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .users-table tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .user-email {
+            color: #1976d2;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-inactive {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            background-color: #f5f5f5;
+        }
+
+        .action-btn.deactivate {
+            color: #d32f2f;
+        }
+
+        .action-btn.activate {
+            color: #388e3c;
+        }
+
+        /* ページネーション */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            gap: 8px;
+        }
+
+        .page-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .page-btn:hover {
+            background-color: #f5f5f5;
+        }
+
+        .page-btn.active {
+            background-color: #1976d2;
+            color: white;
+            border-color: #1976d2;
+        }
+
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 400;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.3s;
+        }
+
+        .close-btn:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* フォーム */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #1976d2;
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 32px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #1976d2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1565c0;
+        }
+
+        .btn-secondary {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* 成功メッセージ */
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #4caf50;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .success-message.show {
+            display: flex;
+        }
+
+        /* 統計情報 */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 500;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <h1>恋AIパートナー 管理画面</h1>
+        <div class="header-actions">
+            <div class="admin-info">
+                <span class="material-icons">admin_panel_settings</span>
+                <span>管理者</span>
+            </div>
+            <button class="logout-btn">
+                <span class="material-icons">logout</span>
+                <span>ログアウト</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-container">
+        <!-- ページヘッダー -->
+        <div class="page-header">
+            <h2 class="page-title">ユーザー管理</h2>
+            <button class="create-user-btn" onclick="openCreateModal()">
+                <span class="material-icons">person_add</span>
+                <span>新規ユーザー作成</span>
+            </button>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-number">156</div>
+                <div class="stat-label">総ユーザー数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">142</div>
+                <div class="stat-label">アクティブユーザー</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">14</div>
+                <div class="stat-label">無効化ユーザー</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">23</div>
+                <div class="stat-label">今日の新規登録</div>
+            </div>
+        </div>
+
+        <!-- 検索・フィルター -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <input type="text" class="search-input" placeholder="メールアドレスで検索...">
+                <select class="filter-select">
+                    <option value="">全てのステータス</option>
+                    <option value="active">アクティブ</option>
+                    <option value="inactive">無効</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- ユーザーテーブル -->
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>メールアドレス</th>
+                        <th>登録状態</th>
+                        <th>ステータス</th>
+                        <th>登録日</th>
+                        <th>アクション</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>#001</td>
+                        <td class="user-email">tanaka@example.com</td>
+                        <td>プロフィール設定済み</td>
+                        <td><span class="status-badge status-active">アクティブ</span></td>
+                        <td>2025/01/10</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn deactivate">無効化</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>#002</td>
+                        <td class="user-email">suzuki@example.com</td>
+                        <td>プロフィール設定済み</td>
+                        <td><span class="status-badge status-active">アクティブ</span></td>
+                        <td>2025/01/09</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn deactivate">無効化</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>#003</td>
+                        <td class="user-email">yamada@example.com</td>
+                        <td>プロフィール設定済み</td>
+                        <td><span class="status-badge status-inactive">無効</span></td>
+                        <td>2025/01/08</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn activate">有効化</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>#004</td>
+                        <td class="user-email">sato@example.com</td>
+                        <td>オンボーディング未完了</td>
+                        <td><span class="status-badge status-active">アクティブ</span></td>
+                        <td>2025/01/07</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn deactivate">無効化</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>#005</td>
+                        <td class="user-email">takahashi@example.com</td>
+                        <td>プロフィール設定済み</td>
+                        <td><span class="status-badge status-active">アクティブ</span></td>
+                        <td>2025/01/06</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="action-btn deactivate">無効化</button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- ページネーション -->
+            <div class="pagination">
+                <button class="page-btn">前へ</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">...</button>
+                <button class="page-btn">32</button>
+                <button class="page-btn">次へ</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ユーザー作成モーダル -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">新規ユーザー作成</h3>
+                <button class="close-btn" onclick="closeCreateModal()">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+
+            <form onsubmit="createUser(event)">
+                <div class="form-group">
+                    <label class="form-label">メールアドレス</label>
+                    <input type="email" class="form-input" required placeholder="user@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">初期パスワード（自動設定）</label>
+                    <input type="text" class="form-input" value="aikakumei" readonly style="background-color: #f5f5f5;">
+                    <p style="margin-top: 8px; font-size: 14px; color: #666;">
+                        ※ユーザーは初回ログイン後にパスワードを変更できます
+                    </p>
+                </div>
+
+                <div style="background-color: #e3f2fd; padding: 16px; border-radius: 4px; margin: 24px 0;">
+                    <p style="color: #1565c0; font-size: 14px; line-height: 1.6;">
+                        <strong>ユーザー登録の流れ：</strong><br>
+                        1. ここでメールアドレスを登録<br>
+                        2. ユーザーがメールアドレスと初期パスワードでログイン<br>
+                        3. オンボーディングで名前・誕生日などを設定
+                    </p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">キャンセル</button>
+                    <button type="submit" class="btn btn-primary">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 成功メッセージ -->
+    <div id="successMessage" class="success-message">
+        <span class="material-icons">check_circle</span>
+        <span>ユーザーが正常に作成されました</span>
+    </div>
+
+    <script>
+        // モーダル制御
+        function openCreateModal() {
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('active');
+            // フォームをリセット
+            document.querySelector('#createModal form').reset();
+        }
+
+        // ユーザー作成
+        function createUser(event) {
+            event.preventDefault();
+            
+            // ここでAPIを呼び出す処理が入る
+            
+            // モーダルを閉じる
+            closeCreateModal();
+            
+            // 成功メッセージを表示
+            showSuccessMessage();
+            
+            // テーブルを更新（実際はAPIから再取得）
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+
+        // 成功メッセージ表示
+        function showSuccessMessage() {
+            const message = document.getElementById('successMessage');
+            message.classList.add('show');
+            
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 3000);
+        }
+
+        // アクションボタンのイベントリスナー
+        document.querySelectorAll('.action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.classList.contains('deactivate') ? '無効化' : '有効化';
+                if (confirm(`このユーザーを${action}してもよろしいですか？`)) {
+                    // APIを呼び出す処理
+                    showSuccessMessage();
+                }
+            });
+        });
+
+        // 検索機能のシミュレーション
+        document.querySelector('.search-input').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('.users-table tbody tr');
+            
+            rows.forEach(row => {
+                const email = row.querySelector('.user-email').textContent.toLowerCase();
+                
+                if (email.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // フィルター機能のシミュレーション
+        document.querySelector('.filter-select').addEventListener('change', function(e) {
+            const filterValue = e.target.value;
+            const rows = document.querySelectorAll('.users-table tbody tr');
+            
+            rows.forEach(row => {
+                const statusBadge = row.querySelector('.status-badge');
+                const isActive = statusBadge.classList.contains('status-active');
+                
+                if (filterValue === '') {
+                    row.style.display = '';
+                } else if (filterValue === 'active' && isActive) {
+                    row.style.display = '';
+                } else if (filterValue === 'inactive' && !isActive) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

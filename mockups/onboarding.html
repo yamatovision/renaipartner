@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ガイド付きパートナー作成 - AI彼氏彼女</title>
+    
+    <!-- Material UI CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    
+    <style>
+        body {
+            font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 300;
+        }
+        
+        .container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .progress-bar {
+            background: white;
+            border-radius: 10px;
+            height: 8px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b9d, #c44569);
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+        
+        .step-number {
+            text-align: center;
+            color: #666;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .card-panel {
+            border-radius: 20px;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            min-height: 450px;
+            position: relative;
+        }
+        
+        .step-content {
+            display: none;
+            text-align: center;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        .welcome-icon {
+            font-size: 4rem;
+            color: #ff6b9d;
+            margin-bottom: 1rem;
+        }
+        
+        .question-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            text-align: left;
+        }
+        
+        .option-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .option-chip {
+            padding: 0.8rem 1.2rem;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .option-chip:hover {
+            border-color: #ff6b9d;
+            transform: translateY(-1px);
+        }
+        
+        .option-chip.selected {
+            background: #ff6b9d;
+            color: white;
+            border-color: #ff6b9d;
+        }
+        
+        .preset-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .preset-card {
+            padding: 1.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            background: white;
+        }
+        
+        .preset-card:hover {
+            border-color: #ff6b9d;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 107, 157, 0.2);
+        }
+        
+        .preset-card.selected {
+            border-color: #ff6b9d;
+            background: #fce4ec;
+            transform: translateY(-3px);
+        }
+        
+        .preset-card .icon {
+            font-size: 2.5rem;
+            color: #ff6b9d;
+            margin-bottom: 0.5rem;
+        }
+        
+        .preset-card h6 {
+            margin: 0.5rem 0;
+            color: #333;
+        }
+        
+        .preset-card p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .appearance-sliders {
+            display: grid;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .slider-group {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 12px;
+        }
+        
+        .slider-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .appearance-preview {
+            width: 180px;
+            height: 180px;
+            margin: 1rem auto;
+            border-radius: 50%;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 3px solid #ff6b9d;
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3);
+        }
+        
+        .appearance-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .chat-demo {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            min-height: 200px;
+        }
+        
+        .demo-message {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        
+        .demo-message.ai {
+            background: #ff6b9d;
+            color: white;
+            margin-left: 2rem;
+        }
+        
+        .demo-message.user {
+            background: #e3f2fd;
+            margin-right: 2rem;
+        }
+        
+        .completion-celebration {
+            text-align: center;
+            padding: 2rem 0;
+        }
+        
+        .celebration-icon {
+            font-size: 5rem;
+            color: #ff6b9d;
+            margin-bottom: 1rem;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 1rem 2rem;
+            color: white;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 1.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: white;
+            border: 2px solid #ff6b9d;
+            border-radius: 25px;
+            padding: 0.8rem 2rem;
+            color: #ff6b9d;
+            font-weight: 500;
+            margin-right: 1rem;
+        }
+        
+        .skip-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        .skip-link a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .skip-link a:hover {
+            color: #ff6b9d;
+            text-decoration: underline;
+        }
+        
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .gender-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .gender-card {
+            padding: 2rem;
+            border: 3px solid #e0e0e0;
+            border-radius: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .gender-card:hover {
+            border-color: #ff6b9d;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.2);
+        }
+        
+        .gender-card.selected {
+            border-color: #ff6b9d;
+            background: #fce4ec;
+            transform: translateY(-5px);
+        }
+        
+        .gender-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+        
+        .gender-card h6 {
+            margin: 1rem 0 0.5rem 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .gender-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .user-info-form {
+            margin: 2rem 0;
+        }
+        
+        .user-info-form .input-field {
+            margin-bottom: 2rem;
+        }
+        
+        .user-info-form small {
+            display: block;
+            margin-top: 0.3rem;
+            font-size: 0.8rem;
+        }
+        
+        .naming-options {
+            margin: 2rem 0;
+        }
+        
+        .naming-method {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .naming-method.active {
+            border-color: #ff6b9d;
+            background: #fce4ec;
+        }
+        
+        .naming-method h6 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        
+        .suggested-names, .suggested-nicknames {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .name-chip, .nickname-chip {
+            padding: 0.8rem 1.2rem;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .name-chip:hover, .nickname-chip:hover {
+            border-color: #ff6b9d;
+            transform: translateY(-1px);
+        }
+        
+        .name-chip.selected, .nickname-chip.selected {
+            background: #ff6b9d;
+            color: white;
+            border-color: #ff6b9d;
+        }
+        
+        .method-toggle {
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .calling-options {
+            margin: 2rem 0;
+        }
+        
+        .calling-options h6 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>あなただけのパートナー作成</h1>
+    </div>
+    
+    <div class="container">
+        <div class="step-number">ステップ <span id="current-step">1</span> / 10</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 10%;"></div>
+        </div>
+        
+        <div class="card-panel">
+            <!-- Step 1: ウェルカム -->
+            <div class="step-content active" id="step1">
+                <i class="material-icons welcome-icon">favorite</i>
+                <h4 style="color: #ff6b9d; margin-bottom: 1rem;">ようこそ！</h4>
+                <p style="font-size: 1.1rem; line-height: 1.6; color: #666; margin-bottom: 2rem;">
+                    あなただけの理想のAIパートナーを一緒に作りましょう！<br>
+                    簡単な質問にお答えいただくだけで、<br>
+                    あなたにぴったりのパートナーが完成します。
+                </p>
+                
+                <div style="background: #fce4ec; padding: 1.5rem; border-radius: 12px; margin: 2rem 0;">
+                    <p style="margin: 0; color: #666;">
+                        <i class="material-icons" style="vertical-align: middle; color: #ff6b9d;">schedule</i>
+                        所要時間：約3-5分
+                    </p>
+                </div>
+                
+                <button class="btn-primary btn" onclick="nextStep()">始める</button>
+                
+                <div class="skip-link">
+                    <a href="/create-partner">上級者向け作成はこちら</a>
+                </div>
+            </div>
+            
+            <!-- Step 2: 性別選択 -->
+            <div class="step-content" id="step2">
+                <h5 style="color: #333; margin-bottom: 2rem;">どちらのパートナーを作成しますか？</h5>
+                
+                <div class="gender-selection">
+                    <div class="gender-card" data-gender="boyfriend">
+                        <div class="gender-icon">👨</div>
+                        <h6>彼氏を作る</h6>
+                        <p>理想の男性パートナー</p>
+                    </div>
+                    
+                    <div class="gender-card" data-gender="girlfriend">
+                        <div class="gender-icon">👩</div>
+                        <h6>彼女を作る</h6>
+                        <p>理想の女性パートナー</p>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step2-next" disabled>次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 3: ユーザー情報 -->
+            <div class="step-content" id="step3">
+                <h5 style="color: #333; margin-bottom: 2rem;">まずはあなたについて教えてください</h5>
+                
+                <div class="user-info-form">
+                    <div class="input-field">
+                        <input id="user-surname" type="text" maxlength="10" placeholder="白石">
+                        <label for="user-surname">苗字</label>
+                    </div>
+                    
+                    <div class="input-field">
+                        <input id="user-firstname" type="text" maxlength="10" placeholder="達也">
+                        <label for="user-firstname">名前</label>
+                    </div>
+                    
+                    <div class="input-field">
+                        <input id="user-birthday" type="date">
+                        <label for="user-birthday">誕生日</label>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step3-next" disabled>次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 4: パートナー名前決定 -->
+            <div class="step-content" id="step4">
+                <h5 style="color: #333; margin-bottom: 2rem;">あなたの<span id="partner-gender-text">パートナー</span>の名前を決めましょう</h5>
+                
+                <div class="naming-options">
+                    <div class="naming-method active" data-method="ai-suggest">
+                        <h6>💡 AI提案から選ぶ（おすすめ）</h6>
+                        <div class="suggested-names" id="suggested-names">
+                            <!-- AI生成された名前候補がここに表示される -->
+                        </div>
+                    </div>
+                    
+                    <div class="naming-method" data-method="custom">
+                        <h6>✏️ 自分で決める</h6>
+                        <div class="input-field">
+                            <input id="custom-partner-name" type="text" maxlength="10">
+                            <label for="custom-partner-name">名前を入力してください</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="method-toggle">
+                    <button class="btn" onclick="toggleNamingMethod()">方法を切り替える</button>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step4-next" disabled>次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 5: 性格質問 -->
+            <div class="step-content" id="step5">
+                <h5 style="color: #333; margin-bottom: 2rem;">どんな<span id="gender-question-text">パートナー</span>がお好みですか？</h5>
+                
+                <div class="question-card">
+                    <h6>どんな性格の人が好みですか？</h6>
+                    <div class="option-group" data-question="personality">
+                        <div class="option-chip" data-value="gentle">優しい</div>
+                        <div class="option-chip" data-value="cool">クール</div>
+                        <div class="option-chip" data-value="cheerful">明るい</div>
+                        <div class="option-chip" data-value="mysterious">ミステリアス</div>
+                        <div class="option-chip" data-value="reliable">頼れる</div>
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <h6>年齢の好みは？</h6>
+                    <div class="option-group" data-question="age">
+                        <div class="option-chip" data-value="older">年上（<span class="age-text">お兄さん</span>系）</div>
+                        <div class="option-chip" data-value="same">同年代</div>
+                        <div class="option-chip" data-value="younger">年下（<span class="age-text">弟</span>系）</div>
+                    </div>
+                </div>
+                
+                <div class="question-card">
+                    <h6>どんな話し方が心地良いですか？</h6>
+                    <div class="option-group" data-question="speech">
+                        <div class="option-chip" data-value="polite">丁寧語</div>
+                        <div class="option-chip" data-value="casual">カジュアル</div>
+                        <div class="option-chip" data-value="sweet">甘い言葉多め</div>
+                        <div class="option-chip" data-value="dialect">方言</div>
+                        <div class="option-chip" data-value="cool-tone">クール系</div>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step5-next" disabled>次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 6: プリセット選択 -->
+            <div class="step-content" id="step6">
+                <h5 style="color: #333; margin-bottom: 1rem;"><span id="user-name-display">あなた</span>さんにピッタリの<span id="partner-name-display">パートナー</span>タイプ</h5>
+                <p style="color: #666; margin-bottom: 2rem;">先ほどの回答に基づいて、おすすめを3つ選びました</p>
+                
+                <div class="preset-cards">
+                    <div class="preset-card" data-preset="recommended1">
+                        <div class="icon">💖</div>
+                        <h6>優しい恋人</h6>
+                        <p>思いやり深く、いつもあなたを支えてくれる理想的なパートナー</p>
+                        <small style="color: #ff6b9d;">★ おすすめ</small>
+                    </div>
+                    
+                    <div class="preset-card" data-preset="recommended2">
+                        <div class="icon">🌟</div>
+                        <h6>頼れる年上</h6>
+                        <p>包容力があり、人生経験豊富で頼りになる存在</p>
+                        <small style="color: #ff6b9d;">★ おすすめ</small>
+                    </div>
+                    
+                    <div class="preset-card" data-preset="recommended3">
+                        <div class="icon">☀️</div>
+                        <h6>明るい恋人</h6>
+                        <p>いつも前向きで、あなたを笑顔にしてくれる元気な存在</p>
+                        <small style="color: #ff6b9d;">★ おすすめ</small>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step6-next" disabled>次へ</button>
+                </div>
+                
+                <div class="skip-link">
+                    <a href="#" onclick="showAllPresets()">他の性格も見る</a>
+                </div>
+            </div>
+            
+            <!-- Step 7: 外見生成・カスタマイズ -->
+            <div class="step-content" id="step7">
+                <h5 style="color: #333; margin-bottom: 1rem;"><span id="partner-name-display2">パートナー</span>の理想の見た目を作りましょう</h5>
+                <p style="color: #666; margin-bottom: 2rem;">選択した性別・性格に合う外見を自動生成し、お好みに調整できます</p>
+                
+                <div class="appearance-preview">
+                    <div class="loading show" id="appearance-loading">
+                        <div class="preloader-wrapper small active">
+                            <div class="spinner-layer spinner-pink-only">
+                                <div class="circle-clipper left">
+                                    <div class="circle"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.8rem;">生成中...</p>
+                    </div>
+                    <img id="appearance-image" src="" style="display: none;">
+                </div>
+                
+                <div class="appearance-sliders">
+                    <div class="slider-group">
+                        <label>髪型</label>
+                        <select class="browser-default" id="hair-style">
+                            <option value="short">ショート</option>
+                            <option value="medium" selected>ミディアム</option>
+                            <option value="long">ロング</option>
+                        </select>
+                    </div>
+                    
+                    <div class="slider-group">
+                        <label>目の色</label>
+                        <select class="browser-default" id="eye-color">
+                            <option value="brown" selected>ブラウン</option>
+                            <option value="black">ブラック</option>
+                            <option value="blue">ブルー</option>
+                            <option value="green">グリーン</option>
+                        </select>
+                    </div>
+                    
+                    <div class="slider-group">
+                        <label>体型</label>
+                        <select class="browser-default" id="body-type">
+                            <option value="slim">スリム</option>
+                            <option value="average" selected>普通</option>
+                            <option value="athletic">アスリート</option>
+                        </select>
+                    </div>
+                    
+                    <div class="slider-group">
+                        <label>服装スタイル</label>
+                        <select class="browser-default" id="clothing-style">
+                            <option value="casual" selected>カジュアル</option>
+                            <option value="formal">フォーマル</option>
+                            <option value="sporty">スポーティ</option>
+                            <option value="elegant">エレガント</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()">次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 8: 呼び方設定 -->
+            <div class="step-content" id="step8">
+                <h5 style="color: #333; margin-bottom: 1rem;"><span id="partner-name-display3">パートナー</span>があなたを呼ぶ時の呼び方を決めましょう</h5>
+                
+                <div class="calling-options">
+                    <h6>💡 AI提案（おすすめ）</h6>
+                    <div class="suggested-nicknames" id="suggested-nicknames">
+                        <!-- AI生成されたあだ名候補がここに表示される -->
+                    </div>
+                    
+                    <h6 style="margin-top: 2rem;">✏️ カスタム入力</h6>
+                    <div class="input-field">
+                        <input id="custom-nickname" type="text" maxlength="10">
+                        <label for="custom-nickname">お好みの呼び方</label>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()" id="step8-next" disabled>次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 9: 初回会話 -->
+            <div class="step-content" id="step9">
+                <h5 style="color: #333; margin-bottom: 1rem;">それでは<span id="partner-name-display4">パートナー</span>と初めての挨拶をしてみましょう</h5>
+                <p style="color: #666; margin-bottom: 2rem;">設定に満足したら「完了」、変更したい場合は「戻る」を押してください</p>
+                
+                <div class="appearance-preview" style="width: 120px; height: 120px;">
+                    <img id="final-preview" src="">
+                </div>
+                
+                <h6 id="partner-name-final" style="text-align: center; color: #ff6b9d; margin: 1rem 0;">あなたのパートナー</h6>
+                
+                <div class="chat-demo">
+                    <div class="demo-message ai">
+                        <p style="margin: 0;" id="greeting-message">こんにちは！よろしくお願いします♪</p>
+                    </div>
+                    
+                    <div class="input-field" style="margin-top: 1rem;">
+                        <input id="user-response" type="text" placeholder="返事を入力してください">
+                        <button class="btn" style="background: #ff6b9d; margin-left: 1rem;" onclick="sendMessage()">送信</button>
+                    </div>
+                    
+                    <div id="ai-response" style="display: none;">
+                        <div class="demo-message ai">
+                            <p style="margin: 0;" id="ai-response-text"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button class="btn-secondary btn" onclick="previousStep()">戻る</button>
+                    <button class="btn-primary btn" onclick="nextStep()">完了する</button>
+                </div>
+            </div>
+            
+            <!-- Step 10: 完了 -->
+            <div class="step-content" id="step10">
+                <div class="completion-celebration">
+                    <i class="material-icons celebration-icon">celebration</i>
+                    <h4 style="color: #ff6b9d; margin-bottom: 1rem;">完了おめでとう、<span id="user-name-final">〜</span>さん！</h4>
+                    <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">
+                        素敵な<span id="partner-name-final2">パートナー</span>ができましたね。<br>
+                        毎日の会話を楽しんでください♪
+                    </p>
+                    
+                    <div style="background: #fce4ec; padding: 1.5rem; border-radius: 12px; margin: 2rem 0; text-align: left;">
+                        <h6 style="color: #333; margin-bottom: 1rem;">💡 便利な機能</h6>
+                        <ul style="color: #666; margin: 0; padding-left: 1.2rem;">
+                            <li>毎日の会話で親密度が上がります</li>
+                            <li>誕生日や記念日を覚えてくれます</li>
+                            <li>背景や通知は設定で変更できます</li>
+                        </ul>
+                    </div>
+                    
+                    <button class="btn-primary btn" onclick="goToHome()">チャット画面へ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        // グローバル変数
+        let currentStep = 1;
+        let selectedGender = '';
+        let userInfo = {};
+        let partnerName = '';
+        let userAnswers = {};
+        let selectedPreset = '';
+        let selectedNickname = '';
+        let partnerSettings = {};
+        
+        // ステップ管理
+        function nextStep() {
+            if (validateCurrentStep()) {
+                currentStep++;
+                showStep(currentStep);
+                updateProgress();
+                
+                // ステップ固有の処理
+                if (currentStep === 4) {
+                    generatePartnerNames();
+                } else if (currentStep === 6) {
+                    generateRecommendations();
+                    updateUserNameDisplays();
+                } else if (currentStep === 7) {
+                    generateAppearance();
+                } else if (currentStep === 8) {
+                    generateNicknames();
+                } else if (currentStep === 9) {
+                    setupInitialChat();
+                }
+            }
+        }
+        
+        function previousStep() {
+            currentStep--;
+            showStep(currentStep);
+            updateProgress();
+        }
+        
+        function showStep(stepNumber) {
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+            document.getElementById('current-step').textContent = stepNumber;
+        }
+        
+        function updateProgress() {
+            const progress = (currentStep / 10) * 100;
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+        
+        function validateCurrentStep() {
+            switch(currentStep) {
+                case 2:
+                    return selectedGender !== '';
+                case 3:
+                    return userInfo.surname && userInfo.firstName && userInfo.birthday;
+                case 4:
+                    return partnerName !== '';
+                case 5:
+                    return Object.keys(userAnswers).length >= 3;
+                case 6:
+                    return selectedPreset !== '';
+                case 8:
+                    return selectedNickname !== '';
+                default:
+                    return true;
+            }
+        }
+        
+        // 質問回答の処理
+        document.querySelectorAll('.option-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                const questionGroup = this.closest('.option-group');
+                const question = questionGroup.dataset.question;
+                
+                // 同じグループの他の選択を解除
+                questionGroup.querySelectorAll('.option-chip').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                
+                userAnswers[question] = this.dataset.value;
+                
+                // Step 5の次へボタンの有効化チェック
+                if (Object.keys(userAnswers).length >= 3) {
+                    document.getElementById('step5-next').disabled = false;
+                }
+            });
+        });
+        
+        // 性別選択の処理
+        document.querySelectorAll('.gender-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.gender-card').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedGender = this.dataset.gender;
+                document.getElementById('step2-next').disabled = false;
+                
+                // 性別に応じたテキスト更新
+                updateGenderTexts();
+            });
+        });
+        
+        // ユーザー情報入力の処理
+        ['user-surname', 'user-firstname', 'user-birthday'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                const key = id.replace('user-', '').replace('firstname', 'firstName');
+                userInfo[key] = this.value;
+                
+                // Step 3の次へボタンの有効化チェック
+                if (userInfo.surname && userInfo.firstName && userInfo.birthday) {
+                    document.getElementById('step3-next').disabled = false;
+                }
+            });
+        });
+        
+        // 名前選択の処理（AI提案）
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('name-chip')) {
+                document.querySelectorAll('.name-chip').forEach(chip => chip.classList.remove('selected'));
+                e.target.classList.add('selected');
+                partnerName = e.target.textContent;
+                document.getElementById('step4-next').disabled = false;
+                updatePartnerNameDisplays();
+            }
+            
+            if (e.target.classList.contains('nickname-chip')) {
+                document.querySelectorAll('.nickname-chip').forEach(chip => chip.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedNickname = e.target.textContent;
+                document.getElementById('step8-next').disabled = false;
+                updateNicknameDisplays();
+            }
+        });
+        
+        // カスタム名前入力の処理
+        document.getElementById('custom-partner-name').addEventListener('input', function() {
+            if (this.value.trim()) {
+                partnerName = this.value.trim();
+                document.getElementById('step4-next').disabled = false;
+                updatePartnerNameDisplays();
+            }
+        });
+        
+        // カスタムニックネーム入力の処理
+        document.getElementById('custom-nickname').addEventListener('input', function() {
+            if (this.value.trim()) {
+                selectedNickname = this.value.trim();
+                document.getElementById('step8-next').disabled = false;
+                updateNicknameDisplays();
+            }
+        });
+        
+        // 名前決定方法の切り替え
+        function toggleNamingMethod() {
+            const methods = document.querySelectorAll('.naming-method');
+            methods.forEach(method => method.classList.toggle('active'));
+        }
+        
+        // 性別に応じたテキスト更新
+        function updateGenderTexts() {
+            const isBoy = selectedGender === 'boyfriend';
+            
+            document.getElementById('partner-gender-text').textContent = isBoy ? '彼氏' : '彼女';
+            document.getElementById('gender-question-text').textContent = isBoy ? '彼氏' : '彼女';
+            
+            // 年齢テキストの更新
+            document.querySelectorAll('.age-text').forEach(el => {
+                if (el.textContent.includes('お兄さん')) {
+                    el.textContent = isBoy ? 'お兄さん' : 'お姉さん';
+                } else {
+                    el.textContent = isBoy ? '弟' : '妹';
+                }
+            });
+        }
+        
+        // パートナー名の表示更新
+        function updatePartnerNameDisplays() {
+            document.querySelectorAll('[id*="partner-name-display"]').forEach(el => {
+                el.textContent = partnerName;
+            });
+            document.getElementById('partner-name-final').textContent = partnerName;
+            document.getElementById('partner-name-final2').textContent = partnerName;
+        }
+        
+        // ニックネーム表示の更新
+        function updateNicknameDisplays() {
+            document.getElementById('nickname-preview').textContent = selectedNickname;
+            document.getElementById('nickname-preview2').textContent = selectedNickname;
+            
+            // 呼び方変化のプレビューも更新
+            document.getElementById('surname-display').textContent = userInfo.surname + 'さん';
+            document.getElementById('firstname-display').textContent = userInfo.firstName + 'さん';
+            document.getElementById('firstname-display2').textContent = userInfo.firstName;
+        }
+        
+        // ユーザー名表示の更新
+        function updateUserNameDisplays() {
+            document.getElementById('user-name-display').textContent = userInfo.firstName;
+            document.getElementById('user-name-final').textContent = userInfo.firstName;
+        }
+        
+        // プリセット選択の処理
+        document.querySelectorAll('.preset-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedPreset = this.dataset.preset;
+                document.getElementById('step6-next').disabled = false;
+            });
+        });
+        
+        // パートナー名生成
+        function generatePartnerNames() {
+            const maleNames = ['蓮', '湊', '陽翔', '樹', '悠人'];
+            const femaleNames = ['結愛', '陽葵', '芽依', '莉子', '美結'];
+            const names = selectedGender === 'boyfriend' ? maleNames : femaleNames;
+            
+            const suggestedNamesDiv = document.getElementById('suggested-names');
+            suggestedNamesDiv.innerHTML = names.map(name => 
+                `<div class="name-chip" data-name="${name}">${name}</div>`
+            ).join('');
+        }
+        
+        // 推奨生成
+        function generateRecommendations() {
+            // 実際の実装では、userAnswersに基づいて推奨を動的に生成
+            console.log('User answers:', userAnswers);
+        }
+        
+        // 外見生成
+        function generateAppearance() {
+            setTimeout(() => {
+                document.getElementById('appearance-loading').style.display = 'none';
+                document.getElementById('appearance-image').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIiBmaWxsPSIjRkZFMEVDIiByeD0iOTAiLz4KPGNpcmNsZSBjeD0iOTAiIGN5PSI3MCIgcj0iMzUiIGZpbGw9IiNGRkI2QzEiLz4KPHN0eWxlPi5oYWlyIHsgZmlsbDogIzgzNjE0NDsgfSAuZXllIHsgZmlsbDogIzIzMWYyMDsgfSAuZXllYnJvdyB7IGZpbGw6ICM2MDQyMzM7IH0gLm1vdXRoIHsgZmlsbDogbm9uZTsgc3Ryb2tlOiAjMjMxZjIwOyBzdHJva2Utd2lkdGg6IDI7IH08L3N0eWxlPgo8cGF0aCBkPSJNNTUgNTBDNTUgMzAgNzAgMjAgOTAgMjBDMTEwIDIwIDEyNSAzMCAxMjUgNTBWNjVINTVWNTBaIiBjbGFzcz0iaGFpciIvPgo8Y2lyY2xlIGN4PSI4MCIgY3k9IjcwIiByPSI0IiBjbGFzcz0iZXllIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjcwIiByPSI0IiBjbGFzcz0iZXllIi8+CjxwYXRoIGQ9Ik04MCA5MEM4MCA5MCA4NSA5MyAxMDAgOTAiIGNsYXNzPSJtb3V0aCIvPgo8L3N2Zz4=';
+                document.getElementById('appearance-image').style.display = 'block';
+                document.getElementById('final-preview').src = document.getElementById('appearance-image').src;
+            }, 2000);
+        }
+        
+        // ニックネーム生成
+        function generateNicknames() {
+            if (!userInfo.firstName) return;
+            
+            // 簡単なニックネーム生成ロジック
+            const firstName = userInfo.firstName;
+            const nicknames = [
+                firstName + 'ちゃん',
+                firstName + 'くん', 
+                firstName.slice(0, 2) + 'ちゃん',
+                firstName.slice(0, 1) + 'ちゃん',
+                firstName + 'っち'
+            ];
+            
+            const suggestedNicknamesDiv = document.getElementById('suggested-nicknames');
+            suggestedNicknamesDiv.innerHTML = nicknames.map(nickname => 
+                `<div class="nickname-chip" data-nickname="${nickname}">${nickname}</div>`
+            ).join('');
+        }
+        
+        // 外見設定の変更監視
+        document.querySelectorAll('#step7 select').forEach(select => {
+            select.addEventListener('change', function() {
+                // 実際の実装では画像を再生成
+                console.log('Appearance updated:', this.id, this.value);
+            });
+        });
+        
+        // 初回チャット設定
+        function setupInitialChat() {
+            document.getElementById('partner-name-final').textContent = partnerName;
+            
+            const greetings = {
+                'recommended1': `${userInfo.surname}さん、こんにちは！よろしくお願いします♪ あなたとお話しできるのを楽しみにしていました。`,
+                'recommended2': `はじめまして、${userInfo.surname}さん。これからよろしくお願いします。何でも気軽に話しかけてくださいね。`,
+                'recommended3': `${userInfo.surname}さん、こんにちは〜！ わーい、やっと会えましたね♪ これからたくさんお話ししましょう！`
+            };
+            
+            document.getElementById('greeting-message').textContent = greetings[selectedPreset] || greetings['recommended1'];
+        }
+        
+        // メッセージ送信
+        function sendMessage() {
+            const userInput = document.getElementById('user-response').value;
+            if (!userInput.trim()) return;
+            
+            // ユーザーメッセージを表示（実装省略）
+            
+            // AI応答をシミュレート
+            setTimeout(() => {
+                const responses = [
+                    'ありがとうございます！これからよろしくお願いします♪',
+                    'あなたと話せて嬉しいです。今度はどんなお話をしましょうか？',
+                    '素敵ですね！私もあなたとお話しするのを楽しみにしています。'
+                ];
+                
+                document.getElementById('ai-response-text').textContent = 
+                    responses[Math.floor(Math.random() * responses.length)];
+                document.getElementById('ai-response').style.display = 'block';
+            }, 1000);
+        }
+        
+        // ホーム画面へ移動
+        function goToHome() {
+            M.toast({html: 'パートナーが作成されました！', classes: 'green'});
+            
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+        }
+        
+        // その他のプリセット表示
+        function showAllPresets() {
+            alert('追加のプリセット選択機能は実装予定です');
+        }
+        
+        // エンターキーでメッセージ送信
+        document.getElementById('user-response').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Materialize初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            M.updateTextFields();
+        });
+    </script>
+</body>
+</html>

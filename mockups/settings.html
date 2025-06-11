@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定 - 恋AIパートナー</title>
+    
+    <!-- Material UI CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/material-design-icons/4.0.0/iconfont/material-icons.min.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-right: auto;
+        }
+        
+        .header .partner-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+            margin-right: 16px;
+        }
+        
+        .header .notification-icon {
+            color: #666;
+            margin-right: 16px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .header .notification-icon:hover {
+            color: #667eea;
+        }
+        
+        .main-container {
+            flex: 1;
+            padding: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .settings-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+        
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .page-title .material-icons {
+            margin-right: 12px;
+            color: #667eea;
+        }
+        
+        .page-subtitle {
+            color: #666;
+            margin-bottom: 32px;
+            font-size: 16px;
+        }
+        
+        .setting-section {
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .setting-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title .material-icons {
+            margin-right: 8px;
+            color: #667eea;
+            font-size: 24px;
+        }
+        
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+        }
+        
+        .setting-label {
+            flex: 1;
+        }
+        
+        .setting-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .setting-description {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            background: #ccc;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background: #667eea;
+        }
+        
+        .toggle-handle {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .toggle-switch.active .toggle-handle {
+            transform: translateX(24px);
+        }
+        
+        .time-picker {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 16px;
+            color: #333;
+            min-width: 120px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .time-picker:hover {
+            border-color: #667eea;
+            background: #f0f0f0;
+        }
+        
+        .time-picker:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .button .material-icons {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+        
+        .button-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .button-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .button-secondary {
+            background: #f5f5f5;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+        
+        .button-secondary:hover {
+            background: #e8e8e8;
+            color: #333;
+        }
+        
+        .button-danger {
+            background: #ff4757;
+            color: white;
+        }
+        
+        .button-danger:hover {
+            background: #ff3742;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+        }
+        
+        .account-info {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .account-email {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .account-joined {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .danger-zone {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 16px;
+        }
+        
+        .danger-title {
+            color: #e53e3e;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .danger-description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        
+        .modal-text {
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 16px;
+            }
+            
+            .settings-card {
+                padding: 24px 20px;
+            }
+            
+            .setting-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .setting-item .button,
+            .setting-item .toggle-switch,
+            .setting-item .time-picker {
+                align-self: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <div class="logo">恋AIパートナー</div>
+        <div class="partner-avatar">あ</div>
+        <span class="material-icons notification-icon">notifications</span>
+        <span class="material-icons">menu</span>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main-container">
+        <div class="settings-card">
+            <h1 class="page-title">
+                <span class="material-icons">settings</span>
+                設定
+            </h1>
+            <p class="page-subtitle">アプリの動作やアカウント情報を管理できます</p>
+
+            <!-- 通知設定 -->
+            <section class="setting-section">
+                <h2 class="section-title">
+                    <span class="material-icons">notifications_active</span>
+                    通知設定
+                </h2>
+
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <div class="setting-title">朝の挨拶通知</div>
+                        <div class="setting-description">毎朝、パートナーからの挨拶メッセージが届きます</div>
+                    </div>
+                    <div class="toggle-switch active" onclick="toggleNotification()">
+                        <div class="toggle-handle"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item" id="time-setting">
+                    <div class="setting-label">
+                        <div class="setting-title">通知時刻</div>
+                        <div class="setting-description">朝の挨拶が届く時間を設定します</div>
+                    </div>
+                    <input type="time" class="time-picker" value="07:00" id="notification-time">
+                </div>
+            </section>
+
+            <!-- アカウント設定 -->
+            <section class="setting-section">
+                <h2 class="section-title">
+                    <span class="material-icons">account_circle</span>
+                    アカウント
+                </h2>
+
+                <div class="account-info">
+                    <div class="account-email">user@example.com</div>
+                    <div class="account-joined">2025年1月11日に登録</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <div class="setting-title">パスワード変更</div>
+                        <div class="setting-description">アカウントのセキュリティを保護するため、定期的に変更することを推奨します</div>
+                    </div>
+                    <button class="button button-secondary" onclick="openPasswordModal()">
+                        <span class="material-icons">edit</span>
+                        変更
+                    </button>
+                </div>
+            </section>
+
+            <!-- 背景設定 -->
+            <section class="setting-section">
+                <h2 class="section-title">
+                    <span class="material-icons">wallpaper</span>
+                    チャット背景
+                </h2>
+
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <div class="setting-title">現在の背景</div>
+                        <div class="setting-description">チャット画面の背景画像を変更できます</div>
+                    </div>
+                    <button class="button button-secondary" onclick="openBackgroundModal()">
+                        <span class="material-icons">image</span>
+                        変更
+                    </button>
+                </div>
+            </section>
+
+            <!-- データ管理 -->
+            <section class="setting-section">
+                <h2 class="section-title">
+                    <span class="material-icons">storage</span>
+                    データ管理
+                </h2>
+
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <div class="setting-title">すべてのデータをエクスポート</div>
+                        <div class="setting-description">会話履歴、思い出、人間関係記録などをまとめてダウンロード</div>
+                    </div>
+                    <button class="button button-primary" onclick="exportAllData()">
+                        <span class="material-icons">download</span>
+                        完全エクスポート
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <div class="setting-title">会話履歴のみエクスポート</div>
+                        <div class="setting-description">メッセージのみを軽量でダウンロード</div>
+                    </div>
+                    <button class="button button-secondary" onclick="exportChatOnly()">
+                        <span class="material-icons">chat</span>
+                        会話のみ
+                    </button>
+                </div>
+
+                <div class="danger-zone">
+                    <div class="danger-title">危険な操作</div>
+                    <div class="danger-description">
+                        以下の操作は元に戻すことができません。実行前によくご確認ください。
+                    </div>
+                    <button class="button button-danger" onclick="openDeleteModal()">
+                        <span class="material-icons">delete_forever</span>
+                        アカウントを削除
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- パスワード変更モーダル -->
+    <div class="modal" id="password-modal">
+        <div class="modal-content">
+            <h3 class="modal-title">パスワード変更</h3>
+            <form>
+                <div class="form-group">
+                    <label class="form-label" for="current-password">現在のパスワード</label>
+                    <input type="password" class="form-input" id="current-password" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="new-password">新しいパスワード</label>
+                    <input type="password" class="form-input" id="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="confirm-password">新しいパスワード（確認）</label>
+                    <input type="password" class="form-input" id="confirm-password" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="button button-secondary" onclick="closePasswordModal()">キャンセル</button>
+                    <button type="submit" class="button button-primary" onclick="changePassword(event)">更新</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 背景選択モーダル -->
+    <div class="modal" id="background-modal">
+        <div class="modal-content">
+            <h3 class="modal-title">背景画像を選択</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin: 20px 0;">
+                <div class="background-option" onclick="selectBackground('cafe')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #ff9a9e, #fecfef); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">カフェ</div>
+                <div class="background-option" onclick="selectBackground('home')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #a8e6cf, #dcedc1); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">自宅</div>
+                <div class="background-option" onclick="selectBackground('park')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #70e1f5, #ffd194); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">公園</div>
+                <div class="background-option" onclick="selectBackground('night')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">夜景</div>
+                <div class="background-option" onclick="selectBackground('beach')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #f093fb, #f5576c); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">海辺</div>
+                <div class="background-option" onclick="selectBackground('forest')" style="position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; aspect-ratio: 16/9; background: linear-gradient(45deg, #4facfe, #00f2fe); display: flex; align-items: center; justify-content: center; color: white; font-weight: 500;">森林</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="button button-secondary" onclick="closeBackgroundModal()">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- アカウント削除確認モーダル -->
+    <div class="modal" id="delete-modal">
+        <div class="modal-content">
+            <h3 class="modal-title">アカウント削除の確認</h3>
+            <p class="modal-text">
+                アカウントを削除すると、以下のデータが完全に削除され、復元することができません：
+            </p>
+            <ul style="margin: 16px 0; padding-left: 20px; color: #666;">
+                <li>プロフィール情報</li>
+                <li>AIパートナーの設定</li>
+                <li>すべての会話履歴</li>
+                <li>関係性の記録</li>
+                <li>人間関係マップ</li>
+                <li>思い出やエピソード記録</li>
+            </ul>
+            <p class="modal-text">
+                本当にアカウントを削除しますか？
+            </p>
+            <div class="modal-actions">
+                <button type="button" class="button button-secondary" onclick="closeDeleteModal()">キャンセル</button>
+                <button type="button" class="button button-danger" onclick="deleteAccount()">削除する</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 通知設定の切り替え
+        function toggleNotification() {
+            const toggle = document.querySelector('.toggle-switch');
+            const timeSetting = document.getElementById('time-setting');
+            
+            toggle.classList.toggle('active');
+            
+            if (toggle.classList.contains('active')) {
+                timeSetting.style.display = 'flex';
+                console.log('通知を有効にしました');
+            } else {
+                timeSetting.style.display = 'none';
+                console.log('通知を無効にしました');
+            }
+        }
+
+        // パスワード変更モーダル
+        function openPasswordModal() {
+            document.getElementById('password-modal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('password-modal').classList.remove('active');
+            document.querySelector('#password-modal form').reset();
+        }
+
+        function changePassword(event) {
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            
+            if (newPassword !== confirmPassword) {
+                alert('新しいパスワードと確認用パスワードが一致しません');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                alert('パスワードは8文字以上で入力してください');
+                return;
+            }
+            
+            // API呼び出しをシミュレート
+            console.log('パスワード変更API呼び出し:', { currentPassword, newPassword });
+            alert('パスワードが正常に変更されました');
+            closePasswordModal();
+        }
+
+        // 背景選択モーダル
+        function openBackgroundModal() {
+            document.getElementById('background-modal').classList.add('active');
+        }
+
+        function closeBackgroundModal() {
+            document.getElementById('background-modal').classList.remove('active');
+        }
+
+        function selectBackground(backgroundType) {
+            console.log('背景変更API呼び出し:', backgroundType);
+            
+            const backgroundNames = {
+                'cafe': 'カフェ',
+                'home': '自宅',
+                'park': '公園',
+                'night': '夜景',
+                'beach': '海辺',
+                'forest': '森林'
+            };
+            
+            alert(`背景を「${backgroundNames[backgroundType]}」に変更しました`);
+            closeBackgroundModal();
+        }
+
+        // データエクスポート（完全版）
+        function exportAllData() {
+            console.log('完全データエクスポートAPI呼び出し');
+            alert('すべてのデータの準備中です。会話履歴、思い出、人間関係記録などを含む完全なアーカイブを作成中です。完了時にダウンロードリンクをメールでお送りします。');
+        }
+
+        // データエクスポート（会話のみ）
+        function exportChatOnly() {
+            console.log('会話履歴エクスポートAPI呼び出し');
+            alert('会話履歴の準備中です。完了時にダウンロードリンクをメールでお送りします。');
+        }
+
+        // アカウント削除
+        function openDeleteModal() {
+            document.getElementById('delete-modal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('active');
+        }
+
+        function deleteAccount() {
+            console.log('アカウント削除API呼び出し');
+            alert('アカウントの削除を開始しました。処理完了まで数分お待ちください。');
+            closeDeleteModal();
+        }
+
+        // 通知時刻の変更
+        document.getElementById('notification-time').addEventListener('change', function(e) {
+            console.log('通知時刻を変更:', e.target.value);
+        });
+
+        // モーダルの外側クリックで閉じる
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // ページ読み込み時の初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('設定ページが読み込まれました');
+            
+            // 通知設定の初期状態を設定
+            const isNotificationEnabled = true; // デフォルトで有効
+            const toggle = document.querySelector('.toggle-switch');
+            const timeSetting = document.getElementById('time-setting');
+            
+            if (isNotificationEnabled) {
+                toggle.classList.add('active');
+                timeSetting.style.display = 'flex';
+            } else {
+                toggle.classList.remove('active');
+                timeSetting.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

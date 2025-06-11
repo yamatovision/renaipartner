@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新規登録 - AI彼氏彼女</title>
+    
+    <!-- Material UI CDN -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mui/material@5.14.20/umd/material-ui.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .register-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 48px;
+            width: 100%;
+            max-width: 400px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .logo h1 {
+            color: #667eea;
+            font-size: 28px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .logo p {
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            color: #4a5568;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .form-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-input.error {
+            border-color: #fc8181;
+        }
+        
+        .error-message {
+            color: #e53e3e;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        
+        .password-wrapper {
+            position: relative;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #a0aec0;
+            user-select: none;
+        }
+        
+        .password-strength {
+            margin-top: 8px;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .password-strength-bar {
+            height: 100%;
+            width: 0;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        
+        .password-strength-text {
+            font-size: 12px;
+            margin-top: 4px;
+            color: #718096;
+        }
+        
+        .strength-weak {
+            background: #fc8181;
+            width: 33%;
+        }
+        
+        .strength-medium {
+            background: #f6ad55;
+            width: 66%;
+        }
+        
+        .strength-strong {
+            background: #48bb78;
+            width: 100%;
+        }
+        
+        .terms-container {
+            margin-top: 24px;
+            padding: 16px;
+            background: #f7fafc;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        
+        .checkbox-wrapper {
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+        
+        .checkbox-wrapper label {
+            color: #4a5568;
+            line-height: 1.5;
+            cursor: pointer;
+        }
+        
+        .checkbox-wrapper a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .checkbox-wrapper a:hover {
+            text-decoration: underline;
+        }
+        
+        .submit-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 32px;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .submit-button:active {
+            transform: translateY(0);
+        }
+        
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .footer-link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: #718096;
+        }
+        
+        .footer-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: center;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="logo">
+            <h1>AI彼氏彼女</h1>
+            <p>アカウントを作成して始めましょう</p>
+        </div>
+        
+        <div class="success-message" id="successMessage">
+            登録が完了しました！パートナー作成画面へ移動します...
+        </div>
+        
+        <form id="registerForm">
+            <div class="form-group">
+                <label class="form-label" for="email">メールアドレス</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    class="form-input" 
+                    placeholder="example@email.com"
+                    required
+                    autofocus
+                >
+                <div class="error-message" id="emailError">正しいメールアドレスを入力してください</div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="password">パスワード</label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input" 
+                        placeholder="8文字以上で設定"
+                        required
+                        minlength="8"
+                    >
+                    <span class="toggle-password material-icons" onclick="togglePassword()">
+                        visibility
+                    </span>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="strengthBar"></div>
+                </div>
+                <div class="password-strength-text" id="strengthText">パスワードの強度</div>
+                <div class="error-message" id="passwordError">パスワードは8文字以上で設定してください</div>
+            </div>
+            
+            <div class="terms-container">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="terms" required>
+                    <label for="terms">
+                        <a href="#" onclick="event.preventDefault(); alert('利用規約の内容をここに表示');">利用規約</a>および
+                        <a href="#" onclick="event.preventDefault(); alert('プライバシーポリシーの内容をここに表示');">プライバシーポリシー</a>
+                        に同意します
+                    </label>
+                </div>
+                <div class="error-message" id="termsError" style="margin-top: 8px;">利用規約への同意が必要です</div>
+            </div>
+            
+            <button type="submit" class="submit-button" id="submitButton">
+                <span id="buttonText">アカウントを作成</span>
+                <div class="loading" id="loadingSpinner" style="display: none;"></div>
+            </button>
+        </form>
+        
+        <div class="footer-link">
+            すでにアカウントをお持ちの方は <a href="/login">ログイン</a>
+        </div>
+    </div>
+    
+    <script>
+        // 自動フォーカス
+        document.getElementById('email').focus();
+        
+        // パスワード表示切替
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.querySelector('.toggle-password');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = 'visibility_off';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = 'visibility';
+            }
+        }
+        
+        // パスワード強度チェック
+        document.getElementById('password').addEventListener('input', (e) => {
+            const password = e.target.value;
+            const strengthBar = document.getElementById('strengthBar');
+            const strengthText = document.getElementById('strengthText');
+            
+            if (password.length === 0) {
+                strengthBar.className = 'password-strength-bar';
+                strengthText.textContent = 'パスワードの強度';
+                strengthText.style.color = '#718096';
+                return;
+            }
+            
+            let strength = 0;
+            
+            // 長さチェック
+            if (password.length >= 8) strength++;
+            if (password.length >= 12) strength++;
+            
+            // 文字種チェック
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+            
+            // 強度表示
+            strengthBar.className = 'password-strength-bar';
+            
+            if (strength <= 2) {
+                strengthBar.classList.add('strength-weak');
+                strengthText.textContent = '弱い';
+                strengthText.style.color = '#e53e3e';
+            } else if (strength <= 4) {
+                strengthBar.classList.add('strength-medium');
+                strengthText.textContent = '普通';
+                strengthText.style.color = '#dd6b20';
+            } else {
+                strengthBar.classList.add('strength-strong');
+                strengthText.textContent = '強い';
+                strengthText.style.color = '#38a169';
+            }
+        });
+        
+        // フォーム送信処理
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // エラーメッセージをリセット
+            document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-input').forEach(el => el.classList.remove('error'));
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const termsAccepted = document.getElementById('terms').checked;
+            
+            // バリデーション
+            let hasError = false;
+            
+            if (!email || !email.includes('@')) {
+                document.getElementById('email').classList.add('error');
+                document.getElementById('emailError').style.display = 'block';
+                hasError = true;
+            }
+            
+            if (!password || password.length < 8) {
+                document.getElementById('password').classList.add('error');
+                document.getElementById('passwordError').style.display = 'block';
+                hasError = true;
+            }
+            
+            if (!termsAccepted) {
+                document.getElementById('termsError').style.display = 'block';
+                hasError = true;
+            }
+            
+            if (hasError) return;
+            
+            // ローディング表示
+            const submitButton = document.getElementById('submitButton');
+            const buttonText = document.getElementById('buttonText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            
+            submitButton.disabled = true;
+            buttonText.style.display = 'none';
+            loadingSpinner.style.display = 'inline-block';
+            
+            // API呼び出しのシミュレーション
+            setTimeout(() => {
+                // 成功表示
+                document.getElementById('successMessage').style.display = 'block';
+                document.getElementById('registerForm').style.opacity = '0.5';
+                
+                // パートナー作成画面へ自動遷移
+                setTimeout(() => {
+                    window.location.href = '/create-partner';
+                }, 1500);
+            }, 1000);
+        });
+        
+        // エンターキーでの送信をサポート
+        document.querySelectorAll('.form-input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && e.target.id !== 'password') {
+                    const nextInput = e.target.parentElement.parentElement.nextElementSibling?.querySelector('.form-input');
+                    if (nextInput) {
+                        nextInput.focus();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

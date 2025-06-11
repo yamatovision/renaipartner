@@ -1,0 +1,93 @@
+# 環境変数ファイル
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.env
+
+# 依存関係ディレクトリ
+node_modules/
+dist/
+build/
+coverage/
+
+# ログファイル
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OSが生成する一時ファイル
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# エディタ固有のファイル
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 機密情報を含む可能性のあるファイル
+**/config/secrets.js
+**/credentials.json
+secrets.json
+cookie-secret.txt
+
+# テストとスクリプトフォルダ
+/test/
+/tests/
+/script/
+/scripts/
+/__tests__/
+
+# 一時ファイル
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# データベース
+*.sqlite
+*.db
+
+# バックアップ
+*.backup
+*.bak
+
+# アップロードファイル
+uploads/
+_uploads/
+
+# ビルド成果物
+public/lib.js
+public/lib.js.LICENSE.txt
+
+# キャッシュ
+_cache/
+_webpack/
+
+# SillyTavern固有
+data/_storage/
+data/backups/
+data/logs/
+data/content.log
+data/stats.json
+
+# AppGenius一時ファイル
+.appgenius_temp/
+
+# SillyTavernディレクトリ（別管理）
+SillyTavern/

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パートナー作成 - AI彼氏彼女</title>
+    
+    <!-- Material UI CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    
+    <style>
+        body {
+            font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+            background-color: #fce4ec;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 300;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+        
+        .step {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active {
+            background-color: #ff6b9d;
+            color: white;
+        }
+        
+        .step.completed {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .card-panel {
+            border-radius: 16px;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-height: 400px;
+        }
+        
+        .visual-preview {
+            width: 200px;
+            height: 200px;
+            margin: 1rem auto;
+            border-radius: 50%;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 4px solid #ff6b9d;
+        }
+        
+        .visual-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .visual-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .keyword-chip {
+            padding: 0.5rem 1rem;
+            background: #f5f5f5;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .keyword-chip:hover {
+            background: #e0e0e0;
+        }
+        
+        .keyword-chip.selected {
+            background: #ff6b9d;
+            color: white;
+            border-color: #ff6b9d;
+        }
+        
+        .personality-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .personality-card {
+            padding: 1.5rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .personality-card:hover {
+            border-color: #ff6b9d;
+            transform: translateY(-2px);
+        }
+        
+        .personality-card.selected {
+            border-color: #ff6b9d;
+            background: #fce4ec;
+        }
+        
+        .personality-card i {
+            font-size: 2rem;
+            color: #ff6b9d;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.8rem 2rem;
+            color: white;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: white;
+            border: 2px solid #ff6b9d;
+            border-radius: 25px;
+            padding: 0.8rem 2rem;
+            color: #ff6b9d;
+            font-weight: 500;
+            margin-right: 1rem;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .step-content {
+            display: none;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        .input-field input:focus {
+            border-bottom: 1px solid #ff6b9d !important;
+            box-shadow: 0 1px 0 0 #ff6b9d !important;
+        }
+        
+        .input-field label.active {
+            color: #ff6b9d !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>パートナー作成（上級者向け）</h1>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">
+            初回の方は<a href="/onboarding" style="color: #fff; text-decoration: underline;">ガイド付き作成</a>をおすすめします
+        </p>
+    </div>
+    
+    <div class="container">
+        <div class="step-indicator">
+            <div class="step active" id="step1-indicator">1</div>
+            <div class="step" id="step2-indicator">2</div>
+            <div class="step" id="step3-indicator">3</div>
+        </div>
+        
+        <div class="card-panel">
+            <!-- Step 1: 名前とビジュアル -->
+            <div class="step-content active" id="step1">
+                <h5 style="text-align: center; margin-bottom: 2rem;">基本情報</h5>
+                
+                <div class="input-field">
+                    <input id="partner-name" type="text" maxlength="20">
+                    <label for="partner-name">パートナーの名前</label>
+                </div>
+                
+                <h6 style="margin-top: 2rem;">見た目のイメージ</h6>
+                <p style="color: #666; font-size: 0.9rem;">好きなキーワードを選んでください（複数選択可）</p>
+                
+                <div class="visual-keywords">
+                    <div class="keyword-chip" data-keyword="可愛い">可愛い</div>
+                    <div class="keyword-chip" data-keyword="クール">クール</div>
+                    <div class="keyword-chip" data-keyword="優しい雰囲気">優しい雰囲気</div>
+                    <div class="keyword-chip" data-keyword="大人っぽい">大人っぽい</div>
+                    <div class="keyword-chip" data-keyword="爽やか">爽やか</div>
+                    <div class="keyword-chip" data-keyword="ミステリアス">ミステリアス</div>
+                    <div class="keyword-chip" data-keyword="元気">元気</div>
+                    <div class="keyword-chip" data-keyword="知的">知的</div>
+                </div>
+                
+                <button class="btn-primary btn" onclick="goToStep2()">次へ</button>
+            </div>
+            
+            <!-- Step 2: ビジュアル確認と性格 -->
+            <div class="step-content" id="step2">
+                <h5 style="text-align: center; margin-bottom: 2rem;">ビジュアル確認</h5>
+                
+                <div class="visual-preview">
+                    <div class="loading show" id="image-loading">
+                        <div class="preloader-wrapper small active">
+                            <div class="spinner-layer spinner-pink-only">
+                                <div class="circle-clipper left">
+                                    <div class="circle"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 1rem; color: #666;">生成中...</p>
+                    </div>
+                    <img id="partner-image" src="" style="display: none;">
+                </div>
+                
+                <h6 style="margin-top: 2rem;">性格を選んでください</h6>
+                
+                <div class="personality-cards">
+                    <div class="personality-card" data-personality="gentle">
+                        <i class="material-icons">favorite</i>
+                        <div>優しい</div>
+                        <small style="color: #666;">思いやり深く温かい</small>
+                    </div>
+                    <div class="personality-card" data-personality="cool">
+                        <i class="material-icons">ac_unit</i>
+                        <div>クール</div>
+                        <small style="color: #666;">落ち着いていて知的</small>
+                    </div>
+                    <div class="personality-card" data-personality="cheerful">
+                        <i class="material-icons">wb_sunny</i>
+                        <div>明るい</div>
+                        <small style="color: #666;">元気で前向き</small>
+                    </div>
+                    <div class="personality-card" data-personality="tsundere">
+                        <i class="material-icons">flash_on</i>
+                        <div>ツンデレ</div>
+                        <small style="color: #666;">素直じゃないけど愛情深い</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; margin-top: 2rem;">
+                    <button class="btn-secondary btn" onclick="goToStep1()">戻る</button>
+                    <button class="btn-primary btn" onclick="goToStep3()">次へ</button>
+                </div>
+            </div>
+            
+            <!-- Step 3: 確認 -->
+            <div class="step-content" id="step3">
+                <h5 style="text-align: center; margin-bottom: 2rem;">作成確認</h5>
+                
+                <div class="visual-preview">
+                    <img id="confirm-image" src="">
+                </div>
+                
+                <div style="text-align: center; margin: 2rem 0;">
+                    <h5 id="confirm-name" style="color: #ff6b9d; margin-bottom: 0.5rem;"></h5>
+                    <p id="confirm-personality" style="color: #666;"></p>
+                </div>
+                
+                <div style="background: #fce4ec; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="margin: 0; text-align: center;">
+                        <i class="material-icons" style="vertical-align: middle; color: #ff6b9d;">info</i>
+                        作成後も詳細な設定は変更できます
+                    </p>
+                </div>
+                
+                <div style="display: flex; margin-top: 2rem;">
+                    <button class="btn-secondary btn" onclick="goToStep2()">戻る</button>
+                    <button class="btn-primary btn" onclick="createPartner()">作成する</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        // グローバル変数
+        let selectedKeywords = [];
+        let selectedPersonality = '';
+        let partnerName = '';
+        
+        // キーワード選択
+        document.querySelectorAll('.keyword-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                this.classList.toggle('selected');
+                const keyword = this.dataset.keyword;
+                if (this.classList.contains('selected')) {
+                    selectedKeywords.push(keyword);
+                } else {
+                    selectedKeywords = selectedKeywords.filter(k => k !== keyword);
+                }
+            });
+        });
+        
+        // 性格選択
+        document.querySelectorAll('.personality-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.personality-card').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedPersonality = this.dataset.personality;
+            });
+        });
+        
+        // ステップ遷移
+        function goToStep1() {
+            showStep(1);
+        }
+        
+        function goToStep2() {
+            partnerName = document.getElementById('partner-name').value;
+            if (!partnerName) {
+                M.toast({html: '名前を入力してください', classes: 'red'});
+                return;
+            }
+            if (selectedKeywords.length === 0) {
+                M.toast({html: '見た目のイメージを選択してください', classes: 'red'});
+                return;
+            }
+            
+            showStep(2);
+            // ビジュアル生成のシミュレーション
+            setTimeout(() => {
+                document.getElementById('image-loading').style.display = 'none';
+                document.getElementById('partner-image').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkZFMEVDIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjgwIiByPSI0MCIgZmlsbD0iI0ZGQjZDMSIvPgo8cGF0aCBkPSJNNjAgMTMwQzYwIDExMCA4MCAxMDAgMTAwIDEwMEMxMjAgMTAwIDE0MCAxMTAgMTQwIDEzMFYxODBINjBWMTMwWiIgZmlsbD0iI0ZGQjZDMSIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSI1IiBmaWxsPSIjMzMzIi8+CjxjaXJjbGUgY3g9IjExNSIgY3k9IjgwIiByPSI1IiBmaWxsPSIjMzMzIi8+CjxwYXRoIGQ9Ik04NSA5NUM4NSA5NSA5NSAxMDAgMTE1IDk1IiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIi8+Cjwvc3ZnPg==';
+                document.getElementById('partner-image').style.display = 'block';
+            }, 2000);
+        }
+        
+        function goToStep3() {
+            if (!selectedPersonality) {
+                M.toast({html: '性格を選択してください', classes: 'red'});
+                return;
+            }
+            
+            showStep(3);
+            // 確認画面の設定
+            document.getElementById('confirm-image').src = document.getElementById('partner-image').src;
+            document.getElementById('confirm-name').textContent = partnerName;
+            
+            const personalityText = {
+                'gentle': '優しい性格',
+                'cool': 'クールな性格',
+                'cheerful': '明るい性格',
+                'tsundere': 'ツンデレな性格'
+            };
+            document.getElementById('confirm-personality').textContent = personalityText[selectedPersonality];
+        }
+        
+        function showStep(stepNumber) {
+            // ステップコンテンツの表示切替
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
+            
+            // ステップインジケーターの更新
+            document.querySelectorAll('.step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 < stepNumber) {
+                    step.classList.add('completed');
+                    step.innerHTML = '<i class="material-icons" style="font-size: 1rem;">check</i>';
+                } else if (index + 1 === stepNumber) {
+                    step.classList.add('active');
+                } else {
+                    step.textContent = index + 1;
+                }
+            });
+        }
+        
+        function createPartner() {
+            // ローディング表示
+            M.toast({html: 'パートナーを作成中...', classes: 'blue'});
+            
+            // API呼び出しのシミュレーション
+            setTimeout(() => {
+                M.toast({html: 'パートナーが作成されました！', classes: 'green'});
+                // ホーム画面へリダイレクト
+                window.location.href = '/';
+            }, 1500);
+        }
+        
+        // Materialize初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            M.updateTextFields();
+        });
+    </script>
+</body>
+</html>
