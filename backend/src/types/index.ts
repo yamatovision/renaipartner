@@ -1,3 +1,5 @@
+import { Request } from 'express';
+
 /**
  * ===== 型定義同期ガイドライン =====
  * 型ファイルは下記2つの同期された型ファイルが存在します。  
@@ -70,6 +72,7 @@ export interface UserBase {
   nickname?: string;
   birthday: string;
   email: string;
+  profileCompleted?: boolean;
 }
 
 export interface UserCreate extends Partial<UserBase> {
@@ -104,6 +107,46 @@ export interface RegisterRequest {
   role?: UserRole;
 }
 
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  surname: string;
+  firstName: string;
+  birthday: string;
+  role?: UserRole;
+}
+
+export interface UserUpdateRequest {
+  surname?: string;
+  firstName?: string;
+  nickname?: string;
+  birthday?: string;
+  email?: string;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  todayNewUsers: number;
+}
+
+export interface UserExportData {
+  profile: User;
+  partners: Partner[];
+  messages: Message[];
+  settings: UserSettings;
+  exportedAt: Date;
+}
+
 export interface RefreshTokenRequest {
   refreshToken: string;
 }
@@ -124,6 +167,12 @@ export interface JWTPayload {
   role: UserRole;
   iat: number;
   exp: number;
+  jti?: string; // JWT ID for uniqueness
+}
+
+// Express Request with authenticated user
+export interface AuthRequest extends Request {
+  user: JWTPayload;
 }
 
 // =============================================================================
@@ -213,6 +262,32 @@ export interface PartnerUpdate {
   hobbies?: string[];
 }
 
+export interface PartnerCreateRequest extends PartnerBase {
+  userId?: ID;
+}
+
+export interface PartnerUpdateRequest extends PartnerUpdate {}
+
+export interface PromptValidationRequest {
+  systemPrompt: string;
+}
+
+export interface PromptValidationResponse {
+  isValid: boolean;
+  warnings: string[];
+  score?: number;
+}
+
+export interface PromptPreviewRequest {
+  systemPrompt: string;
+  testMessage?: string;
+}
+
+export interface PromptPreviewResponse {
+  response: string;
+  isValid: boolean;
+}
+
 // =============================================================================
 // オンボーディング関連
 // =============================================================================
@@ -225,10 +300,13 @@ export interface PartnerData {
   prompt: string;
   nickname: string;
   appearance: AppearanceSettings;
+  appearanceSettings?: AppearanceSettings; // 互換性のための追加プロパティ
 }
 
 
-export interface OnboardingProgress {
+export interface OnboardingProgress extends Timestamps {
+  id: ID;
+  userId: ID;
   currentStep: number;
   completedSteps: number[];
   userData: {
@@ -238,6 +316,7 @@ export interface OnboardingProgress {
   };
   partnerData: PartnerData;
   personalityAnswers: PersonalityQuestion[];
+  completed: boolean;
 }
 
 export interface PersonalityQuestion {
@@ -312,7 +391,7 @@ export enum MemoryType {
   PREFERENCE = 'preference',
 }
 
-export interface Memory {
+export interface Memory extends Timestamps {
   id: ID;
   partnerId: ID;
   type: MemoryType;
@@ -322,7 +401,6 @@ export interface Memory {
   emotionalWeight: number;
   tags: string[];
   relatedPeople?: string[];
-  timestamp: Date;
 }
 
 export interface RelationshipMetrics {
@@ -464,28 +542,42 @@ export const API_PATHS = {
     REGISTER: '/api/auth/register',
     REFRESH: '/api/auth/refresh',
     CHANGE_PASSWORD: '/api/auth/change-password',
+    ME: '/api/auth/me',
   },
   
   // ユーザー関連
   USERS: {
     BASE: '/api/users',
+    GET: (userId: string) => `/api/users/${userId}`,
+    UPDATE: (userId: string) => `/api/users/${userId}`,
     PROFILE: (userId: string) => `/api/users/${userId}/profile`,
     SETTINGS: (userId: string) => `/api/users/${userId}/settings`,
     DELETE: (userId: string) => `/api/users/${userId}`,
     DEACTIVATE: (userId: string) => `/api/users/${userId}/deactivate`,
     ACTIVATE: (userId: string) => `/api/users/${userId}/activate`,
+    PASSWORD: '/api/users/change-password',
+    EXPORT: (userId: string) => `/api/users/${userId}/export`,
   },
   
   // 管理者関連
   ADMIN: {
     BASE: '/api/admin',
-    USERS: '/api/admin/users',
+    USERS: {
+      BASE: '/api/admin/users',
+      CREATE: '/api/admin/users/create',
+      LIST: '/api/admin/users/list',
+      DEACTIVATE: (userId: string) => `/api/admin/users/${userId}/deactivate`,
+      ACTIVATE: (userId: string) => `/api/admin/users/${userId}/activate`,
+    },
     STATS: '/api/admin/stats',
   },
   
   // パートナー関連
   PARTNERS: {
     BASE: '/api/partners',
+    CREATE: '/api/partners',
+    LIST: '/api/partners',
+    GET: '/api/partners/current',
     DETAIL: (partnerId: string) => `/api/partners/${partnerId}`,
     UPDATE: (partnerId: string) => `/api/partners/${partnerId}`,
     DELETE: (partnerId: string) => `/api/partners/${partnerId}`,
@@ -710,14 +802,14 @@ export const PERSONALITY_PRESETS: Record<PersonalityType, PresetPersonality> = {
   [PersonalityType.CHEERFUL]: {
     id: 'cheerful',
     name: '明るい恋人',
+    personality: PersonalityType.CHEERFUL,
+    speechStyle: SpeechStyle.CASUAL,
     description: 'いつも前向きで、あなたを笑顔にしてくれる元気な存在',
+    icon: '☀️',
+    prompt: '明るく前向きで元気な性格',
     systemPrompt: `いつも明るく前向きで、周りを笑顔にする元気な性格。
 どんな時でもポジティブに考え、相手を励ますのが得意。
 一緒にいると自然と楽しい気持ちになれる、太陽のような存在。`,
-    personality: PersonalityType.CHEERFUL,
-    speechStyle: SpeechStyle.CASUAL,
-    prompt: '明るく前向きで元気な性格',
-    icon: '☀️',
   },
   [PersonalityType.CLINGY]: {
     id: 'clingy',

@@ -3,7 +3,7 @@
 // A-001: ユーザー管理ページ
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/layouts/AdminLayout'
-import { User, UserStatus, UserCreate, PaginatedResponse } from '@/types'
+import { User, UserStatus, UserCreate, CreateUserRequest, UserListResponse } from '@/types'
 import { adminService } from '@/services'
 import { showMockIndicator } from '@/services/mock'
 
@@ -40,7 +40,7 @@ function CreateUserModal({
 }: {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (userData: UserCreate) => void
+  onSubmit: (userData: CreateUserRequest) => void
 }) {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
@@ -50,7 +50,13 @@ function CreateUserModal({
     if (!email.trim()) return
 
     setLoading(true)
-    await onSubmit({ email: email.trim() })
+    await onSubmit({ 
+      email: email.trim(),
+      password: 'aikakumei',
+      surname: 'テスト',
+      firstName: 'ユーザー',
+      birthday: '2000-01-01'
+    })
     setLoading(false)
     setEmail('')
     onClose()
@@ -106,7 +112,7 @@ function CreateUserModal({
 
 export default function AdminUsersPage() {
   const [stats, setStats] = useState<any>(null)
-  const [users, setUsers] = useState<PaginatedResponse<User> | null>(null)
+  const [users, setUsers] = useState<UserListResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('')
@@ -164,7 +170,7 @@ export default function AdminUsersPage() {
   }
 
   // ユーザー作成
-  const handleCreateUser = async (userData: UserCreate) => {
+  const handleCreateUser = async (userData: CreateUserRequest) => {
     const response = await adminService.createUser(userData)
     if (response.success) {
       fetchData() // データ再取得
@@ -320,7 +326,7 @@ export default function AdminUsersPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {users?.items?.map((user) => (
+                          {users?.users?.map((user: User) => (
                             <tr key={user.id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {user.id}

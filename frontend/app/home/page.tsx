@@ -50,14 +50,13 @@ export default function HomePage() {
     if (!user) return
 
     try {
-      // パートナー一覧を取得
-      const partnersResponse = await partnersService.getPartners(user.id)
-      if (partnersResponse.success && partnersResponse.data && partnersResponse.data.length > 0) {
-        const firstPartner = partnersResponse.data[0]
-        setPartner(firstPartner)
+      // パートナー情報を取得
+      const partnersResponse = await partnersService.getPartner()
+      if (partnersResponse.success && partnersResponse.data) {
+        setPartner(partnersResponse.data)
 
         // メッセージ履歴を取得
-        const messagesResponse = await chatService.getMessages(firstPartner.id)
+        const messagesResponse = await chatService.getMessages(partnersResponse.data.id)
         if (messagesResponse.success && messagesResponse.data) {
           setMessages(messagesResponse.data)
         }

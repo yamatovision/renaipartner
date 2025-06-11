@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import UserLayout from '@/layouts/UserLayout'
-import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality } from '@/types'
+import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality, PERSONALITY_PRESETS } from '@/types'
 import { mockPartnersService } from '@/services/mock/partners.mock'
 
 export default function EditPartnerPage() {
@@ -36,7 +36,7 @@ export default function EditPartnerPage() {
 
     const loadPartner = async () => {
       try {
-        const response = await mockPartnersService.getPartner(partnerId)
+        const response = await mockPartnersService.getPartnerDetail(partnerId)
         if (response.success && response.data) {
           setPartner(response.data)
           setFormData({
@@ -67,10 +67,8 @@ export default function EditPartnerPage() {
   useEffect(() => {
     const loadPresets = async () => {
       try {
-        const response = await mockPartnersService.getPersonalityPresets()
-        if (response.success && response.data) {
-          setPresets(response.data)
-        }
+        // プリセットは型定義のPERSONALITY_PRESETSを使用
+        setPresets(Object.values(PERSONALITY_PRESETS))
       } catch (error) {
         console.error('プリセット取得エラー:', error)
       }
@@ -106,7 +104,7 @@ export default function EditPartnerPage() {
 
     setValidating(true)
     try {
-      const response = await mockPartnersService.validatePrompt(formData.systemPrompt)
+      const response = await mockPartnersService.validatePrompt({ systemPrompt: formData.systemPrompt })
       if (response.success) {
         setValidationResult(response.data)
       }
@@ -123,9 +121,9 @@ export default function EditPartnerPage() {
 
     setGeneratingPreview(true)
     try {
-      const response = await mockPartnersService.generatePreview(formData.systemPrompt)
-      if (response.success) {
-        setPreview(response.data)
+      const response = await mockPartnersService.previewPrompt({ systemPrompt: formData.systemPrompt })
+      if (response.success && response.data?.response) {
+        setPreview({ messages: [{ content: response.data.response }] })
       }
     } catch (error) {
       console.error('プレビュー生成エラー:', error)
@@ -139,16 +137,26 @@ export default function EditPartnerPage() {
     if (!partnerId) return
 
     try {
-      const response = await mockPartnersService.applyPreset(partnerId, presetId)
-      if (response.success && response.data) {
-        setPartner(response.data)
-        setFormData({
-          ...formData,
-          personalityType: response.data.personalityType,
-          speechStyle: response.data.speechStyle,
-          systemPrompt: response.data.systemPrompt
-        })
-        alert('プリセットを適用しました')
+      // プリセット適用のモック実装
+      const preset = presets.find(p => p.id === presetId)
+      if (preset) {
+        const updatedPartner = {
+          ...partner!,
+          personalityType: preset.personality,
+          speechStyle: preset.speechStyle,
+          systemPrompt: preset.systemPrompt
+        }
+        const response = { success: true, data: updatedPartner }
+        if (response.success && response.data) {
+          setPartner(response.data)
+          setFormData({
+            ...formData,
+            personalityType: response.data.personalityType,
+            speechStyle: response.data.speechStyle,
+            systemPrompt: response.data.systemPrompt
+          })
+          alert('プリセットを適用しました')
+        }
       }
     } catch (error) {
       console.error('プリセット適用エラー:', error)

@@ -36,8 +36,21 @@ export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   
-  // オンボーディングの進行状況
-  const [onboardingData, setOnboardingData] = useState<OnboardingProgress>({
+  // オンボーディングの進行状況（クライアント側の一時的な状態）
+  interface OnboardingState {
+    currentStep: number
+    completedSteps: number[]
+    userData: {
+      surname: string
+      firstName: string
+      birthday: string
+    }
+    partnerData: PartnerData
+    personalityAnswers: PersonalityQuestion[]
+    completed: boolean
+  }
+  
+  const [onboardingData, setOnboardingData] = useState<OnboardingState>({
     currentStep: 1,
     completedSteps: [],
     userData: {
@@ -60,7 +73,8 @@ export default function OnboardingPage() {
         generatedImageUrl: undefined
       }
     },
-    personalityAnswers: []
+    personalityAnswers: [],
+    completed: false
   })
 
   // モックインジケーター表示

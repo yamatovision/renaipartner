@@ -3,7 +3,7 @@
 // U-004: 設定ページ
 import { useState, useEffect } from 'react'
 import UserLayout from '@/layouts/UserLayout'
-import { mockSettingsService } from '@/services/mock/settings.mock'
+import { usersService, authService } from '@/services'
 import { NotificationSettings, UserSettings, BackgroundImage } from '@/types'
 
 export default function SettingsPage() {
@@ -27,16 +27,48 @@ export default function SettingsPage() {
 
   const loadSettings = async () => {
     try {
-      const userId = 'user123' // TODO: 実際のユーザーIDを取得
-      const [notifications, user, backgrounds] = await Promise.all([
-        mockSettingsService.getNotificationSettings(userId),
-        mockSettingsService.getUserSettings(userId),
-        mockSettingsService.getBackgroundImages()
+      // 現在のユーザー情報を取得
+      const userResponse = await authService.getCurrentUser()
+      if (!userResponse.success) {
+        throw new Error('ユーザー情報の取得に失敗しました')
+      }
+      
+      // プロフィール情報を取得
+      const profileResponse = await usersService.getProfile()
+      if (!profileResponse.success) {
+        throw new Error('プロフィール情報の取得に失敗しました')
+      }
+      
+      // 実装済みのユーザー情報を設定に反映
+      setUserSettings({
+        id: userResponse.data?.id || '',
+        userId: userResponse.data?.id || '',
+        theme: 'default',
+        backgroundImage: 'default',
+        soundEnabled: true,
+        autoSave: true,
+        dataRetentionDays: 365
+      })
+      
+      // 通知設定（モックデータを使用、将来API実装予定）
+      setNotificationSettings({
+        id: 'notif-1',
+        userId: userResponse.data?.id || '',
+        morningGreeting: true,
+        morningTime: '08:00',
+        reminderMessages: true,
+        specialDays: true
+      })
+      
+      // 背景画像（モックデータを使用、将来API実装予定）
+      setBackgroundImages([
+        { id: 'default', name: 'デフォルト', url: '/chat-bg-1.jpg', category: 'default', isDefault: true },
+        { id: 'sunset', name: '夕焼け', url: '/chat-bg-2.jpg', category: 'nature', isDefault: false },
+        { id: 'ocean', name: '海', url: '/chat-bg-3.jpg', category: 'nature', isDefault: false },
+        { id: 'forest', name: '森', url: '/chat-bg-4.jpg', category: 'nature', isDefault: false },
+        { id: 'night', name: '夜景', url: '/chat-bg-5.jpg', category: 'city', isDefault: false }
       ])
       
-      setNotificationSettings(notifications)
-      setUserSettings(user)
-      setBackgroundImages(backgrounds)
     } catch (error) {
       console.error('設定の読み込みに失敗しました:', error)
     } finally {
@@ -48,10 +80,11 @@ export default function SettingsPage() {
     if (!notificationSettings) return
     
     try {
-      const updated = await mockSettingsService.updateNotificationSettings(
-        'user123',
-        { morningGreeting: !notificationSettings.morningGreeting }
-      )
+      // TODO: 実際のAPIを実装するまでの仮実装
+      const updated = {
+        ...notificationSettings,
+        morningGreeting: !notificationSettings.morningGreeting
+      }
       setNotificationSettings(updated)
     } catch (error) {
       console.error('通知設定の更新に失敗しました:', error)
@@ -62,10 +95,11 @@ export default function SettingsPage() {
     if (!notificationSettings) return
     
     try {
-      const updated = await mockSettingsService.updateNotificationSettings(
-        'user123',
-        { morningTime: time }
-      )
+      // TODO: 実際のAPIを実装するまでの仮実装
+      const updated = {
+        ...notificationSettings,
+        morningTime: time
+      }
       setNotificationSettings(updated)
     } catch (error) {
       console.error('通知時刻の更新に失敗しました:', error)
@@ -86,17 +120,17 @@ export default function SettingsPage() {
     }
     
     try {
-      const result = await mockSettingsService.changePassword(
-        passwordForm.currentPassword,
-        passwordForm.newPassword
-      )
+      const result = await usersService.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      })
       
       if (result.success) {
-        alert(result.message)
+        alert('パスワードが正常に変更されました')
         setShowPasswordModal(false)
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
-        alert(result.message)
+        alert(result.error || 'パスワード変更に失敗しました')
       }
     } catch (error) {
       console.error('パスワード変更に失敗しました:', error)
@@ -106,10 +140,13 @@ export default function SettingsPage() {
 
   const handleBackgroundSelect = async (backgroundId: string) => {
     try {
-      await mockSettingsService.setBackground('user123', backgroundId)
+      // TODO: 実際のAPIを実装するまでの仮実装
       const selectedBg = backgroundImages.find(bg => bg.id === backgroundId)
       if (selectedBg) {
         alert(`背景を「${selectedBg.name}」に変更しました`)
+        if (userSettings) {
+          setUserSettings({ ...userSettings, backgroundImage: backgroundId })
+        }
       }
       setShowBackgroundModal(false)
     } catch (error) {
@@ -119,20 +156,27 @@ export default function SettingsPage() {
 
   const handleExportData = async (includeConversations: boolean) => {
     try {
-      const blob = await mockSettingsService.exportData('user123', includeConversations)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `export-${includeConversations ? 'full' : 'chat-only'}-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      const result = await usersService.exportUserData()
       
-      const type = includeConversations ? 'すべてのデータ' : '会話履歴'
-      alert(`${type}のエクスポートを開始しました`)
+      if (result.success) {
+        const data = result.data
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `export-full-${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        
+        alert('データのエクスポートが完了しました')
+      } else {
+        alert(result.error || 'データエクスポートに失敗しました')
+      }
     } catch (error) {
       console.error('データエクスポートに失敗しました:', error)
+      alert('データエクスポートに失敗しました')
     }
   }
 
@@ -141,7 +185,8 @@ export default function SettingsPage() {
     if (!password) return
     
     try {
-      const result = await mockSettingsService.deleteAccount('user123', password)
+      // TODO: 実際のAPIを実装するまでの仮実装
+      const result = { success: true, message: 'アカウントが削除されました' }
       if (result.success) {
         alert(result.message)
         // TODO: ログアウト処理を実装
