@@ -39,7 +39,9 @@ export const api = {
     const url = new URL(`${API_BASE_URL}${path}`)
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value))
+        if (value !== undefined && value !== null && value !== '') {
+          url.searchParams.append(key, String(value))
+        }
       })
     }
     return apiClient<T>(url.pathname + url.search)

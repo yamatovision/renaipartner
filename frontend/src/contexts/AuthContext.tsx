@@ -29,28 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      // モック環境での認証チェック
-      const mockToken = localStorage.getItem('mockToken')
-      const mockUser = localStorage.getItem('mockUser')
-      
-      if (mockToken && mockUser) {
-        console.warn('🔧 Using MOCK authentication')
-        setUser(JSON.parse(mockUser))
-      } else {
-        // 本番環境での認証チェック
-        const token = localStorage.getItem('access_token')
-        if (token) {
-          const response = await authService.getCurrentUser()
-          if (response.success && response.data) {
-            setUser(response.data)
-          }
+      // 認証チェック
+      const token = localStorage.getItem('access_token')
+      if (token) {
+        const response = await authService.getCurrentUser()
+        if (response.success && response.data) {
+          setUser(response.data)
         }
       }
     } catch (error) {
       console.error('Auth check failed:', error)
       // エラー時はローカルストレージをクリア
-      localStorage.removeItem('mockToken')
-      localStorage.removeItem('mockUser')
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
     } finally {
@@ -63,31 +52,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authService.login(loginRequest)
     
     if (response.success && response.data) {
-      // モック環境かどうかを判定
-      const isMock = response.data.accessToken.startsWith('mock_')
+      // APIレスポンスから必要なデータを取得
+      const { accessToken, refreshToken, user } = response.data
       
-      if (isMock) {
-        // モック用トークン保存
-        localStorage.setItem('mockToken', response.data.accessToken)
-        localStorage.setItem('mockUser', JSON.stringify(response.data.user))
-        
-        // モック用Cookie保存（ミドルウェア用）
-        document.cookie = `mock-auth-token=${response.data.accessToken}; path=/`
-      } else {
-        // 本番用トークン保存
-        localStorage.setItem('access_token', response.data.accessToken)
-        localStorage.setItem('refresh_token', response.data.refreshToken)
-        
-        // Cookieにも保存（ミドルウェア用）
-        document.cookie = `auth-token=${response.data.accessToken}; path=/`
+      // APIレスポンスから必要なデータを取得
+      
+      // アクセストークンがあるかチェック
+      if (!accessToken) {
+        throw new Error('認証情報が取得できませんでした')
       }
       
-      setUser(response.data.user)
+      // 本番用トークン保存
+      localStorage.setItem('access_token', accessToken)
+      if (refreshToken) {
+        localStorage.setItem('refresh_token', refreshToken)
+      }
+      
+      // Cookieにも保存（ミドルウェア用）
+      document.cookie = `auth-token=${accessToken}; path=/`
+      
+      setUser(user)
+      
+      // ログイン成功処理
       
       // ユーザーのロールに応じてリダイレクト先を決定
-      if (response.data.user.role === UserRole.ADMIN) {
+      if (user.role === UserRole.ADMIN) {
+        // 管理者ページへリダイレクト
         router.push('/admin/users')
       } else {
+        // ホームページへリダイレクト
         router.push('/home')
       }
     } else {
@@ -98,17 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await authService.logout()
     
-    // モック用トークン削除
-    localStorage.removeItem('mockToken')
-    localStorage.removeItem('mockUser')
-    
-    // 本番用トークン削除
+    // トークン削除
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     
     // Cookie削除
     document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
-    document.cookie = 'mock-auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
     
     setUser(null)
     router.push('/login')
@@ -127,10 +115,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser)
-    // モック環境の場合はmockUserも更新
-    if (localStorage.getItem('mockToken')) {
-      localStorage.setItem('mockUser', JSON.stringify(updatedUser))
-    }
   }
 
   const isAuthenticated = !!user

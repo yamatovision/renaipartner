@@ -83,6 +83,7 @@ export interface UserCreate extends Partial<UserBase> {
 
 export interface User extends UserBase, Timestamps {
   id: ID;
+  userId: ID; // エイリアス: idと同じ値
   role: UserRole;
   status?: UserStatus;
 }
@@ -344,13 +345,16 @@ export interface PresetPersonality {
 }
 
 export interface OnboardingStartRequest {
-  gender: Gender;
-  name: string;
+  userId?: ID;
+  gender?: Gender;
+  name?: string;
   age?: number;
 }
 
 export interface OnboardingUpdateRequest {
-  step: number;
+  step?: number;
+  currentStep?: number;
+  completedSteps?: number[];
   userData?: {
     surname: string;
     firstName: string;
@@ -361,7 +365,14 @@ export interface OnboardingUpdateRequest {
 }
 
 export interface OnboardingCompleteRequest {
-  finalPartnerData: PartnerData;
+  finalPartnerData?: PartnerData;
+  partnerData?: PartnerData;
+  userData?: {
+    surname: string;
+    firstName: string;
+    birthday: string;
+  };
+  personalityAnswers?: PersonalityQuestion[];
 }
 
 export interface PersonalityPreset {
@@ -626,6 +637,7 @@ export interface SettingsResponse {
     notifications: NotificationSettings;
     userSettings: UserSettings;
   };
+  error?: string;
 }
 
 export interface SettingsUpdateRequest {
@@ -749,13 +761,13 @@ export const API_PATHS = {
     BASE: '/api/users',
     GET: (userId: string) => `/api/users/${userId}`,
     UPDATE: (userId: string) => `/api/users/${userId}`,
-    PROFILE: (userId: string) => `/api/users/${userId}/profile`,
-    SETTINGS: (userId: string) => `/api/users/${userId}/settings`,
-    DELETE: (userId: string) => `/api/users/${userId}`,
+    PROFILE: '/api/users/profile',
+    PASSWORD: '/api/users/password',
+    EXPORT: '/api/users/export',
+    STATS: '/api/users/stats',
+    CHECK_EMAIL: '/api/users/check-email',
     DEACTIVATE: (userId: string) => `/api/users/${userId}/deactivate`,
     ACTIVATE: (userId: string) => `/api/users/${userId}/activate`,
-    PASSWORD: '/api/users/change-password',
-    EXPORT: (userId: string) => `/api/users/${userId}/export`,
   },
   
   // 管理者関連
@@ -763,12 +775,9 @@ export const API_PATHS = {
     BASE: '/api/admin',
     USERS: {
       BASE: '/api/admin/users',
-      CREATE: '/api/admin/users/create',
-      LIST: '/api/admin/users/list',
-      DEACTIVATE: (userId: string) => `/api/admin/users/${userId}/deactivate`,
-      ACTIVATE: (userId: string) => `/api/admin/users/${userId}/activate`,
+      DEACTIVATE: (userId: string) => `/api/users/${userId}/deactivate`,
+      ACTIVATE: (userId: string) => `/api/users/${userId}/activate`,
     },
-    STATS: '/api/admin/stats',
   },
   
   // パートナー関連
@@ -776,7 +785,7 @@ export const API_PATHS = {
     BASE: '/api/partners',
     CREATE: '/api/partners',
     LIST: '/api/partners',
-    GET: '/api/partners/current',
+    GET: '/api/partners',
     DETAIL: (partnerId: string) => `/api/partners/${partnerId}`,
     UPDATE: (partnerId: string) => `/api/partners/${partnerId}`,
     DELETE: (partnerId: string) => `/api/partners/${partnerId}`,

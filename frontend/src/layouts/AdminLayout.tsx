@@ -38,16 +38,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               >
                 ユーザー管理
               </Link>
-              <Link
-                href="/admin/dashboard"
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive('/admin/dashboard')
-                    ? 'bg-gray-700 text-white'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                } transition-colors`}
-              >
-                ダッシュボード
-              </Link>
             </nav>
 
             {/* ログアウトボタン */}

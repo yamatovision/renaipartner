@@ -415,6 +415,7 @@ class UserModel {
   private static mapDbRowToUser(row: any): User {
     return {
       id: row.id,
+      userId: row.id, // エイリアス: idと同じ値
       email: row.email,
       surname: row.surname,
       firstName: row.first_name,

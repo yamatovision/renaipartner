@@ -2,8 +2,11 @@
 
 // 認証後ページ用レイアウト（ヘッダー + パートナーアバター常時表示）
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { partnersService } from '@/services'
+import { Partner } from '@/types'
 
 interface UserLayoutProps {
   children: React.ReactNode
@@ -12,11 +15,26 @@ interface UserLayoutProps {
 export default function UserLayout({ children }: UserLayoutProps) {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [partner, setPartner] = useState<Partner | null>(null)
+  const [loadingPartner, setLoadingPartner] = useState(true)
+  const { logout } = useAuth()
 
-  // モックデータ（後で実データに置き換え）
-  const mockPartner = {
-    name: 'パートナー名',
-    avatarUrl: null, // 後で実装
+  useEffect(() => {
+    loadPartner()
+  }, [])
+
+  const loadPartner = async () => {
+    try {
+      const response = await partnersService.list()
+      if (response.success && response.data && response.data.length > 0) {
+        // 最初のパートナーを使用（将来的には選択機能を追加）
+        setPartner(response.data[0])
+      }
+    } catch (error) {
+      console.error('パートナー情報の取得に失敗しました:', error)
+    } finally {
+      setLoadingPartner(false)
+    }
   }
 
   const isActive = (path: string) => pathname === path
@@ -34,16 +52,18 @@ export default function UserLayout({ children }: UserLayoutProps) {
               </Link>
               
               {/* パートナーアバター（小） */}
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-pink-200 flex items-center justify-center">
-                  <span className="text-xs font-medium text-pink-700">
-                    {mockPartner.name?.[0] || 'P'}
+              {!loadingPartner && partner && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-pink-200 flex items-center justify-center">
+                    <span className="text-xs font-medium text-pink-700">
+                      {partner.name?.[0] || 'P'}
+                    </span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {partner.name}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {mockPartner.name}
-                </span>
-              </div>
+              )}
             </div>
 
             {/* 右側のアイコン群 */}
@@ -129,10 +149,9 @@ export default function UserLayout({ children }: UserLayoutProps) {
                         <hr className="my-1" />
                         <button
                           className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => {
+                          onClick={async () => {
                             setIsMenuOpen(false)
-                            // TODO: ログアウト処理
-                            console.log('ログアウト')
+                            await logout()
                           }}
                         >
                           🚪 ログアウト

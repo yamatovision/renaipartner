@@ -46,6 +46,22 @@ export const partnersApiService = {
     }
   },
 
+  // パートナー一覧取得
+  list: async (): Promise<ApiResponse<Partner[]>> => {
+    try {
+      const response = await api.get<Partner[]>(API_PATHS.PARTNERS.LIST)
+      return {
+        success: true,
+        data: response,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'パートナー一覧の取得に失敗しました',
+      }
+    }
+  },
+
   // パートナー詳細取得
   getPartnerDetail: async (partnerId: string): Promise<ApiResponse<Partner>> => {
     try {

@@ -100,6 +100,18 @@ export default function RegisterPage() {
       newErrors.password = `パスワードは${USER_VALIDATION_RULES.password.minLength || 8}文字以上で設定してください`
     }
 
+    if (!formData.surname) {
+      newErrors.surname = '姓を入力してください'
+    }
+
+    if (!formData.firstName) {
+      newErrors.firstName = '名を入力してください'
+    }
+
+    if (!formData.birthday) {
+      newErrors.birthday = '誕生日を入力してください'
+    }
+
     if (!termsAccepted) {
       newErrors.terms = '利用規約への同意が必要です'
     }
@@ -118,15 +130,8 @@ export default function RegisterPage() {
     setErrors({})
 
     try {
-      console.warn('🔧 Using MOCK data for registration')
-      
-      // モックのため、名前と誕生日に仮データを設定
-      const requestData: RegisterRequest = {
-        ...formData,
-        surname: '山田',
-        firstName: '太郎',
-        birthday: '1990-01-01'
-      }
+      // 登録処理開始
+      const requestData: RegisterRequest = formData
       
       await authRegister(requestData)
       
@@ -157,25 +162,6 @@ export default function RegisterPage() {
         py: 3,
       }}
     >
-      {/* モック使用警告バナー */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bgcolor: 'error.main',
-          color: 'white',
-          py: 1,
-          px: 2,
-          textAlign: 'center',
-          zIndex: 9999,
-        }}
-      >
-        <Typography variant="body2">
-          ⚠️ モックデータ使用中 - 本番環境では使用不可
-        </Typography>
-      </Box>
 
       <Container maxWidth="xs">
         <Box
@@ -261,6 +247,43 @@ export default function RegisterPage() {
               helperText={errors.email}
               placeholder="example@email.com"
               autoFocus
+              sx={{ mb: 3 }}
+            />
+
+            {/* 名前入力 */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+              <TextField
+                fullWidth
+                label="姓"
+                value={formData.surname}
+                onChange={handleInputChange('surname')}
+                error={!!errors.surname}
+                helperText={errors.surname}
+                placeholder="山田"
+              />
+              <TextField
+                fullWidth
+                label="名"
+                value={formData.firstName}
+                onChange={handleInputChange('firstName')}
+                error={!!errors.firstName}
+                helperText={errors.firstName}
+                placeholder="太郎"
+              />
+            </Box>
+
+            {/* 誕生日入力 */}
+            <TextField
+              fullWidth
+              label="誕生日"
+              type="date"
+              value={formData.birthday}
+              onChange={handleInputChange('birthday')}
+              error={!!errors.birthday}
+              helperText={errors.birthday}
+              InputLabelProps={{
+                shrink: true,
+              }}
               sx={{ mb: 3 }}
             />
 
@@ -417,18 +440,6 @@ export default function RegisterPage() {
             </Typography>
           </Box>
 
-          {/* テスト用情報（開発環境のみ） */}
-          <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              [MOCK] 登録時の注意：
-              <br />
-              - 任意のメールアドレスで登録可能
-              <br />
-              - パスワードは8文字以上
-              <br />
-              - 名前・誕生日は仮データが自動設定されます
-            </Typography>
-          </Box>
         </Box>
       </Container>
     </Box>

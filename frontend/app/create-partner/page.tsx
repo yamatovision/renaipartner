@@ -13,8 +13,7 @@ import {
   PartnerCreate,
   AppearanceSettings
 } from '@/types'
-import { partnersService } from '@/services'
-import { showMockIndicator } from '@/services/mock'
+import { partnersService, imagesService } from '@/services'
 import {
   FavoriteRounded,
   AcUnitRounded,
@@ -49,7 +48,6 @@ export default function CreatePartnerPage() {
 
   // モックインジケーター表示
   useEffect(() => {
-    showMockIndicator()
   }, [])
 
   // キーワードのオプション
@@ -118,14 +116,41 @@ export default function CreatePartnerPage() {
     return true
   }
 
-  // ステップ遷移
-  const goToStep = (step: number) => {
-    if (step === 2 && currentStep === 1) {
-      if (!validateStep1()) return
-      // 画像生成のシミュレーション
-      setImageGenerating(true)
-      setTimeout(() => {
-        setImageGenerating(false)
+  // アバター画像生成
+  const generateAvatarImage = async () => {
+    if (!user || formData.selectedKeywords.length === 0) return
+
+    setImageGenerating(true)
+    try {
+      // パートナーの一意ID（仮想）を生成
+      const tempPartnerId = `temp-${user.userId}-${Date.now()}`
+      
+      // 選択されたキーワードから画像生成用のコンテキストを作成
+      const context = `${formData.gender}のパートナー、${formData.selectedKeywords.join('、')}の特徴`
+      
+      const imageRequest = {
+        partnerId: tempPartnerId,
+        context: context,
+        emotion: 'neutral',
+        prompt: `beautiful ${formData.gender}, ${formData.selectedKeywords.join(', ')}, high quality portrait`,
+        width: 512,
+        height: 512,
+        numImages: 1
+      }
+
+      const response = await imagesService.generateAvatar(imageRequest)
+      
+      if (response.success && response.data) {
+        setFormData(prev => ({
+          ...prev,
+          appearance: {
+            ...prev.appearance,
+            generatedImageUrl: response.data!.imageUrl
+          }
+        }))
+      } else {
+        console.error('画像生成に失敗しました:', response.error)
+        // フォールバック画像を設定
         setFormData(prev => ({
           ...prev,
           appearance: {
@@ -133,7 +158,26 @@ export default function CreatePartnerPage() {
             generatedImageUrl: '/api/placeholder/200/200'
           }
         }))
-      }, 2000)
+      }
+    } catch (error) {
+      console.error('画像生成エラー:', error)
+      // フォールバック画像を設定
+      setFormData(prev => ({
+        ...prev,
+        appearance: {
+          ...prev.appearance,
+          generatedImageUrl: '/api/placeholder/200/200'
+        }
+      }))
+    } finally {
+      setImageGenerating(false)
+    }
+  }
+
+  // ステップ遷移
+  const goToStep = (step: number) => {
+    if (step === 2 && currentStep === 1) {
+      if (!validateStep1()) return
     } else if (step === 3 && currentStep === 2) {
       if (!validateStep2()) return
     }
@@ -330,17 +374,37 @@ export default function CreatePartnerPage() {
                 <h2 className="text-xl font-bold text-center mb-8">ビジュアル確認</h2>
                 
                 {/* ビジュアルプレビュー */}
-                <div className="w-48 h-48 mx-auto mb-8 rounded-full overflow-hidden border-4 border-pink-500 bg-gray-100 flex items-center justify-center">
+                <div className="w-48 h-48 mx-auto mb-4 rounded-full overflow-hidden border-4 border-pink-500 bg-gray-100 flex items-center justify-center">
                   {imageGenerating ? (
                     <div className="text-center">
                       <CircularProgress className="text-pink-500 mb-2" />
                       <p className="text-sm text-gray-600">生成中...</p>
                     </div>
+                  ) : formData.appearance.generatedImageUrl ? (
+                    <img 
+                      src={formData.appearance.generatedImageUrl} 
+                      alt="Generated avatar"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="text-6xl">
                       {formData.gender === Gender.BOYFRIEND ? '👨' : '👩'}
                     </div>
                   )}
+                </div>
+
+                {/* 画像生成ボタン */}
+                <div className="text-center mb-8">
+                  <button
+                    onClick={generateAvatarImage}
+                    disabled={imageGenerating || formData.selectedKeywords.length === 0}
+                    className="px-6 py-2 bg-purple-500 text-white rounded-full font-medium hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {imageGenerating ? '生成中...' : 'アバター画像を生成'}
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    選択したキーワードを基に画像を生成します
+                  </p>
                 </div>
 
                 <h3 className="text-lg font-semibold mb-4">性格を選んでください</h3>

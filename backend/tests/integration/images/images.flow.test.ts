@@ -357,8 +357,9 @@ describe('画像生成システム統合テスト', () => {
       
       expect(avatarImage).toBeDefined();
       expect(chatImage).toBeDefined();
-      expect(avatarImage.type).toBe('avatar');
-      expect(chatImage.type).toBe('chat');
+      // contextフィールドで判別（チャット画像は"chat_message:"で始まる）
+      expect(avatarImage.context).toBe('');
+      expect(chatImage.context).toContain('chat_message:');
       
       // 4. 統計情報確認
       tracker.mark('統計情報確認開始');

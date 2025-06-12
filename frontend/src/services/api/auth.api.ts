@@ -14,16 +14,21 @@ export const authApiService = {
   // ログイン
   login: async (request: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
     try {
-      const response = await api.post<LoginResponse>(API_PATHS.AUTH.LOGIN, request)
+      const response = await api.post<ApiResponse<LoginResponse>>(API_PATHS.AUTH.LOGIN, request)
       
-      // アクセストークンをlocalStorageに保存
-      if (response.accessToken) {
-        localStorage.setItem('access_token', response.accessToken)
-      }
-      
-      return {
-        success: true,
-        data: response,
+      // バックエンドのレスポンス形式に対応
+      if (response.success && response.data) {
+        // アクセストークンをlocalStorageに保存
+        if (response.data.accessToken) {
+          localStorage.setItem('access_token', response.data.accessToken)
+        }
+        
+        return {
+          success: true,
+          data: response.data,
+        }
+      } else {
+        throw new Error(response.error || 'ログインに失敗しました')
       }
     } catch (error: any) {
       return {

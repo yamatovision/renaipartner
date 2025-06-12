@@ -66,13 +66,13 @@ export class Message extends Model<IMessage, MessageCreationAttributes> implemen
       underscored: true, // snake_case カラム名を使用
       indexes: [
         {
-          fields: ['partnerId']
+          fields: ['partner_id']
         },
         {
-          fields: ['createdAt']
+          fields: ['created_at']
         },
         {
-          fields: ['partnerId', 'createdAt']
+          fields: ['partner_id', 'created_at']
         }
       ]
     });

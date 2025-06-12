@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { PersonalityQuestion } from '@/types'
+import { onboardingService } from '@/services'
 
 interface Step5PersonalityProps {
   answers: PersonalityQuestion[]
@@ -9,7 +11,8 @@ interface Step5PersonalityProps {
   onPrevious: () => void
 }
 
-const questions: PersonalityQuestion[] = [
+// フォールバック用の質問（APIが失敗した場合）
+const fallbackQuestions: PersonalityQuestion[] = [
   {
     id: '1',
     question: 'どんな性格の人が好みですか？',
@@ -44,6 +47,26 @@ const questions: PersonalityQuestion[] = [
 ]
 
 export function Step5Personality({ answers, onAnswer, onNext, onPrevious }: Step5PersonalityProps) {
+  const [questions, setQuestions] = useState<PersonalityQuestion[]>(fallbackQuestions)
+  const [loading, setLoading] = useState(true)
+  
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const response = await onboardingService.getPersonalityQuestions()
+        if (response.success && response.data) {
+          setQuestions(response.data)
+        }
+      } catch (error) {
+        console.error('性格診断質問の取得に失敗しました:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchQuestions()
+  }, [])
+  
   const isValid = answers.length === questions.length
   
   const handleAnswer = (questionId: string, answer: string) => {

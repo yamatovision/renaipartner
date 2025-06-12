@@ -8,6 +8,7 @@ import { onboardingApiService } from './api/onboarding.api'
 import { memoryApiService } from './api/memory.api'
 import { notificationsApiService } from './api/notifications.api'
 import { settingsApiService } from './api/settings.api'
+import { imagesApiService } from './api/images.api'
 
 // サービスエクスポート（実APIのみ）
 export const authService = authApiService
@@ -19,3 +20,4 @@ export const memoryService = memoryApiService
 export const chatService = chatApiService
 export const notificationsService = notificationsApiService
 export const settingsService = settingsApiService
+export const imagesService = imagesApiService

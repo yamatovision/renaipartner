@@ -14,7 +14,7 @@ export const usersApiService = {
   // プロフィール取得
   getProfile: async (): Promise<ApiResponse<User>> => {
     try {
-      const response = await api.get<User>(API_PATHS.USERS.GET('current'))
+      const response = await api.get<User>(API_PATHS.USERS.PROFILE)
       return {
         success: true,
         data: response,
@@ -30,7 +30,7 @@ export const usersApiService = {
   // プロフィール更新
   updateProfile: async (request: UserUpdateRequest): Promise<ApiResponse<User>> => {
     try {
-      const response = await api.put<User>(API_PATHS.USERS.UPDATE('current'), request)
+      const response = await api.put<User>(API_PATHS.USERS.PROFILE, request)
       return {
         success: true,
         data: response,
@@ -59,7 +59,7 @@ export const usersApiService = {
   // データエクスポート
   exportUserData: async (): Promise<ApiResponse<UserExportData>> => {
     try {
-      const response = await api.get<UserExportData>(API_PATHS.USERS.EXPORT('current'))
+      const response = await api.get<UserExportData>(API_PATHS.USERS.EXPORT)
       return {
         success: true,
         data: response,

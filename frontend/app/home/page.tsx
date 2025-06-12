@@ -8,9 +8,11 @@ import {
   Message, 
   Partner, 
   SendMessageRequest,
-  MessageSender 
+  MessageSender,
+  RelationshipMetrics,
+  ContinuousTopic 
 } from '@/types'
-import { chatService, partnersService } from '@/services'
+import { chatService, partnersService, memoryService } from '@/services'
 
 export default function HomePage() {
   const router = useRouter()
@@ -22,6 +24,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [backgroundIndex, setBackgroundIndex] = useState(0)
+  const [relationshipMetrics, setRelationshipMetrics] = useState<RelationshipMetrics | null>(null)
+  const [loadingMetrics, setLoadingMetrics] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [continuousTopics, setContinuousTopics] = useState<ContinuousTopic[]>([])
+  const [loadingTopics, setLoadingTopics] = useState(false)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -64,6 +73,12 @@ export default function HomePage() {
         if (messagesResponse.success && messagesResponse.data) {
           setMessages(messagesResponse.data.messages)
         }
+
+        // 関係性メトリクスを取得
+        loadRelationshipMetrics(partnersResponse.data.id)
+        
+        // 継続話題を取得
+        loadContinuousTopics(partnersResponse.data.id)
       } else {
         // パートナーがいない場合はオンボーディングへ
         router.push('/onboarding')
@@ -72,6 +87,89 @@ export default function HomePage() {
       console.error('データの取得に失敗しました:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 関係性メトリクス取得
+  const loadRelationshipMetrics = async (partnerId: string) => {
+    try {
+      setLoadingMetrics(true)
+      const response = await memoryService.getRelationshipMetrics(partnerId)
+      if (response.success && response.data) {
+        setRelationshipMetrics(response.data)
+      }
+    } catch (error) {
+      console.error('関係性メトリクスの取得に失敗しました:', error)
+    } finally {
+      setLoadingMetrics(false)
+    }
+  }
+
+  // 会話要約作成
+  const createConversationSummary = async (partnerId: string, recentMessages: Message[]) => {
+    try {
+      const conversationData = recentMessages.map(msg => ({
+        sender: msg.sender,
+        content: msg.content,
+        timestamp: msg.createdAt
+      }))
+
+      const response = await memoryService.createSummary({
+        partnerId,
+        conversationData,
+        timeframe: '最近の会話'
+      })
+
+      if (response.success) {
+        console.log('会話要約が作成されました:', response.data)
+        // 関係性メトリクスを更新（要約により共有メモリが増える可能性）
+        loadRelationshipMetrics(partnerId)
+      }
+    } catch (error) {
+      console.error('会話要約の作成に失敗しました:', error)
+    }
+  }
+
+  // メモリ検索
+  const searchMemories = async (query: string) => {
+    if (!partner || !query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    try {
+      setSearchLoading(true)
+      const response = await memoryService.searchMemory({
+        partnerId: partner.id,
+        query: query.trim(),
+        limit: 10
+      })
+
+      if (response.success && response.data) {
+        setSearchResults(response.data.memories || [])
+      } else {
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('メモリ検索に失敗しました:', error)
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
+  // 継続話題取得
+  const loadContinuousTopics = async (partnerId: string) => {
+    try {
+      setLoadingTopics(true)
+      const response = await memoryService.getContinuousTopics(partnerId)
+      if (response.success && response.data) {
+        setContinuousTopics(response.data)
+      }
+    } catch (error) {
+      console.error('継続話題の取得に失敗しました:', error)
+    } finally {
+      setLoadingTopics(false)
     }
   }
 
@@ -118,6 +216,16 @@ export default function HomePage() {
         // 親密度を更新
         if (response.data.intimacyLevel !== partner?.intimacyLevel) {
           setPartner(prev => prev ? { ...prev, intimacyLevel: response.data!.intimacyLevel } : null)
+          // 関係性メトリクスも更新
+          if (partner) {
+            loadRelationshipMetrics(partner.id)
+          }
+        }
+
+        // 長時間会話の場合は要約を作成
+        const totalMessages = [...messages, userMessage, ...(newMessages || [])]
+        if (totalMessages.length > 0 && totalMessages.length % 20 === 0) {
+          createConversationSummary(partner.id, totalMessages.slice(-20))
         }
       }
     } catch (error) {
@@ -230,6 +338,11 @@ export default function HomePage() {
               <div className="flex items-center gap-2 text-sm opacity-90">
                 <span className="text-green-400 text-xs animate-pulse">●</span>
                 <span>会話中</span>
+                {relationshipMetrics && (
+                  <span className="ml-2 px-2 py-1 bg-white/20 rounded-full text-xs">
+                    親密度 {relationshipMetrics.intimacyLevel}%
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -260,19 +373,21 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* チャットエリア */}
-      <div 
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto p-4"
-        style={{
-          backgroundImage: backgrounds[backgroundIndex],
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
-        <div className="max-w-3xl mx-auto space-y-4">
+      {/* メインコンテンツエリア */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* チャットエリア */}
+        <div 
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4"
+          style={{
+            backgroundImage: backgrounds[backgroundIndex],
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+            backgroundRepeat: 'no-repeat'
+          }}
+        >
+          <div className="max-w-3xl mx-auto space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -336,6 +451,248 @@ export default function HomePage() {
               </div>
             </div>
           )}
+          </div>
+        </div>
+
+        {/* 関係性メトリクスサイドパネル */}
+        <div className="w-80 bg-white/95 backdrop-blur-sm border-l border-gray-200 overflow-y-auto">
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+              <span className="mr-2">💝</span>
+              関係性
+            </h3>
+            
+            {loadingMetrics ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                <p className="text-gray-500 text-sm">読み込み中...</p>
+              </div>
+            ) : relationshipMetrics ? (
+              <div className="space-y-4">
+                {/* 親密度 */}
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">親密度</span>
+                    <span className="text-lg font-bold text-purple-600">{relationshipMetrics.intimacyLevel}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-pink-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${relationshipMetrics.intimacyLevel}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* 信頼度 */}
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">信頼度</span>
+                    <span className="text-lg font-bold text-blue-600">{relationshipMetrics.trustLevel}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${relationshipMetrics.trustLevel}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* 感情的つながり */}
+                <div className="bg-gradient-to-r from-orange-50 to-red-50 p-3 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">感情的つながり</span>
+                    <span className="text-lg font-bold text-orange-600">{relationshipMetrics.emotionalConnection}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${relationshipMetrics.emotionalConnection}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* 統計情報 */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">統計情報</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">会話頻度</span>
+                      <span className="font-medium">{relationshipMetrics.conversationFrequency}回/週</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">共有メモリ</span>
+                      <span className="font-medium">{relationshipMetrics.sharedMemories}件</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">最後の会話</span>
+                      <span className="font-medium text-xs">
+                        {new Date(relationshipMetrics.lastInteraction).toLocaleDateString('ja-JP')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 更新ボタン */}
+                <button
+                  onClick={() => partner && loadRelationshipMetrics(partner.id)}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-4 rounded-lg hover:opacity-90 transition-opacity text-sm"
+                >
+                  🔄 メトリクス更新
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">関係性データを読み込み中...</p>
+              </div>
+            )}
+
+            {/* メモリ検索セクション */}
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                <span className="mr-2">🔍</span>
+                思い出検索
+              </h4>
+              
+              <div className="relative mb-3">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    if (e.target.value.trim()) {
+                      searchMemories(e.target.value)
+                    } else {
+                      setSearchResults([])
+                    }
+                  }}
+                  placeholder="過去の会話を検索..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {searchLoading && (
+                  <div className="absolute right-3 top-2.5">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                  </div>
+                )}
+              </div>
+
+              {/* 検索結果 */}
+              {searchResults.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {searchResults.map((memory, index) => (
+                    <div key={memory.id || index} className="bg-gray-50 p-2 rounded text-xs">
+                      <div className="font-medium text-gray-700 mb-1">{memory.type || '会話'}</div>
+                      <div className="text-gray-600 line-clamp-2">{memory.content}</div>
+                      {memory.tags && memory.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {memory.tags.slice(0, 3).map((tag: string, tagIndex: number) => (
+                            <span key={tagIndex} className="px-1 py-0.5 bg-purple-100 text-purple-600 rounded text-xs">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : searchQuery.trim() && !searchLoading ? (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  検索結果が見つかりませんでした
+                </div>
+              ) : null}
+            </div>
+
+            {/* 継続話題セクション */}
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <h4 className="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                <span className="mr-2">💬</span>
+                話題の続き
+              </h4>
+              
+              {loadingTopics ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                  <p className="text-gray-500 text-xs">読み込み中...</p>
+                </div>
+              ) : continuousTopics.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {continuousTopics.map((topic, index) => (
+                    <div 
+                      key={topic.id || index} 
+                      className="bg-gray-50 p-2 rounded text-xs border border-gray-100 hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setInputMessage(`${topic.topic}について、`)
+                        inputRef.current?.focus()
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="font-medium text-gray-700">{topic.topic}</div>
+                        <span className={`px-1 py-0.5 text-xs rounded ${
+                          topic.status === 'active' ? 'bg-green-100 text-green-700' :
+                          topic.status === 'dormant' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {topic.status === 'active' ? '継続中' : 
+                           topic.status === 'dormant' ? '休眠中' : '解決済み'}
+                        </span>
+                      </div>
+                      
+                      {topic.relatedPeople && topic.relatedPeople.length > 0 && (
+                        <div className="text-gray-600 mb-1">
+                          👥 {topic.relatedPeople.join(', ')}
+                        </div>
+                      )}
+
+                      {/* 感情の重み表示 */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <span 
+                              key={i} 
+                              className={`text-xs ${
+                                i < topic.emotionalWeight ? 'text-orange-500' : 'text-gray-300'
+                              }`}
+                            >
+                              ●
+                            </span>
+                          ))}
+                        </div>
+                        
+                        {topic.nextCheckIn && (
+                          <span className="text-xs text-gray-500">
+                            次回: {new Date(topic.nextCheckIn).toLocaleDateString('ja-JP')}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* 最新の更新 */}
+                      {topic.updates && topic.updates.length > 0 && (
+                        <div className="mt-1 text-gray-600 text-xs line-clamp-1">
+                          最新: {topic.updates[topic.updates.length - 1].content}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  まだ継続話題がありません
+                </div>
+              )}
+
+              {/* 継続話題更新ボタン */}
+              {continuousTopics.length > 0 && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => partner && loadContinuousTopics(partner.id)}
+                    disabled={loadingTopics}
+                    className="w-full py-1 px-2 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+                  >
+                    {loadingTopics ? '更新中...' : '🔄 話題を更新'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -377,7 +734,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;

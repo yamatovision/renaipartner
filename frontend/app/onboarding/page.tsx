@@ -15,8 +15,7 @@ import {
   PartnerCreate,
   PartnerData
 } from '@/types'
-import { partnersService } from '@/services'
-import { showMockIndicator } from '@/services/mock'
+import { partnersService, onboardingService } from '@/services'
 
 // ステップコンポーネント
 import { Step1Welcome } from './components/Step1Welcome'
@@ -77,20 +76,94 @@ export default function OnboardingPage() {
     completed: false
   })
 
-  // モックインジケーター表示
+  // ページロード時に既存の進捗を取得
   useEffect(() => {
-    showMockIndicator()
-  }, [])
+    const loadProgress = async () => {
+      if (!user) return
+      
+      try {
+        // 既存の進捗を取得
+        const progressResponse = await onboardingService.getProgress(user.id)
+        
+        if (progressResponse.success && progressResponse.data) {
+          // 既存の進捗データをステートに反映
+          const progress = progressResponse.data
+          setCurrentStep(progress.currentStep)
+          setOnboardingData({
+            currentStep: progress.currentStep,
+            completedSteps: progress.completedSteps || [],
+            userData: progress.userData || {
+              surname: '',
+              firstName: '',
+              birthday: ''
+            },
+            partnerData: progress.partnerData || {
+              gender: Gender.BOYFRIEND,
+              name: '',
+              personality: PersonalityType.GENTLE,
+              speechStyle: SpeechStyle.POLITE,
+              prompt: '',
+              nickname: '',
+              appearance: {
+                hairStyle: 'short',
+                eyeColor: 'brown',
+                bodyType: 'average',
+                clothingStyle: 'casual',
+                generatedImageUrl: undefined
+              }
+            },
+            personalityAnswers: progress.personalityAnswers || [],
+            completed: progress.completed || false
+          })
+        } else {
+          // 新規オンボーディングを開始
+          const startResponse = await onboardingService.startOnboarding({ 
+            userId: user.id,
+            gender: Gender.GIRLFRIEND, // デフォルト値
+            name: ''
+          })
+          if (!startResponse.success) {
+            console.error('オンボーディングの開始に失敗しました:', startResponse.error)
+          }
+        }
+      } catch (error) {
+        console.error('進捗の読み込みに失敗しました:', error)
+      }
+    }
+    
+    loadProgress()
+  }, [user])
 
   // ステップの進行
-  const nextStep = () => {
-    if (currentStep < 10) {
-      setCurrentStep(currentStep + 1)
+  const nextStep = async () => {
+    if (currentStep < 10 && user) {
+      const newStep = currentStep + 1
+      
+      // ローカルステートを更新
+      setCurrentStep(newStep)
       setOnboardingData(prev => ({
         ...prev,
-        currentStep: currentStep + 1,
+        currentStep: newStep,
         completedSteps: [...prev.completedSteps, currentStep]
       }))
+      
+      // APIに進捗を保存
+      try {
+        const updateResponse = await onboardingService.updateProgress(user.id, {
+          step: newStep,
+          currentStep: newStep,
+          completedSteps: [...onboardingData.completedSteps, currentStep],
+          userData: onboardingData.userData,
+          partnerData: onboardingData.partnerData,
+          personalityAnswers: onboardingData.personalityAnswers
+        })
+        
+        if (!updateResponse.success) {
+          console.error('進捗の保存に失敗しました:', updateResponse.error)
+        }
+      } catch (error) {
+        console.error('進捗の保存中にエラーが発生しました:', error)
+      }
     }
   }
 
@@ -106,46 +179,56 @@ export default function OnboardingPage() {
   }
 
   // データの更新
-  const updateData = (data: Partial<OnboardingProgress>) => {
+  const updateData = async (data: Partial<OnboardingProgress>) => {
+    // ローカルステートを更新
     setOnboardingData(prev => ({
       ...prev,
       ...data
     }))
+    
+    // APIに進捗を保存
+    if (user) {
+      try {
+        const updateResponse = await onboardingService.updateProgress(user.id, {
+          step: data.currentStep || onboardingData.currentStep,
+          currentStep: data.currentStep || onboardingData.currentStep,
+          completedSteps: data.completedSteps || onboardingData.completedSteps,
+          userData: data.userData || onboardingData.userData,
+          partnerData: data.partnerData || onboardingData.partnerData,
+          personalityAnswers: data.personalityAnswers || onboardingData.personalityAnswers
+        })
+        
+        if (!updateResponse.success) {
+          console.error('データの保存に失敗しました:', updateResponse.error)
+        }
+      } catch (error) {
+        console.error('データの保存中にエラーが発生しました:', error)
+      }
+    }
   }
 
-  // パートナー作成
+  // オンボーディング完了とパートナー作成
   const createPartner = async () => {
     if (!user) return
     
     setLoading(true)
     try {
-      const partnerData: PartnerCreate = {
-        userId: user.id,
-        name: onboardingData.partnerData.name,
-        gender: onboardingData.partnerData.gender,
-        personalityType: onboardingData.partnerData.personality,
-        speechStyle: onboardingData.partnerData.speechStyle,
-        appearance: {
-          ...onboardingData.partnerData.appearance,
-          generatedImageUrl: onboardingData.partnerData.appearance.generatedImageUrl || ''
-        },
-        systemPrompt: onboardingData.partnerData.prompt,
-        avatarDescription: '',
-        hobbies: [],
-        intimacyLevel: 0,
-        createdViaOnboarding: true
-      }
-
-      const response = await partnersService.createPartner(partnerData)
+      // オンボーディング完了APIを呼び出し
+      const completeResponse = await onboardingService.completeOnboarding(user.id, {
+        userData: onboardingData.userData,
+        partnerData: onboardingData.partnerData
+      })
       
-      if (response.success && response.data) {
-        // パートナー作成成功
+      if (completeResponse.success) {
+        // オンボーディング完了成功 - ホームページへリダイレクト
         router.push('/home')
       } else {
-        console.error('パートナー作成に失敗しました:', response.error)
+        console.error('オンボーディングの完了に失敗しました:', completeResponse.error)
+        alert('オンボーディングの完了に失敗しました。再度お試しください。')
       }
     } catch (error) {
-      console.error('パートナー作成エラー:', error)
+      console.error('オンボーディング完了エラー:', error)
+      alert('オンボーディングの完了中にエラーが発生しました。')
     } finally {
       setLoading(false)
     }

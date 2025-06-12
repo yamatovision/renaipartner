@@ -75,7 +75,7 @@ export default function LoginPage() {
     setErrors({})
 
     try {
-      console.warn('🔧 Using MOCK data for login')
+      // ログイン処理開始
       await authLogin(formData.email, formData.password)
       // AuthContextがリダイレクトを処理
     } catch (error) {
@@ -99,25 +99,6 @@ export default function LoginPage() {
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       }}
     >
-      {/* モック使用警告バナー */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bgcolor: 'error.main',
-          color: 'white',
-          py: 1,
-          px: 2,
-          textAlign: 'center',
-          zIndex: 9999,
-        }}
-      >
-        <Typography variant="body2">
-          ⚠️ モックデータ使用中 - 本番環境では使用不可
-        </Typography>
-      </Box>
 
       <Container maxWidth="xs">
         <Box
@@ -161,7 +142,8 @@ export default function LoginPage() {
             </Typography>
           </Box>
 
-          {/* モックログイン情報 */}
+
+          {/* テストログイン情報 */}
           <Box
             sx={{
               bgcolor: '#e3f2fd',
@@ -175,7 +157,7 @@ export default function LoginPage() {
               variant="subtitle2"
               sx={{ color: '#1976d2', fontWeight: 600, mb: 1 }}
             >
-              🔧 モック環境 - テストログイン情報
+              🔧 テストログイン情報
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -296,13 +278,14 @@ export default function LoginPage() {
           {/* テスト用情報（開発環境のみ） */}
           <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              [MOCK] テスト用アカウント：
+              テスト用アカウント：
               <br />
-              Email: test@example.com
+              Email: test@example.com / admin@example.com
               <br />
               Password: password123
             </Typography>
           </Box>
+
         </Box>
       </Container>
     </Box>

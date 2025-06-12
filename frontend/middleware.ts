@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { jwtDecode } from 'jwt-decode'
+
+// JWT ペイロードの型定義
+interface JWTPayload {
+  userId: string
+  email: string
+  role: 'admin' | 'user'
+  exp: number
+  iat: number
+  hasCompletedOnboarding?: boolean
+}
 
 // 公開ルート（認証不要）
 const publicRoutes = ['/login', '/register']
@@ -14,33 +25,55 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // 認証状態のチェック
-  // モック環境ではmock-auth-token、本番環境ではauth-tokenをチェック
   const authToken = request.cookies.get('auth-token')?.value
-  const mockAuthToken = request.cookies.get('mock-auth-token')?.value
-  const isAuthenticated = authToken || mockAuthToken
+  const isAuthenticated = !!authToken
   
-  // モック環境での管理者チェック（localStorage から取得）
+  // 管理者チェック
   let isAdmin = false
   let hasCompletedOnboarding = true
   
-  if (mockAuthToken) {
-    // モック環境の場合は、Cookieのトークンからロール情報を取得
-    // トークンの形式: "mock_token_admin" または "mock_token_user"
-    if (mockAuthToken.includes('_admin')) {
-      isAdmin = true
+  if (authToken) {
+    try {
+      const decoded = jwtDecode<JWTPayload>(authToken)
+      
+      // トークンの有効期限チェック
+      const isExpired = decoded.exp * 1000 < Date.now()
+      if (isExpired) {
+        // トークンが期限切れの場合はログインページへリダイレクト
+        const url = new URL('/login', request.url)
+        url.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(url)
+      }
+      
+      isAdmin = decoded.role === 'admin'
+      hasCompletedOnboarding = decoded.hasCompletedOnboarding !== false
+    } catch (error) {
+      // 無効なトークンの場合はログインページへリダイレクト
+      console.error('Invalid JWT token:', error)
+      const url = new URL('/login', request.url)
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
     }
-  } else if (authToken) {
-    // TODO: 本番環境でのJWTトークンデコード
-    // const decoded = jwt.decode(authToken)
-    // isAdmin = decoded.role === 'admin'
-    // hasCompletedOnboarding = decoded.hasCompletedOnboarding
+  }
+
+  // ルートパスへのアクセス
+  if (pathname === '/') {
+    if (isAuthenticated) {
+      // 認証済みユーザーはロールに応じてリダイレクト
+      const redirectUrl = isAdmin ? '/admin/users' : '/home'
+      return NextResponse.redirect(new URL(redirectUrl, request.url))
+    } else {
+      // 未認証ユーザーはログインページへ
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
   }
 
   // 公開ルートへのアクセス
   if (publicRoutes.some(route => pathname.startsWith(route))) {
     // 認証済みユーザーがログイン/登録ページにアクセスした場合
     if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/home', request.url))
+      const redirectUrl = isAdmin ? '/admin/users' : '/home'
+      return NextResponse.redirect(new URL(redirectUrl, request.url))
     }
     return NextResponse.next()
   }

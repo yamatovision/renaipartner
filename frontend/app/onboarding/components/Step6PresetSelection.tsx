@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PersonalityType, SpeechStyle, PersonalityQuestion, PresetPersonality } from '@/types'
+import { onboardingService } from '@/services'
 
 interface Step6PresetSelectionProps {
   userName: string
@@ -13,8 +14,8 @@ interface Step6PresetSelectionProps {
   onPrevious: () => void
 }
 
-// プリセット性格の定義
-const presetPersonalities: PresetPersonality[] = [
+// フォールバック用のプリセット（APIが失敗した場合）
+const fallbackPresets: PresetPersonality[] = [
   {
     id: 'gentle-lover',
     name: '優しい恋人',
@@ -60,10 +61,47 @@ export function Step6PresetSelection({
   onPrevious 
 }: Step6PresetSelectionProps) {
   const [showAll, setShowAll] = useState(false)
+  const [presetPersonalities, setPresetPersonalities] = useState<PresetPersonality[]>(fallbackPresets)
+  const [loading, setLoading] = useState(true)
   const isValid = selectedPreset !== ''
   
+  useEffect(() => {
+    const fetchPresets = async () => {
+      try {
+        // おすすめプリセットを取得
+        if (personalityAnswers.length > 0) {
+          const recommendedResponse = await onboardingService.getRecommendedPresets({
+            personalityAnswers: personalityAnswers
+              .filter(a => a.answer !== undefined && a.question !== undefined)
+              .map(a => ({
+                id: a.id,
+                question: a.question!,
+                answer: a.answer!
+              }))
+          })
+          
+          if (recommendedResponse.success && recommendedResponse.data) {
+            setPresetPersonalities(recommendedResponse.data as PresetPersonality[])
+          }
+        } else {
+          // 回答がない場合は全プリセットを取得
+          const presetsResponse = await onboardingService.getPresets()
+          if (presetsResponse.success && presetsResponse.data) {
+            setPresetPersonalities(presetsResponse.data as PresetPersonality[])
+          }
+        }
+      } catch (error) {
+        console.error('プリセットの取得に失敗しました:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchPresets()
+  }, [personalityAnswers])
+  
   const handleSelect = (preset: PresetPersonality) => {
-    onSelect(preset.personality, preset.speechStyle, preset.prompt)
+    onSelect(preset.personality, preset.speechStyle, preset.prompt || preset.systemPrompt)
   }
   
   const displayedPresets = showAll ? presetPersonalities : presetPersonalities.filter(p => p.recommended)

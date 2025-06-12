@@ -4,22 +4,23 @@ import {
   NotificationScheduleRequest, 
   NotificationScheduleResponse,
   NotificationStatsResponse,
+  ApiResponse,
   API_PATHS 
 } from '../../types'
 
 export const notificationsApiService = {
   // 通知設定取得（API 8.1）
-  async getSettings(): Promise<NotificationSettings> {
+  async getSettings(): Promise<ApiResponse<NotificationSettings>> {
     return api.get(API_PATHS.NOTIFICATIONS.SETTINGS)
   },
 
   // 通知設定更新（API 8.2）
-  async updateSettings(settings: Partial<Omit<NotificationSettings, 'id' | 'userId'>>): Promise<NotificationSettings> {
+  async updateSettings(settings: Partial<Omit<NotificationSettings, 'id' | 'userId'>>): Promise<ApiResponse<NotificationSettings>> {
     return api.put(API_PATHS.NOTIFICATIONS.SETTINGS, settings)
   },
 
   // 通知スケジュール作成（API 8.3）
-  async createSchedule(schedule: NotificationScheduleRequest): Promise<NotificationScheduleResponse> {
+  async createSchedule(schedule: NotificationScheduleRequest): Promise<ApiResponse<NotificationScheduleResponse>> {
     return api.post(API_PATHS.NOTIFICATIONS.SCHEDULE, schedule)
   },
 

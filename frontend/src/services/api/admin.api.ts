@@ -15,7 +15,7 @@ export const adminApiService = {
   // ユーザー作成
   createUser: async (request: CreateUserRequest): Promise<ApiResponse<User>> => {
     try {
-      const response = await api.post<User>(API_PATHS.ADMIN.USERS.CREATE, request)
+      const response = await api.post<User>(API_PATHS.ADMIN.USERS.BASE, request)
       return {
         success: true,
         data: response,
@@ -36,13 +36,13 @@ export const adminApiService = {
     status?: 'all' | 'active' | 'inactive'
   }): Promise<ApiResponse<UserListResponse>> => {
     try {
-      const response = await api.get<UserListResponse>(
-        API_PATHS.ADMIN.USERS.LIST,
+      const response = await api.get<any>(
+        API_PATHS.ADMIN.USERS.BASE,
         params
       )
       return {
         success: true,
-        data: response,
+        data: response.data, // APIレスポンスのdataプロパティを取得
       }
     } catch (error: any) {
       return {
@@ -91,10 +91,10 @@ export const adminApiService = {
   // 管理者統計情報取得
   getStats: async (): Promise<ApiResponse<AdminStats>> => {
     try {
-      const response = await api.get<AdminStats>(API_PATHS.ADMIN.STATS)
+      const response = await api.get<any>(API_PATHS.USERS.STATS)
       return {
         success: true,
-        data: response,
+        data: response.data, // APIレスポンスのdataプロパティを取得
       }
     } catch (error: any) {
       return {

@@ -1,13 +1,13 @@
 'use client'
 
 // U-003: パートナー編集ページ
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import UserLayout from '@/layouts/UserLayout'
-import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality, PERSONALITY_PRESETS } from '@/types'
-import { mockPartnersService } from '@/services/mock/partners.mock'
+import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality, PERSONALITY_PRESETS, EpisodeMemory } from '@/types'
+import { partnersService, memoryService, imagesService } from '@/services'
 
-export default function EditPartnerPage() {
+function EditPartnerContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const partnerId = searchParams.get('id')
@@ -15,7 +15,7 @@ export default function EditPartnerPage() {
   const [partner, setPartner] = useState<Partner | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'personality' | 'appearance' | 'details'>('personality')
+  const [activeTab, setActiveTab] = useState<'personality' | 'appearance' | 'details' | 'memories'>('personality')
   const [editMode, setEditMode] = useState<'simple' | 'advanced'>('simple')
   const [presets, setPresets] = useState<PresetPersonality[]>([])
   const [validating, setValidating] = useState(false)
@@ -23,6 +23,9 @@ export default function EditPartnerPage() {
   const [preview, setPreview] = useState<any>(null)
   const [generatingPreview, setGeneratingPreview] = useState(false)
   const [showNameEdit, setShowNameEdit] = useState(false)
+  const [episodes, setEpisodes] = useState<EpisodeMemory[]>([])
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false)
+  const [imageGenerating, setImageGenerating] = useState(false)
 
   // フォームデータ
   const [formData, setFormData] = useState<PartnerUpdate>({})
@@ -36,7 +39,7 @@ export default function EditPartnerPage() {
 
     const loadPartner = async () => {
       try {
-        const response = await mockPartnersService.getPartnerDetail(partnerId)
+        const response = await partnersService.getPartnerDetail(partnerId)
         if (response.success && response.data) {
           setPartner(response.data)
           setFormData({
@@ -77,13 +80,37 @@ export default function EditPartnerPage() {
     loadPresets()
   }, [])
 
+  // エピソード記憶読み込み
+  const loadEpisodes = async () => {
+    if (!partnerId) return
+
+    try {
+      setLoadingEpisodes(true)
+      const response = await memoryService.getEpisodes(partnerId)
+      if (response.success && response.data) {
+        setEpisodes(response.data)
+      }
+    } catch (error) {
+      console.error('エピソード記憶取得エラー:', error)
+    } finally {
+      setLoadingEpisodes(false)
+    }
+  }
+
+  // memoriesタブが選択された時にエピソードを読み込む
+  useEffect(() => {
+    if (activeTab === 'memories' && partnerId) {
+      loadEpisodes()
+    }
+  }, [activeTab, partnerId])
+
   // 保存処理
   const handleSave = async () => {
     if (!partnerId || !partner) return
 
     setSaving(true)
     try {
-      const response = await mockPartnersService.updatePartner(partnerId, formData)
+      const response = await partnersService.updatePartner(partnerId, formData)
       if (response.success) {
         alert('保存しました！')
         router.push('/home')
@@ -104,7 +131,7 @@ export default function EditPartnerPage() {
 
     setValidating(true)
     try {
-      const response = await mockPartnersService.validatePrompt({ systemPrompt: formData.systemPrompt })
+      const response = await partnersService.validatePrompt({ systemPrompt: formData.systemPrompt })
       if (response.success) {
         setValidationResult(response.data)
       }
@@ -121,7 +148,7 @@ export default function EditPartnerPage() {
 
     setGeneratingPreview(true)
     try {
-      const response = await mockPartnersService.previewPrompt({ systemPrompt: formData.systemPrompt })
+      const response = await partnersService.previewPrompt({ systemPrompt: formData.systemPrompt })
       if (response.success && response.data?.response) {
         setPreview({ messages: [{ content: response.data.response }] })
       }
@@ -129,6 +156,54 @@ export default function EditPartnerPage() {
       console.error('プレビュー生成エラー:', error)
     } finally {
       setGeneratingPreview(false)
+    }
+  }
+
+  // アバター画像生成
+  const generateAvatarImage = async () => {
+    if (!partner) return
+
+    setImageGenerating(true)
+    try {
+      // パートナー情報から画像生成用のコンテキストを作成
+      const context = `${partner.gender}のパートナー、${partner.avatarDescription || '美しい'}`
+      
+      const imageRequest = {
+        partnerId: partner.id,
+        context: context,
+        emotion: 'neutral',
+        prompt: `beautiful ${partner.gender}, ${partner.avatarDescription || 'attractive'}, high quality portrait`,
+        width: 512,
+        height: 512,
+        numImages: 1
+      }
+
+      const response = await imagesService.generateAvatar(imageRequest)
+      
+      if (response.success && response.data) {
+        setFormData(prev => ({
+          ...prev,
+          appearance: {
+            ...prev.appearance,
+            generatedImageUrl: response.data!.imageUrl
+          }
+        }))
+        setPartner(prev => prev ? {
+          ...prev,
+          appearance: {
+            ...prev.appearance,
+            generatedImageUrl: response.data!.imageUrl
+          }
+        } : null)
+      } else {
+        console.error('画像生成に失敗しました:', response.error)
+        alert('画像生成に失敗しました')
+      }
+    } catch (error) {
+      console.error('画像生成エラー:', error)
+      alert('画像生成中にエラーが発生しました')
+    } finally {
+      setImageGenerating(false)
     }
   }
 
@@ -232,7 +307,8 @@ export default function EditPartnerPage() {
               {[
                 { key: 'personality', label: '性格・口調' },
                 { key: 'appearance', label: '見た目' },
-                { key: 'details', label: '趣味・詳細' }
+                { key: 'details', label: '趣味・詳細' },
+                { key: 'memories', label: '思い出' }
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -382,6 +458,34 @@ export default function EditPartnerPage() {
                         className="w-full h-32 p-3 border-2 border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
                         placeholder="外見の特徴を記述してください..."
                       />
+                      
+                      {/* アバター画像生成ボタン */}
+                      <div className="mt-4 text-center">
+                        <button
+                          onClick={generateAvatarImage}
+                          disabled={imageGenerating}
+                          className="px-6 py-2 bg-purple-500 text-white rounded-full font-medium hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {imageGenerating ? '画像生成中...' : 'アバター画像を生成'}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          説明を基に新しいアバター画像を生成します
+                        </p>
+                      </div>
+
+                      {/* 生成された画像のプレビュー */}
+                      {(formData.appearance?.generatedImageUrl || partner?.appearance?.generatedImageUrl) && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-700 mb-2">現在のアバター画像</p>
+                          <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-pink-500 bg-gray-100">
+                            <img 
+                              src={formData.appearance?.generatedImageUrl || partner?.appearance?.generatedImageUrl} 
+                              alt="Avatar"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-3">外見プリセット</h4>
@@ -448,6 +552,117 @@ export default function EditPartnerPage() {
                   </div>
                 </div>
               )}
+
+              {/* 思い出タブ */}
+              {activeTab === 'memories' && (
+                <div>
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-2 flex items-center">
+                      <span className="mr-2">💕</span>
+                      {partner.name}との思い出
+                    </h2>
+                    <p className="text-gray-600 text-sm">
+                      AIパートナーと共有した特別な記憶やエピソードです
+                    </p>
+                  </div>
+
+                  {loadingEpisodes ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto mb-4"></div>
+                      <p className="text-gray-500">思い出を読み込み中...</p>
+                    </div>
+                  ) : episodes.length > 0 ? (
+                    <div className="space-y-4">
+                      {episodes.map((episode, index) => (
+                        <div 
+                          key={episode.id || index} 
+                          className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg border border-pink-100"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="font-medium text-gray-800">{episode.title}</h3>
+                            <span className="text-sm text-gray-500">
+                              {new Date(episode.date).toLocaleDateString('ja-JP')}
+                            </span>
+                          </div>
+                          
+                          <p className="text-gray-700 mb-3 leading-relaxed">
+                            {episode.description}
+                          </p>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap gap-1">
+                              {episode.tags.map((tag, tagIndex) => (
+                                <span 
+                                  key={tagIndex} 
+                                  className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                            
+                            <div className="flex items-center">
+                              {/* 感情の重み表示 */}
+                              <div className="flex items-center mr-3">
+                                <span className="text-sm text-gray-600 mr-1">感情の強さ:</span>
+                                <div className="flex">
+                                  {[...Array(5)].map((_, i) => (
+                                    <span 
+                                      key={i} 
+                                      className={`text-sm ${
+                                        i < episode.emotionalWeight ? 'text-red-500' : 'text-gray-300'
+                                      }`}
+                                    >
+                                      ❤️
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* 参加者表示 */}
+                              {episode.participants && episode.participants.length > 0 && (
+                                <div className="text-sm text-gray-600">
+                                  👥 {episode.participants.join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">📖</div>
+                      <h3 className="text-lg font-medium text-gray-700 mb-2">
+                        まだ思い出がありません
+                      </h3>
+                      <p className="text-gray-500 text-sm mb-4">
+                        {partner.name}との会話を続けていくと、<br />
+                        特別な瞬間が思い出として記録されます
+                      </p>
+                      <button
+                        onClick={loadEpisodes}
+                        className="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
+                      >
+                        🔄 更新
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 思い出の更新ボタン */}
+                  {episodes.length > 0 && (
+                    <div className="mt-6 text-center">
+                      <button
+                        onClick={loadEpisodes}
+                        disabled={loadingEpisodes}
+                        className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {loadingEpisodes ? '更新中...' : '🔄 思い出を更新'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -500,5 +715,13 @@ export default function EditPartnerPage() {
         </div>
       )}
     </UserLayout>
+  )
+}
+
+export default function EditPartnerPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">読み込み中...</div>}>
+      <EditPartnerContent />
+    </Suspense>
   )
 }

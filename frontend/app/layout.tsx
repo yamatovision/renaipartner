@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { MockIndicator, IS_MOCK_MODE } from '@/services/mock'
 import '../src/styles/globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -18,8 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={inter.className} style={IS_MOCK_MODE ? { paddingTop: '40px' } : {}}>
-        <MockIndicator />
+      <body className={inter.className}>
         <AuthProvider>
           {children}
         </AuthProvider>

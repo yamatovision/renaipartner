@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 import AdminLayout from '@/layouts/AdminLayout'
 import { User, UserStatus, UserCreate, CreateUserRequest, UserListResponse } from '@/types'
 import { adminService } from '@/services'
-import { showMockIndicator } from '@/services/mock'
 
 // ユーザー統計カードコンポーネント
 function UserStatsCard({ 
@@ -25,7 +24,7 @@ function UserStatsCard({
         <div className={`text-2xl mr-4 ${color}`}>{icon}</div>
         <div>
           <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-gray-900">{(value || 0).toLocaleString()}</p>
         </div>
       </div>
     </div>
@@ -120,10 +119,6 @@ export default function AdminUsersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  // モックインジケーター表示
-  useEffect(() => {
-    showMockIndicator()
-  }, [])
 
   // データ取得
   const fetchData = async () => {
@@ -257,7 +252,7 @@ export default function AdminUsersPage() {
                     />
                     <UserStatsCard
                       title="今日の新規登録"
-                      value={stats.todayNewUsers}
+                      value={stats.todayRegistrations}
                       icon="🆕"
                       color="text-purple-600"
                     />
@@ -326,7 +321,7 @@ export default function AdminUsersPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {users?.users?.map((user: User) => (
+                          {users?.items?.map((user: User) => (
                             <tr key={user.id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {user.id}
