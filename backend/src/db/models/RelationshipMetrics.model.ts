@@ -41,8 +41,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -78,8 +76,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -118,8 +114,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -132,85 +126,11 @@ class RelationshipMetricsModel {
     }
   }
 
-  // 信頼度更新
-  static async updateTrustLevel(partnerId: ID, trustChange: number): Promise<RelationshipMetrics> {
-    const client = await pool.connect();
-    
-    try {
-      const query = `
-        UPDATE relationship_metrics 
-        SET 
-          trust_level = GREATEST(0, LEAST(100, trust_level + $1)),
-          last_interaction = CURRENT_TIMESTAMP
-        WHERE partner_id = $2
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  communication_frequency, last_interaction, shared_experiences
-      `;
-      
-      const result = await client.query(query, [trustChange, partnerId]);
-      
-      if (result.rows.length === 0) {
-        throw new Error('関係性メトリクスが見つかりません');
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.communication_frequency,
-        lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_experiences
-      };
-    } catch (error) {
-      console.error('[RelationshipMetrics.model] 信頼度更新エラー:', error);
-      throw new Error('信頼度の更新に失敗しました');
-    } finally {
-      client.release();
-    }
-  }
+  // 信頼度更新 (将来の拡張用・現在未使用)
+  // static async updateTrustLevel(partnerId: ID, trustChange: number): Promise<RelationshipMetrics>
 
-  // 感情接続更新
-  static async updateEmotionalConnection(partnerId: ID, connectionChange: number): Promise<RelationshipMetrics> {
-    const client = await pool.connect();
-    
-    try {
-      const query = `
-        UPDATE relationship_metrics 
-        SET 
-          emotional_connection = GREATEST(0, LEAST(100, emotional_connection + $1)),
-          last_interaction = CURRENT_TIMESTAMP
-        WHERE partner_id = $2
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
-                  communication_frequency, last_interaction, shared_experiences
-      `;
-      
-      const result = await client.query(query, [connectionChange, partnerId]);
-      
-      if (result.rows.length === 0) {
-        throw new Error('関係性メトリクスが見つかりません');
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
-        conversationFrequency: row.communication_frequency,
-        lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_experiences
-      };
-    } catch (error) {
-      console.error('[RelationshipMetrics.model] 感情接続更新エラー:', error);
-      throw new Error('感情接続の更新に失敗しました');
-    } finally {
-      client.release();
-    }
-  }
+  // 感情接続更新 (将来の拡張用・現在未使用)
+  // static async updateEmotionalConnection(partnerId: ID, connectionChange: number): Promise<RelationshipMetrics>
 
   // 会話頻度更新（メッセージごとにインクリメント）
   static async incrementConversationFrequency(partnerId: ID): Promise<RelationshipMetrics> {
@@ -238,8 +158,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -289,8 +207,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -351,8 +267,6 @@ class RelationshipMetricsModel {
         id: row.id,
         partnerId: row.partner_id,
         intimacyLevel: row.intimacy_level,
-        trustLevel: row.trust_level,
-        emotionalConnection: row.emotional_connection,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -367,13 +281,12 @@ class RelationshipMetricsModel {
 
   // 関係性の段階判定
   static getRelationshipStage(metrics: RelationshipMetrics): string {
-    const { intimacyLevel, trustLevel, emotionalConnection } = metrics;
-    const averageScore = (intimacyLevel + trustLevel + emotionalConnection) / 3;
+    const { intimacyLevel } = metrics;
     
-    if (averageScore < 20) return 'stranger';      // 知らない人
-    if (averageScore < 40) return 'acquaintance';  // 知り合い
-    if (averageScore < 60) return 'friend';        // 友達
-    if (averageScore < 80) return 'close_friend';  // 親しい友達
+    if (intimacyLevel < 20) return 'stranger';      // 知らない人
+    if (intimacyLevel < 40) return 'acquaintance';  // 知り合い
+    if (intimacyLevel < 60) return 'friend';        // 友達
+    if (intimacyLevel < 80) return 'close_friend';  // 親しい友達
     return 'intimate';                             // 親密な関係
   }
 }

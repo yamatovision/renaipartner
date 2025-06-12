@@ -2,7 +2,23 @@
 import { API_PATHS } from '@/types'
 
 // APIベースURL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+// 環境変数が空の場合の対処
+const getApiBaseUrl = () => {
+  // ビルド時の環境変数チェック
+  if (typeof window === 'undefined') {
+    // サーバーサイド（ビルド時）
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  }
+  // クライアントサイド
+  // 本番環境の場合は本番URLを使用
+  if (window.location.hostname === 'renaipartner.web.app') {
+    return 'https://renaipartner-backend-235426778039.asia-northeast1.run.app'
+  }
+  // 開発環境
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 // 共通のfetchラッパー
 export async function apiClient<T>(
@@ -10,6 +26,13 @@ export async function apiClient<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = localStorage.getItem('access_token')
+  
+  // デバッグログ: リクエスト詳細
+  console.log('=== API Request Debug ===')
+  console.log('Path:', path)
+  console.log('URL:', `${API_BASE_URL}${path}`)
+  console.log('Token exists:', !!token)
+  console.log('Token preview:', token ? `${token.substring(0, 10)}...` : 'none')
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -20,17 +43,49 @@ export async function apiClient<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
   
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  })
+  console.log('Headers:', headers)
+  
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    })
+  } catch (error: any) {
+    console.error('Network Error:', error)
+    console.error('URL:', `${API_BASE_URL}${path}`)
+    console.error('Error Type:', error.name)
+    console.error('Error Message:', error.message)
+    throw new Error(`ネットワークエラー: ${error.message || 'サーバーに接続できません'}`)
+  }
+  
+  // デバッグログ: レスポンス詳細
+  console.log('=== API Response Debug ===')
+  console.log('Status:', response.status)
+  console.log('Status Text:', response.statusText)
+  console.log('Headers:', Object.fromEntries(response.headers.entries()))
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'エラーが発生しました' }))
+    console.error('API Error Response:', error)
+    console.error('Full Response Object:', JSON.stringify(error, null, 2))
+    
+    // バリデーションエラーの詳細をログに出力
+    if (error.meta?.errors) {
+      console.error('Validation Errors:', error.meta.errors)
+      const validationMessages = error.meta.errors
+        .map((err: any) => `${err.path}: ${err.msg}`)
+        .join(', ')
+      throw new Error(`バリデーションエラー: ${validationMessages}`)
+    }
+    
     throw new Error(error.error || `HTTP error! status: ${response.status}`)
   }
   
-  return response.json()
+  const responseData = await response.json()
+  console.log('Success Response Data:', responseData)
+  
+  return responseData
 }
 
 // 型安全なAPIクライアント

@@ -5,12 +5,13 @@
   "main": "src/app.ts",
   "scripts": {
     "dev": "nodemon src/app.ts",
-    "start": "node dist/app.js",
+    "start": "node -r ./tsconfig-paths-bootstrap.js dist/app.js",
     "build": "tsc",
     "test": "jest",
     "test:integration": "jest --testPathPattern=tests/integration",
     "lint": "eslint src/**/*.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "migrate:individual": "ts-node scripts/migrate-individual-user.ts"
   },
   "dependencies": {
     "@types/axios": "^0.9.36",
@@ -30,6 +31,8 @@
     "openai": "^4.104.0",
     "pg": "^8.11.3",
     "sequelize": "^6.37.7",
+    "tsconfig-paths": "^4.2.0",
+    "uuid": "^11.1.0",
     "winston": "^3.11.0"
   },
   "devDependencies": {
@@ -51,7 +54,6 @@
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
-    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.2.2"
   }
 }

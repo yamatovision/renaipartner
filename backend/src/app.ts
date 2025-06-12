@@ -69,23 +69,32 @@ app.use(helmet({
 // CORS設定
 app.use(corsMiddleware);
 
-// レート制限
+// レート制限（開発環境では無効化）
 const limiter = rateLimit({
   windowMs: ENV_CONFIG.RATE_LIMIT_WINDOW_MS,
-  max: ENV_CONFIG.RATE_LIMIT_MAX_REQUESTS,
+  max: ENV_CONFIG.NODE_ENV === 'development' ? 10000 : ENV_CONFIG.RATE_LIMIT_MAX_REQUESTS, // 開発環境では実質無制限
   message: {
     success: false,
     error: 'リクエストが多すぎます。しばらく待ってから再試行してください。',
     meta: { code: 'RATE_LIMIT_EXCEEDED' }
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => {
+    // 開発環境では全てのリクエストをスキップ
+    if (ENV_CONFIG.NODE_ENV === 'development') return true;
+    // 認証関連のエンドポイントはレート制限をスキップ
+    if (req.path.includes('/auth/')) return true;
+    // オンボーディング関連もスキップ
+    if (req.path.includes('/onboarding/')) return true;
+    return false;
+  }
 });
 app.use(limiter);
 
 // ボディパーサー
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Cookieパーサー
 app.use(cookieParser());
@@ -93,6 +102,18 @@ app.use(cookieParser());
 // デバッグ用認証情報ログ（開発環境のみ）
 if (ENV_CONFIG.NODE_ENV === 'development') {
   app.use(logAuthInfo);
+  
+  // リクエストサイズデバッグ
+  app.use((req, res, next) => {
+    if (req.method === 'POST' && req.path.includes('/chat/messages')) {
+      const size = JSON.stringify(req.body).length;
+      console.log(`[DEBUG] Chat message request size: ${size} bytes`);
+      if (size > 1000000) { // 1MB以上の場合警告
+        console.warn(`[WARNING] Large request detected: ${size} bytes`);
+      }
+    }
+    next();
+  });
 }
 
 // ===== ルーティング =====

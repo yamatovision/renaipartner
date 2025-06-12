@@ -40,7 +40,7 @@ export function Step3UserInfo({ userData, onUpdate, onNext, onPrevious }: Step3U
             value={userData.surname}
             onChange={(e) => handleChange('surname', e.target.value)}
             maxLength={10}
-            placeholder="白石"
+            placeholder="山田"
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
           />
         </div>
@@ -55,7 +55,7 @@ export function Step3UserInfo({ userData, onUpdate, onNext, onPrevious }: Step3U
             value={userData.firstName}
             onChange={(e) => handleChange('firstName', e.target.value)}
             maxLength={10}
-            placeholder="達也"
+            placeholder="太郎"
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
           />
         </div>

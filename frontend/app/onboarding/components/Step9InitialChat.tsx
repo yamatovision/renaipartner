@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { PartnerData } from '@/types'
 
 interface Step9InitialChatProps {
@@ -60,10 +61,23 @@ export function Step9InitialChat({
       
       {/* パートナーアバター */}
       <div className="flex justify-center mb-4">
-        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-lg bg-pink-200 flex items-center justify-center">
-          <span className="text-5xl">
-            {partnerData.gender === 'boyfriend' ? '👨' : '👩'}
-          </span>
+        <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-lg">
+          {partnerData.appearance?.generatedImageUrl ? (
+            <Image
+              src={partnerData.appearance.generatedImageUrl}
+              alt={`${partnerData.name}のアバター`}
+              width={128}
+              height={128}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-full h-full bg-pink-200 flex items-center justify-center">
+              <span className="text-5xl">
+                {partnerData.gender === 'boyfriend' ? '👨' : '👩'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
       

@@ -147,12 +147,27 @@ export default function SettingsPage() {
       // 背景画像をAPIから取得
       try {
         const backgrounds = await imagesService.getBackgrounds()
-        setBackgroundImages(backgrounds)
+        console.log('[SETTINGS] 背景画像APIレスポンス:', backgrounds)
+        
+        // 配列であることを確認
+        if (Array.isArray(backgrounds) && backgrounds.length > 0) {
+          setBackgroundImages(backgrounds)
+        } else {
+          console.log('[SETTINGS] 背景画像が空またはAPIエラー、フォールバックを使用')
+          // フォールバック画像を設定
+          setBackgroundImages([
+            { id: 'default', name: 'デフォルト', url: '/chat-bg-1.jpg', category: 'default', isDefault: true },
+            { id: 'nature1', name: '自然1', url: '/chat-bg-2.jpg', category: 'nature', isDefault: false },
+            { id: 'city1', name: '都市1', url: '/chat-bg-3.jpg', category: 'city', isDefault: false }
+          ])
+        }
       } catch (error) {
         console.error('背景画像の取得に失敗しました:', error)
         // フォールバック画像を設定
         setBackgroundImages([
-          { id: 'default', name: 'デフォルト', url: '/chat-bg-1.jpg', category: 'default', isDefault: true }
+          { id: 'default', name: 'デフォルト', url: '/chat-bg-1.jpg', category: 'default', isDefault: true },
+          { id: 'nature1', name: '自然1', url: '/chat-bg-2.jpg', category: 'nature', isDefault: false },
+          { id: 'city1', name: '都市1', url: '/chat-bg-3.jpg', category: 'city', isDefault: false }
         ])
       }
       
@@ -244,7 +259,8 @@ export default function SettingsPage() {
     try {
       const result = await usersService.changePassword({
         currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword
       })
       
       if (result.success) {
@@ -252,11 +268,28 @@ export default function SettingsPage() {
         setShowPasswordModal(false)
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
-        alert(result.error || 'パスワード変更に失敗しました')
+        // バリデーションエラーの詳細を表示
+        if (result.meta?.details && Array.isArray(result.meta.details)) {
+          const errorMessages = result.meta.details.map((detail: any) => 
+            `${detail.field}: ${detail.message}`
+          ).join('\n')
+          alert(`入力エラー:\n${errorMessages}`)
+        } else {
+          alert(result.error || 'パスワード変更に失敗しました')
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('パスワード変更に失敗しました:', error)
-      alert('パスワード変更に失敗しました')
+      
+      // APIエラーレスポンスの詳細を表示
+      if (error.meta?.details && Array.isArray(error.meta.details)) {
+        const errorMessages = error.meta.details.map((detail: any) => 
+          `${detail.field}: ${detail.message}`
+        ).join('\n')
+        alert(`入力エラー:\n${errorMessages}`)
+      } else {
+        alert('パスワード変更に失敗しました')
+      }
     }
   }
 
@@ -606,15 +639,21 @@ export default function SettingsPage() {
           <div className="bg-white p-8 rounded-2xl max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-2xl font-semibold mb-4">背景画像を選択</h3>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              {backgroundImages.map((bg) => (
-                <div
-                  key={bg.id}
-                  onClick={() => handleBackgroundSelect(bg.id)}
-                  className="relative cursor-pointer rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-medium hover:opacity-80 transition-opacity"
-                >
-                  {bg.name}
+              {backgroundImages && Array.isArray(backgroundImages) && backgroundImages.length > 0 ? (
+                backgroundImages.map((bg) => (
+                  <div
+                    key={bg.id}
+                    onClick={() => handleBackgroundSelect(bg.id)}
+                    className="relative cursor-pointer rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-medium hover:opacity-80 transition-opacity"
+                  >
+                    {bg.name}
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2 text-center text-gray-500">
+                  背景画像を読み込み中...
                 </div>
-              ))}
+              )}
             </div>
             <div className="flex justify-end">
               <button

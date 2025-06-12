@@ -18,6 +18,70 @@ export class ImagesController {
   }
 
   /**
+   * オンボーディング用アバター画像生成 (POST /api/images/generate-onboarding)
+   */
+  generateOnboardingAvatar = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const {
+        prompt,
+        context,
+        emotion,
+        background,
+        clothing,
+        modelId,
+        width,
+        height,
+        guidanceScale,
+        numImages,
+      } = req.body;
+
+      const userId = (req as AuthRequest).user?.userId;
+      console.log(`[画像生成] オンボーディング画像生成開始 - User: ${userId}`);
+
+      // promptが必須
+      if (!prompt) {
+        res.status(400).json({
+          success: false,
+          error: 'プロンプトが必要です',
+        });
+        return;
+      }
+
+      // オンボーディング用のリクエストを作成（partnerIdはnull）
+      const request: ImageGenerationRequest = {
+        partnerId: null as any, // オンボーディング中のため一時的にnull
+        prompt,
+        useAppearance: false,
+        context,
+        emotion,
+        background,
+        clothing,
+        modelId,
+        width: width || 512,
+        height: height || 768,
+        guidanceScale: guidanceScale || 7,
+        numImages: numImages || 1,
+      };
+
+      const result = await this.imagesService.generateAvatarImage(request);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+
+    } catch (error) {
+      console.error('[画像生成] オンボーディング画像生成エラー:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: '画像生成に失敗しました',
+        code: 'IMAGE_GENERATION_FAILED',
+      });
+    }
+  };
+
+  /**
    * アバター画像生成 (POST /api/images/generate)
    */
   generateAvatar = async (req: Request, res: Response): Promise<void> => {

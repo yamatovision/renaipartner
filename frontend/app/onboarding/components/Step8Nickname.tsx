@@ -23,13 +23,30 @@ export function Step8Nickname({
   const isValid = selectedNickname !== ''
   
   // AI提案のニックネーム生成
-  const suggestedNicknames = [
-    `${userName}ちゃん`,
-    `${userName}くん`,
-    userName.length > 2 ? `${userName.slice(0, 2)}ちゃん` : `${userName}っち`,
-    userName.length > 1 ? `${userName.slice(0, 1)}ちゃん` : userName,
-    `${userName}っち`
-  ]
+  const generateNicknames = () => {
+    const nicknames = new Set<string>() // 重複を避けるためSet使用
+    
+    // 基本パターン
+    nicknames.add(`${userName}ちゃん`)
+    nicknames.add(`${userName}くん`)
+    nicknames.add(`${userName}っち`)
+    
+    // 短縮形
+    if (userName.length > 2) {
+      nicknames.add(`${userName.slice(0, 2)}ちゃん`)
+    }
+    if (userName.length > 1) {
+      nicknames.add(`${userName.slice(0, 1)}ちゃん`)
+      nicknames.add(`${userName.slice(0, 1)}くん`)
+    }
+    
+    // さん付け
+    nicknames.add(`${userName}さん`)
+    
+    return Array.from(nicknames).slice(0, 5) // 最大5つまで
+  }
+  
+  const suggestedNicknames = generateNicknames()
   
   const handleCustomChange = (value: string) => {
     setCustomNickname(value)

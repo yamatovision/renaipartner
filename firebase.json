@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "target": "renaipartner",
+    "public": "frontend/out",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+  }
+}

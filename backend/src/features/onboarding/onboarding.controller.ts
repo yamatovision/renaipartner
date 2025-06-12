@@ -75,6 +75,8 @@ export class OnboardingController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('[OnboardingController] Validation errors:', errors.array());
+        console.log('[OnboardingController] Request body:', req.body);
         res.status(400).json({
           success: false,
           error: 'バリデーションエラー',
@@ -207,6 +209,40 @@ export class OnboardingController {
         data: { recommendedPresets },
         meta: {
           message: 'あなたにおすすめの性格タイプです',
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * デバッグ用: オンボーディング進捗の詳細取得
+   * GET /api/onboarding/debug/:userId
+   * ※本番環境では削除すること
+   */
+  async debug(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: 'ユーザーIDが必要です',
+        });
+        return;
+      }
+
+      const debugData = await onboardingService.getDebugData(userId);
+
+      const response: ApiResponse<{ debugData: typeof debugData }> = {
+        success: true,
+        data: { debugData },
+        meta: {
+          message: 'デバッグデータ取得成功',
+          warning: 'このエンドポイントは開発環境専用です。本番環境では削除してください。',
         },
       };
 

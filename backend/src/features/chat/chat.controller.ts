@@ -3,8 +3,16 @@ import { validationResult } from 'express-validator';
 import ChatService from './chat.service';
 import { AuthRequest } from '../../common/middlewares/auth.middleware';
 import { SendMessageRequest, ApiResponse, ChatResponse } from '../../types';
+import { ImagesService } from '../images/images.service';
 
 export class ChatController {
+  private imagesService: ImagesService;
+
+  constructor() {
+    console.log('[ChatController] コンストラクタ実行中...');
+    this.imagesService = new ImagesService();
+    console.log('[ChatController] ImagesService初期化完了');
+  }
   /**
    * メッセージ送信
    * POST /api/chat/messages
@@ -196,10 +204,10 @@ export class ChatController {
   }
 
   /**
-   * 画像生成（将来実装）
+   * 画像生成
    * POST /api/chat/generate-image
    */
-  async generateImage(req: Request, res: Response): Promise<void> {
+  generateImage = async (req: Request, res: Response): Promise<void> => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -211,27 +219,67 @@ export class ChatController {
         return;
       }
 
-      console.log(`[${new Date().toISOString()}] ▶️ 画像生成リクエスト - パートナー: ${req.body.partnerId}`);
+      const {
+        partnerId,
+        message,
+        emotion,
+        situation,
+        useReference = true,
+        context
+      } = req.body;
 
-      // 現在は未実装のため、プレースホルダー応答を返す
+      console.log(`[${new Date().toISOString()}] ▶️ 画像生成リクエスト - パートナー: ${partnerId}`);
+      console.log(`[${new Date().toISOString()}] 💬 メッセージ: ${message}`);
+      console.log(`[${new Date().toISOString()}] 😊 感情: ${emotion || 'なし'}`);
+      console.log(`[${new Date().toISOString()}] 📍 状況: ${situation || 'なし'}`);
+
+      // 実際の画像生成サービスを呼び出す
+      const generatedImage = await this.imagesService.generateChatImage(
+        partnerId,
+        message || context || '愛してるよ💕',
+        emotion,
+        situation,
+        useReference
+      );
+
+      console.log(`[${new Date().toISOString()}] ✅ 画像生成完了 - ID: ${generatedImage.id}`);
+      console.log(`[${new Date().toISOString()}] 🖼️ 画像URL: ${generatedImage.imageUrl}`);
+      console.log(`[${new Date().toISOString()}] 📊 一貫性スコア: ${generatedImage.consistencyScore}`);
+
       res.status(200).json({
         success: true,
         data: {
-          imageUrl: 'https://via.placeholder.com/512x512?text=画像生成機能は後日実装予定',
-          prompt: req.body.context || '画像生成中...',
-          consistencyScore: 85,
-          generatedAt: new Date().toISOString()
+          imageUrl: generatedImage.imageUrl,
+          prompt: generatedImage.prompt,
+          consistencyScore: generatedImage.consistencyScore,
+          generatedAt: generatedImage.createdAt,
+          imageId: generatedImage.id,
+          metadata: generatedImage.metadata
         }
       });
 
-      console.log(`[${new Date().toISOString()}] ✅ 画像生成完了（プレースホルダー）`);
-
     } catch (error: any) {
       console.error(`[${new Date().toISOString()}] ❌ 画像生成エラー:`, error);
+      console.error(`[${new Date().toISOString()}] 🔍 エラー詳細:`, error.stack || error);
       
-      res.status(500).json({
+      let statusCode = 500;
+      let errorMessage = '画像生成に失敗しました';
+
+      if (error.message.includes('パートナーが見つかりません')) {
+        statusCode = 404;
+        errorMessage = 'パートナーが見つかりません';
+      } else if (error.message.includes('API呼び出し制限')) {
+        statusCode = 429;
+        errorMessage = 'API呼び出し制限を超過しました。しばらく時間をおいてからお試しください';
+      } else if (error.message.includes('Leonardo AI')) {
+        statusCode = 503;
+        errorMessage = `画像生成サービスでエラーが発生しました: ${error.message}`;
+      }
+      
+      res.status(statusCode).json({
         success: false,
-        error: error.message || '画像生成に失敗しました'
+        error: errorMessage,
+        details: error.message
       });
     }
   }
@@ -286,4 +334,5 @@ export class ChatController {
   }
 }
 
-export default new ChatController();
+const chatController = new ChatController();
+export default chatController;

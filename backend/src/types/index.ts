@@ -160,6 +160,7 @@ export interface RefreshTokenResponse {
 export interface PasswordChangeRequest {
   currentPassword: string;
   newPassword: string;
+  confirmPassword: string;
 }
 
 export interface JWTPayload {
@@ -525,8 +526,6 @@ export interface RelationshipMetrics {
   id: ID;
   partnerId: ID;
   intimacyLevel: number; // 0-100
-  trustLevel: number; // 0-100
-  emotionalConnection: number; // 0-100
   conversationFrequency: number;
   lastInteraction: Date;
   sharedMemories: number;
@@ -572,12 +571,8 @@ export interface OngoingTopic {
 // メモリシステム追加型定義
 export interface MemorySummaryRequest {
   partnerId: ID;
-  conversationData: Array<{
-    sender: MessageSender;
-    content: string;
-    timestamp: Date;
-  }>;
-  timeframe?: string;
+  messageIds: ID[];
+  summaryType?: 'daily' | 'weekly' | 'important';
 }
 
 export interface MemorySearchRequest {
@@ -687,6 +682,9 @@ export interface ImageGenerationRequest {
   background?: string;
   clothing?: string;
   prompt?: string;
+  useAppearance?: boolean;
+  referenceImageId?: string;
+  modelId?: string;
   width?: number;
   height?: number;
   numImages?: number;
@@ -784,6 +782,7 @@ export const API_PATHS = {
   PARTNERS: {
     BASE: '/api/partners',
     CREATE: '/api/partners',
+    CREATE_WITH_ONBOARDING: '/api/partners/create-with-onboarding',
     LIST: '/api/partners',
     GET: '/api/partners',
     DETAIL: (partnerId: string) => `/api/partners/${partnerId}`,
@@ -793,6 +792,7 @@ export const API_PATHS = {
     VALIDATE_PROMPT: '/api/partners/validate-prompt',
     PREVIEW: '/api/partners/preview',
     APPLY_PRESET: '/api/partners/apply-preset',
+    EXISTS: '/api/partners/exists',
   },
   
   // オンボーディング関連
@@ -811,8 +811,8 @@ export const API_PATHS = {
   // チャット・メッセージ関連
   CHAT: {
     BASE: '/api/chat',
-    SEND_MESSAGE: '/api/chat/message',
-    MESSAGES: (partnerId: string) => `/api/chat/${partnerId}/messages`,
+    SEND_MESSAGE: '/api/chat/messages',
+    MESSAGES: '/api/chat/messages',
     GENERATE_IMAGE: '/api/chat/generate-image',
     TYPING: (partnerId: string) => `/api/chat/${partnerId}/typing`,
     EMOTION: '/api/chat/emotion',
@@ -824,17 +824,18 @@ export const API_PATHS = {
     BY_PARTNER: (partnerId: string) => `/api/memory/${partnerId}`,
     SUMMARY: '/api/memory/summary',
     SEARCH: '/api/memory/search',
-    RELATIONSHIPS: (partnerId: string) => `/api/memory/${partnerId}/relationships`,
-    ONGOING_TOPICS: (partnerId: string) => `/api/memory/${partnerId}/topics`,
-    TOPICS: (partnerId: string) => `/api/memory/${partnerId}/topics`,
-    EPISODE: (partnerId: string) => `/api/memory/${partnerId}/episodes`,
-    EPISODES: (partnerId: string) => `/api/memory/${partnerId}/episodes`,
+    RELATIONSHIPS: (partnerId: string) => `/api/memory/relationships/${partnerId}`,
+    ONGOING_TOPICS: (partnerId: string) => `/api/memory/topics/${partnerId}`,
+    TOPICS: (partnerId: string) => `/api/memory/topics/${partnerId}`,
+    EPISODE: (partnerId: string) => `/api/memory/episodes/${partnerId}`,
+    EPISODES: (partnerId: string) => `/api/memory/episodes/${partnerId}`,
   },
   
   // 画像生成関連
   IMAGES: {
     BASE: '/api/images',
     GENERATE: '/api/images/generate',
+    GENERATE_ONBOARDING: '/api/images/generate-onboarding',
     AVATAR: '/api/images/avatar',
     BACKGROUNDS: '/api/images/backgrounds',
     GENERATE_CHAT: '/api/images/generate-chat',

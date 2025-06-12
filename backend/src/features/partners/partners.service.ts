@@ -23,6 +23,169 @@ export class PartnersService {
   //   apiKey: ENV_CONFIG.OPENAI_API_KEY,
   // }); // TODO: openaiパッケージ追加後にアンコメント
 
+  // オンボーディング完了時の一括処理（ユーザー情報更新 + パートナー作成）
+  static async createWithOnboarding(
+    userId: ID, 
+    data: {
+      userData: {
+        surname: string;
+        firstName: string;
+        birthday: string;
+      };
+      partnerData: {
+        name: string;
+        gender: string;
+        personality: PersonalityType;
+        speechStyle: string;
+        prompt?: string;
+        nickname?: string;
+        appearance: {
+          hairStyle: string;
+          eyeColor: string;
+          bodyType: string;
+          clothingStyle: string;
+          generatedImageUrl?: string;
+        };
+      };
+    }
+  ): Promise<Partner> {
+    console.log(`[PARTNERS] オンボーディング完了処理開始: userId=${userId}`);
+    
+    const { userData, partnerData } = data;
+    
+    try {
+      // ユーザー情報を更新
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        throw new NotFoundError('ユーザー');
+      }
+      
+      await UserModel.updateProfile(userId, {
+        surname: userData.surname,
+        firstName: userData.firstName,
+        nickname: partnerData.nickname || partnerData.name,
+        birthday: userData.birthday
+      });
+      
+      console.log(`[PARTNERS] ユーザー情報更新完了: ${userData.firstName} ${userData.surname}`);
+      
+      // パートナーを作成
+      const partner = await this.createPartner(userId, {
+        name: partnerData.name,
+        gender: partnerData.gender as any,
+        personalityType: partnerData.personality as PersonalityType,
+        speechStyle: partnerData.speechStyle as any,
+        systemPrompt: (partnerData.prompt && partnerData.prompt.trim()) 
+          ? partnerData.prompt 
+          : this.generateDefaultPrompt({
+              name: partnerData.name,
+              personalityType: partnerData.personality as PersonalityType,
+              speechStyle: partnerData.speechStyle
+            }),
+        avatarDescription: this.generateAvatarDescription(partnerData),
+        appearance: partnerData.appearance as any,
+        hobbies: [],
+        intimacyLevel: 0
+      });
+      
+      console.log(`[PARTNERS] オンボーディング完了処理成功`);
+      return partner;
+      
+    } catch (error) {
+      console.error('[PARTNERS] オンボーディング完了処理エラー:', error);
+      if (error instanceof NotFoundError || error instanceof ConflictError) {
+        throw error;
+      }
+      throw new ServiceError('オンボーディング完了処理中にエラーが発生しました');
+    }
+  }
+  
+  // デフォルトのシステムプロンプトを生成
+  private static generateDefaultPrompt(partnerData: {
+    name: string;
+    personalityType: PersonalityType;
+    speechStyle: string;
+  }): string {
+    console.log(`[PARTNERS] プロンプト生成: personality=${partnerData.personalityType}, speech=${partnerData.speechStyle}`);
+    
+    const preset = PERSONALITY_PRESETS[partnerData.personalityType];
+    console.log(`[PARTNERS] プリセット取得: preset=${preset ? 'found' : 'not found'}`);
+    
+    const basePrompt = preset?.systemPrompt || '優しく理解のあるパートナーです。相手の気持ちを大切にし、素直な会話で結ばれる関係を築きます。';
+    const speechDesc = this.getSpeechStyleDescription(partnerData.speechStyle);
+    
+    const generatedPrompt = `あなたの名前は${partnerData.name}です。${basePrompt} 話し方の特徴: ${speechDesc}。相手との会話を大切にし、自然で温かいコミュニケーションを心がけてください。`;
+    
+    console.log(`[PARTNERS] 生成されたプロンプト長: ${generatedPrompt.length}文字`);
+    
+    return generatedPrompt;
+  }
+
+  // 話し方の説明を取得
+  private static getSpeechStyleDescription(style: string): string {
+    const descriptions: Record<string, string> = {
+      polite: '丁寧語で話す',
+      casual: 'カジュアルに話す',
+      sweet: '甘い言葉を多く使う',
+      dialect: '方言を使う',
+      cool_tone: 'クールな口調で話す',
+      keigo: '敬語を使う',
+      tame: 'タメ口で話す',
+      kansai: '関西弁で話す',
+      ojousama: 'お嬢様言葉で話す',
+    };
+    return descriptions[style] || '普通に話す';
+  }
+
+  // アバター説明文を生成
+  private static generateAvatarDescription(partnerData: {
+    name: string;
+    gender: string;
+    appearance: {
+      hairStyle: string;
+      eyeColor: string;
+      bodyType: string;
+      clothingStyle: string;
+    };
+  }): string {
+    const { appearance } = partnerData;
+    const gender = partnerData.gender === 'boyfriend' ? '男性' : '女性';
+    
+    return `${gender}、${appearance.hairStyle === 'short' ? '短い' : appearance.hairStyle === 'medium' ? '中くらいの長さの' : '長い'}髪、${this.getEyeColorJapanese(appearance.eyeColor)}の瞳、${this.getBodyTypeJapanese(appearance.bodyType)}体型、${this.getClothingStyleJapanese(appearance.clothingStyle)}な服装`;
+  }
+
+  // 目の色を日本語に変換
+  private static getEyeColorJapanese(color: string): string {
+    const colors: Record<string, string> = {
+      brown: '茶色',
+      black: '黒',
+      blue: '青',
+      green: '緑',
+    };
+    return colors[color] || color;
+  }
+
+  // 体型を日本語に変換
+  private static getBodyTypeJapanese(type: string): string {
+    const types: Record<string, string> = {
+      slim: 'スリムな',
+      average: '標準的な',
+      athletic: 'スポーティな',
+    };
+    return types[type] || type;
+  }
+
+  // 服装スタイルを日本語に変換
+  private static getClothingStyleJapanese(style: string): string {
+    const styles: Record<string, string> = {
+      casual: 'カジュアル',
+      formal: 'フォーマル',
+      sporty: 'スポーティ',
+      elegant: 'エレガント',
+    };
+    return styles[style] || style;
+  }
+
   // パートナー作成
   static async createPartner(userId: ID, partnerData: Omit<PartnerCreate, 'userId'>): Promise<Partner> {
     console.log(`[PARTNERS] パートナー作成開始: userId=${userId}, name=${partnerData.name}`);

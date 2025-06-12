@@ -70,9 +70,15 @@ export class MemoryService {
         throw new Error('パートナーが見つかりません');
       }
 
+      // メッセージIDの検証
+      console.log(`[MemoryService] 検索対象メッセージID: ${JSON.stringify(messageIds)}`);
+      
       // 対象メッセージを取得
       const messages = await MessageModel.findByIds(messageIds);
+      console.log(`[MemoryService] 取得したメッセージ数: ${messages.length}`);
+      
       if (messages.length === 0) {
+        console.error(`[MemoryService] メッセージが見つかりません。ID: ${JSON.stringify(messageIds)}`);
         throw new Error('対象メッセージが見つかりません');
       }
 
@@ -92,12 +98,12 @@ export class MemoryService {
             { role: 'system', content: analysisPrompt },
             { role: 'user', content: conversationText }
           ],
-        functions: [
-          {
-            name: 'extract_memories',
-            description: '会話から重要な記憶情報を抽出する',
-            parameters: {
-              type: 'object',
+          functions: [
+            {
+              name: 'extract_memories',
+              description: '会話から重要な記憶情報を抽出する',
+              parameters: {
+                type: 'object',
               properties: {
                 summary: {
                   type: 'string',
@@ -136,21 +142,31 @@ export class MemoryService {
               required: ['summary', 'memories']
             }
           }
-        ],
-        function_call: { name: 'extract_memories' }
+          ],
+          function_call: { name: 'extract_memories' }
         }),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('OpenAI API request timeout')), 25000)
         )
       ]) as any;
 
+      console.log('[MemoryService] OpenAI API応答:', JSON.stringify((completion as any).choices[0], null, 2));
+      
       const functionCall = (completion as any).choices[0]?.message?.function_call;
       if (!functionCall) {
-        throw new Error('メモリ抽出に失敗しました');
+        console.error('[MemoryService] function_callが存在しません。応答:', completion);
+        throw new Error('メモリ抽出に失敗しました: OpenAI応答にfunction_callが含まれていません');
       }
 
-      const extractedData = JSON.parse(functionCall.arguments);
-      console.log('[MemoryService] OpenAI抽出データ:', JSON.stringify(extractedData, null, 2));
+      let extractedData;
+      try {
+        extractedData = JSON.parse(functionCall.arguments);
+        console.log('[MemoryService] OpenAI抽出データ:', JSON.stringify(extractedData, null, 2));
+      } catch (parseError) {
+        console.error('[MemoryService] JSON解析エラー:', parseError);
+        console.error('[MemoryService] 解析対象文字列:', functionCall.arguments);
+        throw new Error('メモリ抽出データの解析に失敗しました');
+      }
       const memoriesCreated: Memory[] = [];
 
       // 抽出されたメモリを保存
@@ -208,6 +224,12 @@ export class MemoryService {
 
     } catch (error) {
       console.error('[MemoryService] 会話要約作成エラー:', error);
+      console.error('[MemoryService] エラー詳細:', {
+        message: (error as any).message,
+        status: (error as any).status,
+        response: (error as any).response?.data,
+        stack: (error as any).stack
+      });
       
       // OpenAI API関連エラーの詳細処理
       if ((error as any).message?.includes('timeout')) {
@@ -222,7 +244,11 @@ export class MemoryService {
         throw new Error('OpenAI API認証エラー: APIキーを確認してください');
       }
       
-      throw new Error('会話要約の作成に失敗しました');
+      if ((error as any).response?.data?.error) {
+        throw new Error(`OpenAI APIエラー: ${(error as any).response.data.error.message}`);
+      }
+      
+      throw new Error(`会話要約の作成に失敗しました: ${(error as any).message || '不明なエラー'}`);
     }
   }
 
@@ -571,13 +597,6 @@ export class MemoryService {
       recommendations.push('もっと個人的な話題について話してみましょう');
     }
     
-    if (metrics.trustLevel < 60) {
-      recommendations.push('相談事や悩みを共有してみましょう');
-    }
-    
-    if (metrics.emotionalConnection < 40) {
-      recommendations.push('感情を表現する会話を増やしましょう');
-    }
     
     return recommendations;
   }

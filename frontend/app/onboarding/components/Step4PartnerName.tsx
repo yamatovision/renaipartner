@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Gender } from '@/types'
 
 interface Step4PartnerNameProps {
@@ -14,11 +14,34 @@ interface Step4PartnerNameProps {
 export function Step4PartnerName({ gender, selectedName, onSelect, onNext, onPrevious }: Step4PartnerNameProps) {
   const [namingMethod, setNamingMethod] = useState<'ai-suggest' | 'custom'>('ai-suggest')
   const [customName, setCustomName] = useState('')
+  const [suggestedNames, setSuggestedNames] = useState<string[]>([])
   
-  // AI提案の名前（実際はAPIから取得）
-  const suggestedNames = gender === 'boyfriend' 
-    ? ['蓮', '湊', '陽翔', '樹', '悠人']
-    : ['結愛', '陽葵', '芽依', '莉子', '美結']
+  // 名前プール
+  const maleNamePool = [
+    // 人気の漢字系
+    '蓮', '湊', '陽翔', '樹', '悠真', '大和', '颯', '陸', '晴', '翔太',
+    // かっこいいイメージ系
+    '流星', '優斗', '陽斗', '海斗', '蒼', '藍', '凪',
+    // アニメ・ゲーム系
+    'キリト', 'リヴァイ', 'ルルーシュ', '八幡', '翔陽',
+    // 外国風・カタカナ
+    'レオ', 'カイ', 'ユウ', 'レン',
+    // ひらがな系
+    'はると', 'そうた', 'ゆうま', 'かいと'
+  ]
+  const femaleNamePool = [
+    'さくら', 'アリサ', 'みつり', 'ひなた', '美月',
+    'レム', 'エミリア', 'かぐや', 'あすな', 'ルナ',
+    'ここな', 'ひより', 'あおい', 'ななみ', 'みく',
+    '結愛', '陽葵', '芽依', '莉子', '美結'
+  ]
+  
+  // コンポーネントマウント時にランダムで5つ選択
+  useEffect(() => {
+    const namePool = gender === 'boyfriend' ? maleNamePool : femaleNamePool
+    const shuffled = [...namePool].sort(() => Math.random() - 0.5)
+    setSuggestedNames(shuffled.slice(0, 5))
+  }, [gender])
   
   const partnerText = gender === 'boyfriend' ? '彼氏' : '彼女'
   const isValid = selectedName !== ''

@@ -12,6 +12,30 @@ import {
 } from '@/types'
 import { api } from './client'
 
+// オンボーディング完了リクエスト型
+interface CreateWithOnboardingRequest {
+  userData: {
+    surname: string;
+    firstName: string;
+    birthday: string;
+  };
+  partnerData: {
+    name: string;
+    gender: string;
+    personality: string;
+    speechStyle: string;
+    prompt?: string;
+    nickname?: string;
+    appearance: {
+      hairStyle: string;
+      eyeColor: string;
+      bodyType: string;
+      clothingStyle: string;
+      generatedImageUrl?: string;
+    };
+  };
+}
+
 // 実パートナーAPIサービス
 export const partnersApiService = {
   // パートナー作成
@@ -30,14 +54,25 @@ export const partnersApiService = {
     }
   },
 
+  // オンボーディング完了パートナー作成（新API）
+  createWithOnboarding: async (request: CreateWithOnboardingRequest): Promise<ApiResponse<Partner>> => {
+    try {
+      const response = await api.post<any>(API_PATHS.PARTNERS.CREATE_WITH_ONBOARDING, request)
+      return response
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'オンボーディングの完了に失敗しました',
+      }
+    }
+  },
+
   // パートナー情報取得（現在のユーザーのパートナー）
   getPartner: async (): Promise<ApiResponse<Partner>> => {
     try {
-      const response = await api.get<Partner>(API_PATHS.PARTNERS.GET)
-      return {
-        success: true,
-        data: response,
-      }
+      const response = await api.get<any>(API_PATHS.PARTNERS.GET)
+      // バックエンドが既にApiResponse形式で返すため、そのまま返す
+      return response
     } catch (error: any) {
       return {
         success: false,

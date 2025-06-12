@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PersonalityQuestion } from '@/types'
-import { onboardingService } from '@/services'
+// onboardingServiceは不要（ローカル状態管理のみ）
 
 interface Step5PersonalityProps {
   answers: PersonalityQuestion[]
@@ -51,20 +51,9 @@ export function Step5Personality({ answers, onAnswer, onNext, onPrevious }: Step
   const [loading, setLoading] = useState(true)
   
   useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const response = await onboardingService.getPersonalityQuestions()
-        if (response.success && response.data) {
-          setQuestions(response.data)
-        }
-      } catch (error) {
-        console.error('性格診断質問の取得に失敗しました:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchQuestions()
+    // ローカル状態管理に変更したため、フォールバック質問を直接使用
+    setQuestions(fallbackQuestions)
+    setLoading(false)
   }, [])
   
   const isValid = answers.length === questions.length
@@ -87,11 +76,11 @@ export function Step5Personality({ answers, onAnswer, onNext, onPrevious }: Step
       </h2>
       
       <div className="space-y-6 mb-8">
-        {questions.map((q) => (
+        {questions && Array.isArray(questions) && questions.map((q) => (
           <div key={q.id} className="bg-gray-50 p-6 rounded-2xl">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">{q.question}</h3>
             <div className="flex flex-wrap gap-3">
-              {q.options?.map((option) => (
+              {q.options && Array.isArray(q.options) && q.options.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => handleAnswer(q.id, option.value)}

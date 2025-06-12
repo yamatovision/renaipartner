@@ -16,6 +16,9 @@ router.get('/', requireAuth, PartnersController.getPartners);
 // パートナー作成（認証必要）- API 3.1
 router.post('/', requireAuth, PartnersController.createPartner);
 
+// オンボーディング完了・パートナー作成（一括処理）
+router.post('/create-with-onboarding', requireAuth, PartnersController.createWithOnboarding);
+
 // プロンプト検証（認証必要）- API 3.5
 router.post('/validate-prompt', requireAuth, PartnersController.validatePrompt);
 

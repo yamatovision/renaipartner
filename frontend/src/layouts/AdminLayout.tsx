@@ -2,7 +2,7 @@
 
 // 管理者ページ用レイアウト（ヘッダー + 管理メニュー）
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -10,8 +10,21 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
 
   const isActive = (path: string) => pathname.startsWith(path)
+
+  const handleLogout = () => {
+    // トークン削除
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    
+    // Cookie削除
+    document.cookie = 'auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+    
+    // ログインページへリダイレクト
+    router.push('/login')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,10 +55,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
             {/* ログアウトボタン */}
             <button
-              onClick={() => {
-                // TODO: ログアウト処理
-                console.log('管理者ログアウト')
-              }}
+              onClick={handleLogout}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
               ログアウト

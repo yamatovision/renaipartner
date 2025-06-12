@@ -15,20 +15,26 @@ export const authApiService = {
   login: async (request: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
     try {
       const response = await api.post<ApiResponse<LoginResponse>>(API_PATHS.AUTH.LOGIN, request)
+      console.log('Raw API response for login:', response)
       
-      // バックエンドのレスポンス形式に対応
-      if (response.success && response.data) {
+      // バックエンドが既にApiResponse形式で返している場合
+      if (response && typeof response === 'object' && 'success' in response) {
         // アクセストークンをlocalStorageに保存
-        if (response.data.accessToken) {
+        if (response.success && response.data && response.data.accessToken) {
           localStorage.setItem('access_token', response.data.accessToken)
         }
-        
-        return {
-          success: true,
-          data: response.data,
-        }
-      } else {
-        throw new Error(response.error || 'ログインに失敗しました')
+        return response
+      }
+      
+      // バックエンドが直接LoginResponseオブジェクトを返している場合
+      const loginResponse = response as LoginResponse
+      if (loginResponse.accessToken) {
+        localStorage.setItem('access_token', loginResponse.accessToken)
+      }
+      
+      return {
+        success: true,
+        data: loginResponse,
       }
     } catch (error: any) {
       return {
@@ -118,12 +124,26 @@ export const authApiService = {
   // 現在のユーザー取得
   getCurrentUser: async (): Promise<ApiResponse<User>> => {
     try {
-      const response = await api.get<User>(API_PATHS.AUTH.ME)
+      const response = await api.get<ApiResponse<User>>(API_PATHS.AUTH.ME)
+      console.log('Raw API response for getCurrentUser:', response)
+      
+      // バックエンドが既にApiResponse形式で返している場合
+      if (response && typeof response === 'object' && 'success' in response) {
+        return response
+      }
+      
+      // バックエンドが直接Userオブジェクトを返している場合
       return {
         success: true,
-        data: response,
+        data: response as User,
       }
     } catch (error: any) {
+      // 認証エラーの場合はトークンをクリア
+      if (error.message && (error.message.includes('無効なトークン') || error.message.includes('401'))) {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+      }
+      
       return {
         success: false,
         error: error.message || 'ユーザー情報の取得に失敗しました',

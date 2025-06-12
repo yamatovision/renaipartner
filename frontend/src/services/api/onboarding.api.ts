@@ -33,12 +33,15 @@ export const onboardingApiService = {
   // 進捗状況取得
   getProgress: async (userId: string): Promise<ApiResponse<OnboardingProgress>> => {
     try {
+      console.log('getProgress API call:', { userId, path: API_PATHS.ONBOARDING.PROGRESS(userId) })
       const response = await api.get<OnboardingProgress>(API_PATHS.ONBOARDING.PROGRESS(userId))
+      console.log('getProgress API response:', response)
       return {
         success: true,
         data: response,
       }
     } catch (error: any) {
+      console.error('getProgress API error:', error)
       return {
         success: false,
         error: error.message || '進捗状況の取得に失敗しました',
@@ -49,12 +52,15 @@ export const onboardingApiService = {
   // 進捗更新
   updateProgress: async (userId: string, request: OnboardingUpdateRequest): Promise<ApiResponse<OnboardingProgress>> => {
     try {
+      console.log('updateProgress API call:', { userId, path: API_PATHS.ONBOARDING.PROGRESS(userId), request })
       const response = await api.put<OnboardingProgress>(API_PATHS.ONBOARDING.PROGRESS(userId), request)
+      console.log('updateProgress API response:', response)
       return {
         success: true,
         data: response,
       }
     } catch (error: any) {
+      console.error('updateProgress API error:', error)
       return {
         success: false,
         error: error.message || '進捗の更新に失敗しました',

@@ -176,6 +176,69 @@ export const validateImageStats: ValidationChain[] = [
 ];
 
 /**
+ * オンボーディング用画像生成バリデーション (POST /api/images/generate-onboarding)
+ */
+export const validateOnboardingImageGeneration: ValidationChain[] = [
+  // partnerIdは不要（オンボーディング中のため）
+  
+  body('prompt')
+    .optional()
+    .isString()
+    .isLength({ max: 2000 })
+    .withMessage('カスタムプロンプトは2000文字以下で入力してください'),
+  
+  body('context')
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 500 })
+    .withMessage('文脈は1文字以上500文字以下で入力してください'),
+  
+  body('emotion')
+    .optional()
+    .isString()
+    .isLength({ max: 50 })
+    .withMessage('感情は50文字以下で入力してください'),
+  
+  body('background')
+    .optional()
+    .isString()
+    .isLength({ max: 100 })
+    .withMessage('背景は100文字以下で入力してください'),
+  
+  body('clothing')
+    .optional()
+    .isString()
+    .isLength({ max: 100 })
+    .withMessage('服装は100文字以下で入力してください'),
+  
+  body('modelId')
+    .optional()
+    .isString()
+    .isLength({ max: 100 })
+    .withMessage('モデルIDは100文字以下で入力してください'),
+  
+  body('width')
+    .optional()
+    .isInt({ min: 256, max: 2048 })
+    .withMessage('幅は256-2048の間で指定してください'),
+  
+  body('height')
+    .optional()
+    .isInt({ min: 256, max: 2048 })
+    .withMessage('高さは256-2048の間で指定してください'),
+  
+  body('guidanceScale')
+    .optional()
+    .isFloat({ min: 1, max: 20 })
+    .withMessage('ガイダンススケールは1-20の間で指定してください'),
+  
+  body('numImages')
+    .optional()
+    .isInt({ min: 1, max: 4 })
+    .withMessage('生成画像数は1-4の間で指定してください'),
+];
+
+/**
  * Leonardo AI設定バリデーション（共通設定項目）
  */
 export const LEONARDO_AI_CONSTRAINTS = {

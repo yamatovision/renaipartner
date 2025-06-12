@@ -166,13 +166,11 @@ export const changePasswordSchema = Joi.object({
   newPassword: Joi.string()
     .min(8)
     .max(100)
-    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .required()
     .messages({
       'string.empty': '新しいパスワードは必須です',
       'string.min': 'パスワードは8文字以上で入力してください',
       'string.max': 'パスワードは100文字以内で入力してください',
-      'string.pattern.base': 'パスワードは英大文字、英小文字、数字を含む必要があります',
       'any.required': '新しいパスワードは必須です'
     }),
   confirmPassword: Joi.string()

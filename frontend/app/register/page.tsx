@@ -195,7 +195,7 @@ export default function RegisterPage() {
                 mb: 1,
               }}
             >
-              AI彼氏彼女
+              恋AIパートナー
             </Typography>
             <Typography
               variant="body2"

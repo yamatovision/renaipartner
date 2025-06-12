@@ -29,14 +29,23 @@ export class ImagesService {
    */
   async generateAvatarImage(request: any): Promise<GeneratedImage> {
     try {
-      // パートナー情報を取得
-      const partner = await PartnerModel.findById(request.partnerId);
-      if (!partner) {
-        throw new Error('パートナーが見つかりません');
-      }
+      let partner: Partner | null = null;
+      let enhancedPrompt: string;
 
-      // 一貫性を保つためのプロンプト生成
-      const enhancedPrompt = await this.buildConsistentPrompt(partner, request);
+      // オンボーディング時（partnerIdがnull）の場合
+      if (!request.partnerId) {
+        // プロンプトをそのまま使用
+        enhancedPrompt = request.prompt || '';
+        console.log('[画像生成] オンボーディングモード - プロンプトをそのまま使用');
+      } else {
+        // 通常の場合：パートナー情報を取得
+        partner = await PartnerModel.findById(request.partnerId);
+        if (!partner) {
+          throw new Error('パートナーが見つかりません');
+        }
+        // 一貫性を保つためのプロンプト生成
+        enhancedPrompt = await this.buildConsistentPrompt(partner, request);
+      }
 
       // 実データ主義：常に実際のLeonardo AI APIを呼び出す
       console.log(`[画像生成] Leonardo AI API呼び出し開始 - Model: ${LEONARDO_AI_CONSTRAINTS.ANIME_MODELS.DEFAULT_ANIME_MODEL}`);
@@ -50,10 +59,32 @@ export class ImagesService {
       });
       console.log(`[画像生成] Leonardo AI API呼び出し完了 - Generation ID: ${leonardoResponse.generationId}`);
 
-      // 一貫性スコアを計算
-      const consistencyScore = await this.calculateConsistencyScore(partner, enhancedPrompt);
+      // 一貫性スコアを計算（オンボーディング時は1.0）
+      const consistencyScore = partner ? await this.calculateConsistencyScore(partner, enhancedPrompt) : 1.0;
 
-      // データベースに保存
+      // オンボーディング時は保存せず、結果のみ返す
+      if (!request.partnerId) {
+        return {
+          id: 'temp-' + Date.now(),
+          partnerId: 'temp-onboarding',
+          imageUrl: leonardoResponse.imageUrl,
+          thumbnailUrl: leonardoResponse.thumbnailUrl,
+          prompt: enhancedPrompt,
+          context: request.context || '',
+          consistencyScore,
+          leonardoGenerationId: leonardoResponse.generationId,
+          modelUsed: LEONARDO_AI_CONSTRAINTS.ANIME_MODELS.DEFAULT_ANIME_MODEL,
+          metadata: {
+            originalRequest: request,
+            leonardoParams: leonardoResponse.parameters,
+            generatedAt: new Date(),
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as GeneratedImage;
+      }
+
+      // 通常の場合：データベースに保存
       const generatedImage = await GeneratedImageModel.create({
         partnerId: request.partnerId,
         imageUrl: leonardoResponse.imageUrl,
@@ -261,14 +292,36 @@ export class ImagesService {
   }
 
   /**
+   * 髪色を英語に変換
+   */
+  private translateHairColorToEnglish(japaneseColor: string): string {
+    const colorMap: Record<string, string> = {
+      '黒': 'black',
+      'ダークブラウン': 'dark brown',
+      'ブラウン': 'brown',
+      'ブロンド': 'blonde',
+      'ピンク': 'pink',
+      '水色': 'light blue',
+      'ミントグリーン': 'mint green',
+      'ラベンダー': 'lavender',
+      'ライトゴールド': 'light gold',
+      'シルバー': 'silver'
+    };
+    return colorMap[japaneseColor] || japaneseColor.toLowerCase() || 'brown';
+  }
+
+  /**
    * パートナー一貫性を保つプロンプト生成
    */
   private async buildConsistentPrompt(partner: Partner, request: any): Promise<string> {
     const appearance = partner.appearance;
+    const hairColorEnglish = appearance?.hairColor 
+      ? this.translateHairColorToEnglish(appearance.hairColor)
+      : 'brown';
     
     const basePrompt = [
       `anime style portrait of ${partner.gender === 'boyfriend' ? 'handsome young man' : 'beautiful young woman'}`,
-      `hair: ${appearance?.hairColor || 'brown'} ${appearance?.hairStyle || 'medium length'}`,
+      `hair: ${hairColorEnglish} ${appearance?.hairStyle || 'medium length'}`,
       `eyes: ${appearance?.eyeColor || 'brown'} eyes`,
       `personality: ${partner.personalityType || 'gentle'} character`,
       `expression: ${request.emotion || 'gentle smile'}`,
@@ -291,10 +344,13 @@ export class ImagesService {
     situation?: string
   ): Promise<string> {
     const appearance = partner.appearance;
+    const hairColorEnglish = appearance?.hairColor 
+      ? this.translateHairColorToEnglish(appearance.hairColor)
+      : 'brown';
     
     const contextualPrompt = [
       `anime style ${partner.gender === 'boyfriend' ? 'young man' : 'young woman'}`,
-      `hair: ${appearance?.hairColor || 'brown'} ${appearance?.hairStyle || 'medium length'}`,
+      `hair: ${hairColorEnglish} ${appearance?.hairStyle || 'medium length'}`,
       `eyes: ${appearance?.eyeColor || 'brown'} eyes`,
       `personality: ${partner.personalityType as string}`,
       emotion ? `emotion: ${emotion}` : 'friendly expression',

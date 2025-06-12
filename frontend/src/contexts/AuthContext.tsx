@@ -19,22 +19,65 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // SSRとCSRで一貫性を保つため、初期値をfalseに設定
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   // 初期認証チェック
   useEffect(() => {
+    console.log('[AUTH PROVIDER] useEffect triggered, typeof window:', typeof window)
+    // クライアントサイドでのみ認証チェックを実行
+    console.log('[AUTH PROVIDER] Window is defined, calling checkAuth')
+    setLoading(true) // 認証チェック開始時にのみtrueに設定
     checkAuth()
+    
+    // タイムアウトを設定して確実にloadingをfalseにする
+    const timeout = setTimeout(() => {
+      console.log('[AUTH PROVIDER] Timeout reached, forcing loading to false')
+      setLoading(false)
+    }, 3000) // 3秒後に強制的にloadingをfalseに
+    
+    return () => clearTimeout(timeout)
   }, [])
 
   const checkAuth = async () => {
+    console.log('[AUTH PROVIDER] checkAuth called')
     try {
       // 認証チェック
       const token = localStorage.getItem('access_token')
       if (token) {
+        console.log('[AUTH DEBUG] Token found, checking validity...')
+        
+        // トークンの有効期限をローカルでチェック
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          const now = Math.floor(Date.now() / 1000)
+          console.log('[AUTH DEBUG] Token payload:', { exp: payload.exp, now, expired: payload.exp < now })
+          
+          if (payload.exp < now) {
+            console.log('[AUTH DEBUG] Token expired locally, clearing storage')
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            setLoading(false)
+            return
+          }
+        } catch (parseError) {
+          console.log('[AUTH DEBUG] Token parsing failed, clearing storage')
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          setLoading(false)
+          return
+        }
+        
         const response = await authService.getCurrentUser()
+        console.log('getCurrentUser response:', response)
         if (response.success && response.data) {
+          console.log('Setting user to:', response.data)
           setUser(response.data)
+        } else if (response.error === 'トークンの有効期限が切れています') {
+          console.log('[AUTH DEBUG] Server reported token expired, clearing storage')
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
         }
       }
     } catch (error) {

@@ -9,6 +9,7 @@ import {
   validateImageHistory,
   validateImageDeletion,
   validateImageStats,
+  validateOnboardingImageGeneration,
 } from './images.validator';
 
 /**
@@ -44,6 +45,18 @@ router.get(
 // =============================================================================
 // 認証必須エンドポイント
 // =============================================================================
+
+/**
+ * POST /api/images/generate-onboarding
+ * オンボーディング用画像生成（partnerIdなし）
+ */
+router.post(
+  '/generate-onboarding',
+  requireAuth,
+  ...validateOnboardingImageGeneration,
+  validateRequest,
+  imagesController.generateOnboardingAvatar as any
+);
 
 /**
  * POST /api/images/generate

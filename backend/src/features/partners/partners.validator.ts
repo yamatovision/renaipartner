@@ -121,9 +121,7 @@ export const createPartnerSchema = Joi.object({
       'number.min': '親密度は0以上で入力してください',
       'number.max': '親密度は100以下で入力してください',
       'number.integer': '親密度は整数で入力してください'
-    }),
-  createdViaOnboarding: Joi.boolean()
-    .default(false)
+    })
 });
 
 // パートナー更新バリデーションスキーマ
@@ -267,6 +265,89 @@ export const applyPresetSchema = Joi.object({
     })
 });
 
+// オンボーディング完了バリデーションスキーマ
+export const createWithOnboardingSchema = Joi.object({
+  userData: Joi.object({
+    surname: Joi.string()
+      .min(1)
+      .max(20)
+      .required()
+      .messages({
+        'string.empty': '姓は必須です',
+        'string.min': '姓は1文字以上で入力してください',
+        'string.max': '姓は20文字以内で入力してください',
+        'any.required': '姓は必須です'
+      }),
+    firstName: Joi.string()
+      .min(1)
+      .max(20)
+      .required()
+      .messages({
+        'string.empty': '名は必須です',
+        'string.min': '名は1文字以上で入力してください',
+        'string.max': '名は20文字以内で入力してください',
+        'any.required': '名は必須です'
+      }),
+    birthday: Joi.string()
+      .pattern(/^\d{4}-\d{2}-\d{2}$/)
+      .required()
+      .messages({
+        'string.pattern.base': '生年月日はYYYY-MM-DD形式で入力してください',
+        'any.required': '生年月日は必須です'
+      })
+  }).required(),
+  partnerData: Joi.object({
+    name: Joi.string()
+      .min(1)
+      .max(20)
+      .required()
+      .messages({
+        'string.empty': 'パートナーの名前は必須です',
+        'string.min': 'パートナーの名前は1文字以上で入力してください',
+        'string.max': 'パートナーの名前は20文字以内で入力してください',
+        'any.required': 'パートナーの名前は必須です'
+      }),
+    gender: Joi.string()
+      .valid(...Object.values(Gender))
+      .required()
+      .messages({
+        'any.only': '性別は boyfriend または girlfriend を選択してください',
+        'any.required': '性別は必須です'
+      }),
+    personality: Joi.string()
+      .valid(...Object.values(PersonalityType))
+      .required()
+      .messages({
+        'any.only': '有効な性格タイプを選択してください',
+        'any.required': '性格タイプは必須です'
+      }),
+    speechStyle: Joi.string()
+      .valid(...Object.values(SpeechStyle))
+      .required()
+      .messages({
+        'any.only': '有効な話し方を選択してください',
+        'any.required': '話し方は必須です'
+      }),
+    prompt: Joi.string()
+      .min(0)
+      .max(500)
+      .optional()
+      .allow('')
+      .messages({
+        'string.max': 'カスタムプロンプトは500文字以内で入力してください'
+      }),
+    nickname: Joi.string()
+      .min(0)
+      .max(20)
+      .optional()
+      .allow('')
+      .messages({
+        'string.max': 'ニックネームは20文字以内で入力してください'
+      }),
+    appearance: appearanceSchema.required()
+  }).required()
+});
+
 // バリデーション実行ヘルパー
 export function validateRequest<T>(schema: Joi.ObjectSchema<T>, data: any): T {
   console.log('[VALIDATION] 検証開始:', {
@@ -313,7 +394,8 @@ export function validatePromptContent(prompt: string): { isValid: boolean; warni
   const lowerPrompt = prompt.toLowerCase();
   
   forbiddenWords.forEach(word => {
-    if (lowerPrompt.includes(word.toLowerCase())) {
+    const regex = new RegExp(`\\b${word.toLowerCase()}\\b`, 'i');
+    if (regex.test(prompt)) {
       warnings.push(`不適切な表現が含まれている可能性があります: "${word}"`);
     }
   });
@@ -327,7 +409,7 @@ export function validatePromptContent(prompt: string): { isValid: boolean; warni
   }
   
   // 空のプロンプトチェック
-  if (prompt.trim().length < 50) {
+  if (prompt.trim().length < 10) {
     warnings.push('プロンプトが短すぎます。より詳細な設定をお勧めします。');
   }
   

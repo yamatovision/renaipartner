@@ -2,7 +2,7 @@
 import {
   User,
   CreateUserRequest,
-  UserListResponse,
+  PaginatedResponse,
   AdminStats,
   UserStatus,
   ApiResponse,
@@ -34,7 +34,7 @@ export const adminApiService = {
     limit?: number
     search?: string
     status?: 'all' | 'active' | 'inactive'
-  }): Promise<ApiResponse<UserListResponse>> => {
+  }): Promise<ApiResponse<PaginatedResponse<User>>> => {
     try {
       const response = await api.get<any>(
         API_PATHS.ADMIN.USERS.BASE,

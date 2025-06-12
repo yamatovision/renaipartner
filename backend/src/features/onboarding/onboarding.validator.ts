@@ -42,55 +42,55 @@ export const onboardingValidator = {
     
     // ユーザーデータのバリデーション
     body('userData.surname')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isLength({ min: 1, max: 10 })
       .withMessage('苗字は1文字以上10文字以内で入力してください'),
     
     body('userData.firstName')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isLength({ min: 1, max: 10 })
       .withMessage('名前は1文字以上10文字以内で入力してください'),
     
     body('userData.birthday')
-      .optional()
+      .optional({ values: 'falsy' })
       .isISO8601()
       .withMessage('誕生日は有効な日付形式で入力してください'),
     
     // パートナーデータのバリデーション
     body('partnerData.gender')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn([...Object.values(Gender), 'MALE', 'FEMALE']) // テスト互換性のため追加
       .withMessage('性別は有効な値を選択してください'),
     
     body('partnerData.name')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isLength({ min: 1, max: 20 })
       .withMessage('パートナーの名前は1文字以上20文字以内で入力してください'),
     
     body('partnerData.personality')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn(Object.values(PersonalityType))
       .withMessage('性格タイプは有効な値を選択してください'),
     
     body('partnerData.speechStyle')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn(Object.values(SpeechStyle))
       .withMessage('話し方は有効な値を選択してください'),
     
     body('partnerData.prompt')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .withMessage('プロンプトは文字列で入力してください'),
     
     body('partnerData.nickname')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .trim()
       .isLength({ max: 20 })
@@ -98,58 +98,58 @@ export const onboardingValidator = {
     
     // 外見設定のバリデーション
     body('partnerData.appearance.hairStyle')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn(['short', 'medium', 'long'])
       .withMessage('髪型は有効な値を選択してください'),
     
     body('partnerData.appearance.hairColor')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('髪色は文字列で入力してください'),
     
     body('partnerData.appearance.eyeColor')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('目の色は文字列で入力してください'),
     
     body('partnerData.appearance.bodyType')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('体型は文字列で入力してください'),
     
     body('partnerData.appearance.height')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('身長は文字列で入力してください'),
     
     body('partnerData.appearance.style')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('スタイルは文字列で入力してください'),
     
     body('partnerData.appearance.clothingStyle')
-      .optional()
+      .optional({ values: 'falsy' })
       .isIn(['casual', 'formal', 'sporty', 'elegant'])
       .withMessage('服装スタイルは有効な値を選択してください'),
     
     // 性格質問の回答バリデーション
     body('personalityAnswers')
-      .optional()
+      .optional({ values: 'falsy' })
       .isArray()
       .withMessage('性格質問の回答は配列で指定してください'),
     
     body('personalityAnswers.*.id')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('質問IDは文字列で指定してください'),
     
     body('personalityAnswers.*.question')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('質問内容は文字列で指定してください'),
     
     body('personalityAnswers.*.answer')
-      .optional()
+      .optional({ values: 'falsy' })
       .isString()
       .withMessage('回答は文字列で指定してください'),
   ],

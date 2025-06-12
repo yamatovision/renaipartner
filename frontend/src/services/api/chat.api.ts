@@ -16,7 +16,14 @@ export const chatApiService = {
   // メッセージ送信
   sendMessage: async (request: ChatMessageRequest): Promise<ApiResponse<ChatMessageResponse>> => {
     try {
-      const response = await api.post<ChatMessageResponse>(API_PATHS.CHAT.SEND_MESSAGE, request)
+      const response = await api.post<any>(API_PATHS.CHAT.SEND_MESSAGE, request)
+      
+      // APIレスポンスが既に{success, data}形式の場合はそのまま返す
+      if (response && (response as any).success !== undefined) {
+        return response as ApiResponse<ChatMessageResponse>
+      }
+      
+      // そうでない場合は従来の形式でラップ
       return {
         success: true,
         data: response,
@@ -37,16 +44,31 @@ export const chatApiService = {
     since?: Date
   }): Promise<ApiResponse<MessageListResponse>> => {
     try {
-      const partnerId = params?.partnerId || ''
-      const response = await api.get<MessageListResponse>(
-        API_PATHS.CHAT.MESSAGES(partnerId),
+      console.log('[CHAT API] getMessages called with params:', params)
+      console.log('[CHAT API] API path:', API_PATHS.CHAT.MESSAGES)
+      
+      const response = await api.get<any>(
+        API_PATHS.CHAT.MESSAGES,
         params
       )
+      
+      console.log('[CHAT API] Raw API response:', response)
+      console.log('[CHAT API] Response type:', typeof response)
+      console.log('[CHAT API] Response keys:', Object.keys(response || {}))
+      
+      // APIレスポンスが既に{success, data}形式の場合はそのまま返す
+      if (response && (response as any).success !== undefined) {
+        return response as ApiResponse<MessageListResponse>
+      }
+      
+      // そうでない場合は従来の形式でラップ
       return {
         success: true,
         data: response,
       }
     } catch (error: any) {
+      console.error('[CHAT API] getMessages error:', error)
+      console.error('[CHAT API] Error details:', error.message)
       return {
         success: false,
         error: error.message || 'メッセージ履歴の取得に失敗しました',
@@ -84,10 +106,11 @@ export const chatApiService = {
   },
 
   // 画像生成
-  generateImage: async (prompt: string, emotion?: string): Promise<ApiResponse<{ imageUrl: string }>> => {
+  generateImage: async (partnerId: string, context: string, emotion?: string): Promise<ApiResponse<{ imageUrl: string }>> => {
     try {
       const response = await api.post<{ imageUrl: string }>(API_PATHS.CHAT.GENERATE_IMAGE, {
-        prompt,
+        partnerId,
+        context,
         emotion
       })
       return {

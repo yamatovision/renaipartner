@@ -51,7 +51,8 @@ export const usersApiService = {
     } catch (error: any) {
       return {
         success: false,
-        error: error.message || 'パスワードの変更に失敗しました',
+        error: error.message || error.error || 'パスワードの変更に失敗しました',
+        meta: error.meta
       }
     }
   },

@@ -3,7 +3,7 @@
 // A-001: ユーザー管理ページ
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/layouts/AdminLayout'
-import { User, UserStatus, UserCreate, CreateUserRequest, UserListResponse } from '@/types'
+import { User, UserStatus, UserCreate, CreateUserRequest, PaginatedResponse } from '@/types'
 import { adminService } from '@/services'
 
 // ユーザー統計カードコンポーネント
@@ -111,7 +111,7 @@ function CreateUserModal({
 
 export default function AdminUsersPage() {
   const [stats, setStats] = useState<any>(null)
-  const [users, setUsers] = useState<UserListResponse | null>(null)
+  const [users, setUsers] = useState<PaginatedResponse<User> | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('')

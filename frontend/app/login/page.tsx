@@ -96,11 +96,25 @@ export default function LoginPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        backgroundImage: 'url(/asset/Leonardo_Anime_XL_heart_shaped_fireworks_pink_and_gold_sparkle_1.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          zIndex: 1,
+        },
       }}
     >
 
-      <Container maxWidth="xs">
+      <Container maxWidth="xs" sx={{ position: 'relative', zIndex: 2 }}>
         <Box
           component="form"
           onSubmit={handleSubmit}
@@ -127,12 +141,12 @@ export default function LoginPage() {
             <Typography
               variant="h4"
               sx={{
-                color: '#667eea',
+                color: '#ec4899',
                 fontWeight: 500,
                 mb: 1,
               }}
             >
-              AI彼氏彼女
+              恋AIパートナー
             </Typography>
             <Typography
               variant="body2"
@@ -143,46 +157,6 @@ export default function LoginPage() {
           </Box>
 
 
-          {/* テストログイン情報 */}
-          <Box
-            sx={{
-              bgcolor: '#e3f2fd',
-              border: '1px solid #1976d2',
-              borderRadius: 2,
-              p: 2,
-              mb: 3,
-            }}
-          >
-            <Typography
-              variant="subtitle2"
-              sx={{ color: '#1976d2', fontWeight: 600, mb: 1 }}
-            >
-              🔧 テストログイン情報
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setFormData({ email: 'test@example.com', password: 'password123' })}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  👤 ユーザー
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setFormData({ email: 'admin@example.com', password: 'password123' })}
-                  sx={{ fontSize: '0.75rem' }}
-                >
-                  👑 管理者
-                </Button>
-              </Box>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                ボタンクリックで自動入力されます（パスワード: password123）
-              </Typography>
-            </Box>
-          </Box>
 
           {/* エラーメッセージ */}
           {errors.login && (
@@ -238,10 +212,10 @@ export default function LoginPage() {
             disabled={isLoading}
             sx={{
               py: 1.5,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
               '&:hover': {
                 transform: 'translateY(-2px)',
-                boxShadow: '0 10px 20px rgba(102, 126, 234, 0.3)',
+                boxShadow: '0 10px 20px rgba(236, 72, 153, 0.3)',
               },
               '&:active': {
                 transform: 'translateY(0)',
@@ -265,7 +239,7 @@ export default function LoginPage() {
               <Link
                 href="/register"
                 style={{
-                  color: '#667eea',
+                  color: '#ec4899',
                   textDecoration: 'none',
                   fontWeight: 500,
                 }}
@@ -275,16 +249,6 @@ export default function LoginPage() {
             </Typography>
           </Box>
 
-          {/* テスト用情報（開発環境のみ） */}
-          <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              テスト用アカウント：
-              <br />
-              Email: test@example.com / admin@example.com
-              <br />
-              Password: password123
-            </Typography>
-          </Box>
 
         </Box>
       </Container>

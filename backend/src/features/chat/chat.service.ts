@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Message } from '../../db/models/Message.model';
 import { PartnerModel } from '../../db/models/Partner.model';
 import { UserModel } from '../../db/models/User.model';
+import RelationshipMetricsModel from '../../db/models/RelationshipMetrics.model';
 import { 
   SendMessageRequest, 
   ChatResponse, 
@@ -26,11 +27,14 @@ export class ChatService {
     const { message, partnerId, context = {} } = request;
 
     try {
-      // パートナーの存在確認と所有者チェック
+      // パートナーの存在確認と所有者チェック（ユーザー情報も含めて取得）
       const partner = await PartnerModel.findById(partnerId);
       if (!partner || partner.userId !== userId) {
         throw new Error('パートナーが見つかりません');
       }
+
+      // ユーザー情報を取得
+      const user = await UserModel.findById(userId);
 
       // ユーザーメッセージを保存
       const userMessage = await Message.create({
@@ -43,8 +47,8 @@ export class ChatService {
       // 会話履歴を取得
       const conversationHistory = await Message.getContextMessages(partnerId, 15);
       
-      // OpenAI APIで応答生成
-      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message);
+      // OpenAI APIで応答生成（ユーザー情報も渡す）
+      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message, user);
       
       // AIの応答を保存
       const aiMessage = await Message.create({
@@ -63,6 +67,16 @@ export class ChatService {
       if (aiResponse.intimacyChange !== 0) {
         const newIntimacyLevel = Math.max(0, Math.min(100, partner.intimacyLevel + aiResponse.intimacyChange));
         await PartnerModel.updateIntimacyLevel(partnerId, newIntimacyLevel);
+        
+        // 関係性メトリクスも同期更新
+        console.log(`[ChatService] 関係性メトリクス更新: パートナー=${partnerId}, 親密度変化=${aiResponse.intimacyChange}`);
+        try {
+          await RelationshipMetricsModel.updateIntimacyLevel(partnerId, aiResponse.intimacyChange);
+          console.log('[ChatService] 関係性メトリクス更新成功');
+        } catch (metricsError) {
+          console.error('[ChatService] 関係性メトリクス更新失敗:', metricsError);
+          // メトリクス更新失敗でもメッセージ送信は継続
+        }
       }
 
       return {
@@ -169,16 +183,19 @@ export class ChatService {
   private async generateAIResponse(
     partner: any, 
     conversationHistory: IMessage[], 
-    userMessage: string
+    userMessage: string,
+    user: any
   ): Promise<{
     response: string;
     emotion: string;
     intimacyChange: number;
+    trustChange?: number;
+    emotionalChange?: number;
     emotionAnalysis: string;
   }> {
     try {
       // システムプロンプトの構築
-      const systemPrompt = this.buildSystemPrompt(partner, conversationHistory);
+      const systemPrompt = this.buildSystemPrompt(partner, conversationHistory, user);
       
       // 会話履歴をOpenAI形式に変換
       const messages = this.buildConversationMessages(systemPrompt, conversationHistory, userMessage);
@@ -189,6 +206,8 @@ export class ChatService {
         messages,
         temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
         max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000'),
+        frequency_penalty: 0.7, // 単語の繰り返しを防ぐ
+        presence_penalty: 0.5,  // 同じトピックの繰り返しを防ぐ
         tools: [
           {
             type: 'function',
@@ -223,12 +242,20 @@ export class ChatService {
         tool_choice: { type: 'function', function: { name: 'analyze_response' } }
       });
 
+      console.log('🔍 [DEBUG] OpenAI Completion Response:', JSON.stringify(completion, null, 2));
+      
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+      console.log('🔍 [DEBUG] Tool Call:', toolCall);
+      
       if (!toolCall?.function?.arguments) {
+        console.error('❌ [ERROR] Tool call or arguments missing');
+        console.log('🔍 [DEBUG] Completion message:', completion.choices[0]?.message);
         throw new Error('AI応答の生成に失敗しました');
       }
 
+      console.log('🔍 [DEBUG] Function Arguments:', toolCall.function.arguments);
       const result = JSON.parse(toolCall.function.arguments);
+      console.log('🔍 [DEBUG] Parsed Result:', result);
       
       return {
         response: result.response || 'すみません、うまく応答できませんでした。',
@@ -240,11 +267,20 @@ export class ChatService {
     } catch (error) {
       console.error('AI応答生成エラー:', error);
       
-      // フォールバック応答
+      // フォールバック応答（おうむ返しを防ぐ）
+      const fallbackResponses = [
+        'すみません、今少し調子が悪いみたいです。もう一度話しかけてもらえますか？',
+        'ちょっと考えがまとまらないですね...もう一度お話しいただけますか？',
+        '申し訳ないです、うまく言葉にできません。別の話題はいかがですか？',
+        'ごめんなさい、今はちょっと思考が整理できていないです。'
+      ];
+      
+      const randomResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+      
       return {
-        response: 'すみません、今少し調子が悪いみたいです。もう一度話しかけてもらえますか？',
+        response: randomResponse,
         emotion: 'confused',
-        intimacyChange: 0,
+        intimacyChange: 0, // エラー時は親密度を変更しない
         emotionAnalysis: 'システムエラーによる感情分析不可'
       };
     }
@@ -253,10 +289,15 @@ export class ChatService {
   /**
    * システムプロンプトの構築
    */
-  private buildSystemPrompt(partner: any, conversationHistory: IMessage[]): string {
-    const user = partner.user;
-    const userName = user?.nickname || user?.firstName || 'あなた';
+  private buildSystemPrompt(partner: any, conversationHistory: IMessage[], user: any): string {
+    const userName = user?.nickname || user?.firstName || user?.surname || 'あなた';
     const intimacyLevel = partner.intimacyLevel || 0;
+    
+    console.log('🔍 [DEBUG] ユーザー情報確認:');
+    console.log('🔍 [DEBUG] user:', user);
+    console.log('🔍 [DEBUG] userName:', userName);
+    console.log('🔍 [DEBUG] nickname:', user?.nickname);
+    console.log('🔍 [DEBUG] firstName:', user?.firstName);
     
     // 親密度に基づく呼び方の決定
     let callingStyle = `${userName}さん`;
@@ -284,16 +325,21 @@ ${partner.systemPrompt}
 【重要な指示】
 1. 常に${partner.name}として一貫した人格を保つ
 2. 親密度${intimacyLevel}に応じた適切な距離感で接する
-3. 相手を「${callingStyle}」と呼ぶ
-4. 自然で感情豊かな会話を心がける
-5. 過去の会話内容を適切に覚えている
-6. 応答は必ず日本語で行う
-7. 1-3文程度の自然な長さで応答する
+3. 相手を必ず「${callingStyle}」と呼ぶ（「あなた」「あなたさん」は禁止）
+4. 名前の呼び方: ${callingStyle}（これ以外の呼び方は一切使わない）
+5. 自然で感情豊かな会話を心がける
+6. 過去の会話内容を適切に覚えている
+7. 応答は必ず日本語で行う
+8. 1-3文程度の自然な長さで応答する
+9. 【厳重禁止】ユーザーの発言をそのまま繰り返してはいけない
+10. 必ずユーザーの発言に対して独自の応答をする
 
 【会話履歴】
 ${conversationHistory.slice(-5).map(msg => 
   `${msg.sender === MessageSender.USER ? userName : partner.name}: ${msg.content}`
 ).join('\n')}
+
+【最重要】相手を「${callingStyle}」と呼んでください。「あなた」や「あなたさん」は絶対に使わないでください。
 
 次のメッセージに${partner.name}として自然に応答してください：
 `;

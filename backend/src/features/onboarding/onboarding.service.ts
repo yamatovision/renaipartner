@@ -10,7 +10,8 @@ import {
   PresetPersonality,
   PERSONALITY_PRESETS,
   PersonalityType,
-  Partner
+  Partner,
+  Gender
 } from '../../types';
 import { PartnersService } from '../partners/partners.service';
 import { UsersService } from '../users/users.service';
@@ -101,9 +102,11 @@ export class OnboardingService {
     try {
       console.log(`[OnboardingService] Updating onboarding progress for user: ${userId}`);
 
-      const progress = await OnboardingProgress.findOne({ where: { userId } });
+      let progress = await OnboardingProgress.findOne({ where: { userId } });
       if (!progress) {
-        throw new NotFoundError('オンボーディング進捗');
+        // 進捗が見つからない場合は新規作成
+        console.log(`[OnboardingService] Progress not found, creating new one for user: ${userId}`);
+        progress = await this.startOnboarding(userId);
       }
 
       // 既に完了している場合は更新不可
@@ -496,6 +499,62 @@ ${partnerData.prompt ? `\n追加設定: ${partnerData.prompt}` : ''}
       elegant: 'エレガント',
     };
     return styles[style] || style;
+  }
+
+  /**
+   * デバッグ用: オンボーディング進捗の詳細データを取得
+   * ※本番環境では削除すること
+   */
+  async getDebugData(userId: string): Promise<any> {
+    try {
+      console.log(`[OnboardingService] Getting debug data for user: ${userId}`);
+
+      // onboarding_progressテーブルの全データを取得
+      const progress = await OnboardingProgress.findOne({ 
+        where: { userId },
+        raw: true // 生のデータを取得
+      });
+
+      if (!progress) {
+        return {
+          error: 'オンボーディング進捗データが見つかりません',
+          userId,
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      // 詳細なデバッグ情報を返す
+      return {
+        userId: progress.userId,
+        currentStep: progress.currentStep,
+        completedSteps: progress.completedSteps,
+        userData: progress.userData,
+        partnerData: progress.partnerData,
+        personalityAnswers: progress.personalityAnswers,
+        completed: progress.completed,
+        createdAt: progress.createdAt,
+        updatedAt: progress.updatedAt,
+        // 追加のデバッグ情報
+        debug: {
+          hasUserData: !!progress.userData,
+          hasPartnerData: !!progress.partnerData,
+          hasPersonalityAnswers: !!progress.personalityAnswers,
+          userDataKeys: progress.userData ? Object.keys(progress.userData) : [],
+          partnerDataKeys: progress.partnerData ? Object.keys(progress.partnerData) : [],
+          completedStepsCount: progress.completedSteps ? progress.completedSteps.length : 0,
+          isCompleted: progress.completed,
+          lastUpdate: progress.updatedAt
+        }
+      };
+    } catch (error) {
+      console.error('[OnboardingService] Error getting debug data:', error);
+      return {
+        error: 'デバッグデータの取得に失敗しました',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        userId,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 

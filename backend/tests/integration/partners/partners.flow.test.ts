@@ -655,6 +655,315 @@ describe('パートナー管理API統合テスト', () => {
     });
   });
 
+  describe('オンボーディング完了とパートナー作成機能（新エンドポイント）', () => {
+    it('オンボーディング完了時に一括でユーザー情報更新とパートナー作成ができる', async () => {
+      const tracker = new MilestoneTracker();
+      tracker.mark('テスト開始');
+
+      // 一般ユーザーでログイン
+      tracker.setOperation('一般ユーザーログイン');
+      const userAuth = await TestAuthHelper.loginAsUser();
+      tracker.mark('一般ユーザーログイン完了');
+
+      // オンボーディングデータ準備
+      tracker.setOperation('オンボーディングデータ準備');
+      const uniqueId = Math.random().toString(36).substring(2, 8);
+      const onboardingData = {
+        userData: {
+          surname: '田中',
+          firstName: `太郎${uniqueId}`,
+          birthday: '1995-05-15'
+        },
+        partnerData: {
+          name: `愛${uniqueId}`,
+          gender: 'girlfriend',
+          personality: 'gentle',
+          speechStyle: 'polite',
+          prompt: '優しくて思いやりのある理想的なパートナーです。彼らは常に相手を思いやり、困った時は必ず力になってくれます。',
+          nickname: `${uniqueId}くん`,
+          appearance: {
+            hairStyle: 'long',
+            eyeColor: 'brown',
+            bodyType: 'average',
+            clothingStyle: 'elegant'
+          }
+        }
+      };
+      tracker.mark('オンボーディングデータ準備完了');
+
+      // オンボーディング完了API呼び出し
+      tracker.setOperation('オンボーディング完了API呼び出し');
+      console.log('送信するオンボーディングデータ:', JSON.stringify(onboardingData, null, 2));
+      const response = await TestAuthHelper.authenticatedRequest(
+        'post',
+        '/api/partners/create-with-onboarding',
+        userAuth.cookies,
+        onboardingData
+      );
+      tracker.mark('オンボーディング完了レスポンス受信');
+
+      // レスポンス検証
+      tracker.setOperation('レスポンス検証');
+      console.log('オンボーディング完了レスポンス:', {
+        status: response.status,
+        body: JSON.stringify(response.body, null, 2)
+      });
+      if (response.status !== 201) {
+        console.error('エラーレスポンス詳細:', JSON.stringify(response.body, null, 2));
+        if (response.body.meta?.details) {
+          console.error('バリデーションエラー詳細:', JSON.stringify(response.body.meta.details, null, 2));
+        }
+      }
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe(onboardingData.partnerData.name);
+      expect(response.body.data.gender).toBe(onboardingData.partnerData.gender);
+      expect(response.body.data.personalityType).toBe(onboardingData.partnerData.personality);
+      expect(response.body.data.speechStyle).toBe(onboardingData.partnerData.speechStyle);
+      expect(response.body.data.appearance.hairStyle).toBe(onboardingData.partnerData.appearance.hairStyle);
+      expect(response.body.data.appearance.eyeColor).toBe(onboardingData.partnerData.appearance.eyeColor);
+      expect(response.body.data.appearance.bodyType).toBe(onboardingData.partnerData.appearance.bodyType);
+      expect(response.body.data.appearance.clothingStyle).toBe(onboardingData.partnerData.appearance.clothingStyle);
+      expect(response.body.data.intimacyLevel).toBe(0);
+      expect(response.body.meta.message).toBe('オンボーディングが完了しました');
+      tracker.mark('レスポンス検証完了');
+
+      // パートナー情報が正常に作成されているかデータベース確認
+      tracker.setOperation('パートナー作成確認');
+      const partnerId = response.body.data.id;
+      const partnerDetailResponse = await TestAuthHelper.authenticatedRequest(
+        'get',
+        `/api/partners/${partnerId}`,
+        userAuth.cookies
+      );
+      expect(partnerDetailResponse.status).toBe(200);
+      expect(partnerDetailResponse.body.data.name).toBe(onboardingData.partnerData.name);
+      expect(partnerDetailResponse.body.data.systemPrompt).toBe(onboardingData.partnerData.prompt);
+      tracker.mark('パートナー作成確認完了');
+
+      // ユーザー情報が更新されているか確認（パートナー存在チェック）
+      tracker.setOperation('ユーザー情報更新確認');
+      const partnerExistsResponse = await TestAuthHelper.authenticatedRequest(
+        'get',
+        '/api/partners/exists',
+        userAuth.cookies
+      );
+      expect(partnerExistsResponse.status).toBe(200);
+      expect(partnerExistsResponse.body.data.hasPartner).toBe(true);
+      tracker.mark('ユーザー情報更新確認完了');
+
+      tracker.summary();
+    });
+
+    it('オンボーディング完了時のバリデーションエラーが適切に処理される', async () => {
+      const tracker = new MilestoneTracker();
+      tracker.mark('テスト開始');
+
+      // 一般ユーザーでログイン
+      tracker.setOperation('一般ユーザーログイン');
+      const userAuth = await TestAuthHelper.loginAsUser();
+      tracker.mark('一般ユーザーログイン完了');
+
+      // 無効なオンボーディングデータ準備（姓名が空）
+      tracker.setOperation('無効なオンボーディングデータ準備');
+      const invalidOnboardingData = {
+        userData: {
+          surname: '', // 空文字でバリデーションエラー
+          firstName: '', // 空文字でバリデーションエラー
+          birthday: '1995-05-15'
+        },
+        partnerData: {
+          name: `無効${Math.random().toString(36).substring(2, 6)}`,
+          gender: 'boyfriend',
+          personality: 'cool',
+          speechStyle: 'cool_tone',
+          appearance: {
+            hairStyle: 'short',
+            eyeColor: 'blue',
+            bodyType: 'athletic',
+            clothingStyle: 'formal'
+          }
+        }
+      };
+      tracker.mark('無効なオンボーディングデータ準備完了');
+
+      // 無効なオンボーディング完了API呼び出し
+      tracker.setOperation('無効なオンボーディング完了API呼び出し');
+      const response = await TestAuthHelper.authenticatedRequest(
+        'post',
+        '/api/partners/create-with-onboarding',
+        userAuth.cookies,
+        invalidOnboardingData
+      );
+      tracker.mark('無効なオンボーディング完了レスポンス受信');
+
+      // エラーレスポンス検証
+      tracker.setOperation('エラーレスポンス検証');
+      console.log('バリデーションエラーレスポンス:', {
+        status: response.status,
+        body: JSON.stringify(response.body, null, 2)
+      });
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('入力データが無効です');
+      expect(response.body.meta?.details).toBeDefined();
+      expect(Array.isArray(response.body.meta.details)).toBe(true);
+      expect(response.body.meta.details.length).toBeGreaterThan(0);
+      tracker.mark('エラーレスポンス検証完了');
+
+      tracker.summary();
+    });
+
+    it('既にパートナーが存在する場合のオンボーディング完了が拒否される', async () => {
+      const tracker = new MilestoneTracker();
+      tracker.mark('テスト開始');
+
+      // 一般ユーザーでログイン
+      tracker.setOperation('一般ユーザーログイン');
+      const userAuth = await TestAuthHelper.loginAsUser();
+      tracker.mark('一般ユーザーログイン完了');
+
+      // 先にパートナーを作成
+      tracker.setOperation('先にパートナーを作成');
+      const firstPartnerData = {
+        name: `先行${Math.random().toString(36).substring(2, 6)}`,
+        gender: 'girlfriend',
+        personalityType: 'sweet',
+        speechStyle: 'sweet',
+        systemPrompt: `とても優しく、甘えん坊で、常に愛情表現が豊かな理想的なパートナーです。彼らは常に相手を思いやり、困った時は必ず力になってくれます。`,
+        avatarDescription: `甘い表情をした魅力的な女性。温かみのある目元と穏やかな笑顔が特徴的で、安心感を与える雰囲気を持っています。`,
+        appearance: {
+          hairStyle: 'long',
+          eyeColor: 'brown',
+          bodyType: 'slim',
+          clothingStyle: 'elegant'
+        },
+        hobbies: ['お菓子作り']
+      };
+
+      const firstCreateResponse = await TestAuthHelper.authenticatedRequest(
+        'post',
+        '/api/partners',
+        userAuth.cookies,
+        firstPartnerData
+      );
+      expect(firstCreateResponse.status).toBe(201);
+      tracker.mark('先にパートナーを作成完了');
+
+      // オンボーディング完了を試行（失敗するべき）
+      tracker.setOperation('重複オンボーディング完了試行');
+      const onboardingData = {
+        userData: {
+          surname: '鈴木',
+          firstName: `花子${Math.random().toString(36).substring(2, 6)}`,
+          birthday: '1992-08-20'
+        },
+        partnerData: {
+          name: `二番目${Math.random().toString(36).substring(2, 6)}`,
+          gender: 'boyfriend',
+          personality: 'gentle',
+          speechStyle: 'polite',
+          appearance: {
+            hairStyle: 'medium',
+            eyeColor: 'brown',
+            bodyType: 'average',
+            clothingStyle: 'casual'
+          }
+        }
+      };
+
+      const response = await TestAuthHelper.authenticatedRequest(
+        'post',
+        '/api/partners/create-with-onboarding',
+        userAuth.cookies,
+        onboardingData
+      );
+      tracker.mark('重複オンボーディング完了レスポンス受信');
+
+      // エラーレスポンス検証
+      tracker.setOperation('エラーレスポンス検証');
+      console.log('重複作成エラーレスポンス:', {
+        status: response.status,
+        body: JSON.stringify(response.body, null, 2)
+      });
+      expect(response.status).toBe(409);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('既にパートナーが作成されています');
+      tracker.mark('エラーレスポンス検証完了');
+
+      tracker.summary();
+    });
+
+    it('カスタムプロンプトなしでデフォルトプロンプトが生成される', async () => {
+      const tracker = new MilestoneTracker();
+      tracker.mark('テスト開始');
+
+      // 一般ユーザーでログイン
+      tracker.setOperation('一般ユーザーログイン');
+      const userAuth = await TestAuthHelper.loginAsUser();
+      tracker.mark('一般ユーザーログイン完了');
+
+      // カスタムプロンプトなしのオンボーディングデータ準備
+      tracker.setOperation('デフォルトプロンプト用データ準備');
+      const uniqueId = Math.random().toString(36).substring(2, 8);
+      const onboardingData = {
+        userData: {
+          surname: '山田',
+          firstName: `次郎${uniqueId}`,
+          birthday: '1990-12-10'
+        },
+        partnerData: {
+          name: `美香${uniqueId}`,
+          gender: 'girlfriend',
+          personality: 'cheerful',
+          speechStyle: 'casual',
+          // promptはなし、デフォルトが生成されるべき
+          appearance: {
+            hairStyle: 'medium',
+            eyeColor: 'brown',
+            bodyType: 'average',
+            clothingStyle: 'casual'
+          }
+        }
+      };
+      tracker.mark('デフォルトプロンプト用データ準備完了');
+
+      // オンボーディング完了API呼び出し
+      tracker.setOperation('デフォルトプロンプトでオンボーディング完了');
+      const response = await TestAuthHelper.authenticatedRequest(
+        'post',
+        '/api/partners/create-with-onboarding',
+        userAuth.cookies,
+        onboardingData
+      );
+      tracker.mark('デフォルトプロンプトオンボーディングレスポンス受信');
+
+      // レスポンス検証
+      tracker.setOperation('デフォルトプロンプトレスポンス検証');
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.name).toBe(onboardingData.partnerData.name);
+      expect(response.body.data.systemPrompt).toContain(onboardingData.partnerData.name);
+      expect(response.body.data.systemPrompt.length).toBeGreaterThan(50); // デフォルトプロンプトが生成されている
+      tracker.mark('デフォルトプロンプトレスポンス検証完了');
+
+      // システムプロンプト内容確認
+      tracker.setOperation('デフォルトプロンプト内容確認');
+      const partnerId = response.body.data.id;
+      const partnerDetailResponse = await TestAuthHelper.authenticatedRequest(
+        'get',
+        `/api/partners/${partnerId}`,
+        userAuth.cookies
+      );
+      expect(partnerDetailResponse.status).toBe(200);
+      expect(partnerDetailResponse.body.data.systemPrompt).toContain('あなたの名前は');
+      expect(partnerDetailResponse.body.data.systemPrompt).toContain(onboardingData.partnerData.name);
+      tracker.mark('デフォルトプロンプト内容確認完了');
+
+      tracker.summary();
+    });
+  });
+
   describe('完全パートナー管理フロー', () => {
     it('パートナー作成から更新・削除まで完全フローが正常に動作する', async () => {
       const tracker = new MilestoneTracker();

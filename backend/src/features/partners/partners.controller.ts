@@ -15,11 +15,42 @@ import {
   validatePromptSchema,
   previewPromptSchema,
   partnerIdSchema,
-  applyPresetSchema
+  applyPresetSchema,
+  createWithOnboardingSchema
 } from './partners.validator';
 import { asyncHandler } from '@/common/middlewares/error.middleware';
 
 export class PartnersController {
+  // オンボーディング完了とパートナー作成（簡素化版）
+  static createWithOnboarding = asyncHandler(async (req: Request, res: Response<ApiResponse<Partner>>): Promise<Response | void> => {
+    console.log(`[PARTNERS] オンボーディング完了処理: userId=${req.user?.userId}`);
+    
+    if (!req.user?.userId) {
+      return res.status(401).json({
+        success: false,
+        error: '認証が必要です',
+        meta: { code: 'AUTH_REQUIRED' }
+      });
+    }
+    
+    // バリデーション
+    const onboardingData = validateRequest(createWithOnboardingSchema, req.body);
+    
+    // パートナー作成処理（ユーザー情報更新も含む）
+    const partner = await PartnersService.createWithOnboarding(req.user.userId, onboardingData);
+    
+    console.log(`[PARTNERS] オンボーディング完了: partnerId=${partner.id}`);
+    
+    res.status(201).json({
+      success: true,
+      data: partner,
+      meta: {
+        message: 'オンボーディングが完了しました',
+        partnerId: partner.id
+      }
+    });
+  });
+
   // パートナー作成（API 3.1）
   static createPartner = asyncHandler(async (req: Request, res: Response<ApiResponse<Partner>>): Promise<Response | void> => {
     console.log(`[PARTNERS] パートナー作成リクエスト: userId=${req.user?.userId}`);

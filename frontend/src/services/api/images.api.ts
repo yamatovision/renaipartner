@@ -13,6 +13,11 @@ export const imagesApiService = {
     return api.post(API_PATHS.IMAGES.GENERATE, request)
   },
 
+  // オンボーディング用画像生成（partnerIdなし）
+  async generateOnboardingAvatar(request: Omit<ImageGenerationRequest, 'partnerId'>): Promise<ApiResponse<GeneratedImage>> {
+    return api.post('/api/images/generate-onboarding', request)
+  },
+
   // チャット用画像生成（API 7.2）
   async generateChatImage(request: ImageGenerationRequest): Promise<ApiResponse<GeneratedImage>> {
     return api.post(API_PATHS.IMAGES.GENERATE_CHAT, request)
@@ -20,7 +25,12 @@ export const imagesApiService = {
 
   // 背景画像一覧取得（API 7.3）
   async getBackgrounds(): Promise<BackgroundImage[]> {
-    return api.get(API_PATHS.IMAGES.BACKGROUNDS)
+    const response = await api.get<BackgroundImage[]>(API_PATHS.IMAGES.BACKGROUNDS)
+    // APIレスポンスが配列形式でない場合の対応
+    if (response && typeof response === 'object' && 'data' in response) {
+      return Array.isArray(response.data) ? response.data : []
+    }
+    return Array.isArray(response) ? response : []
   },
 
   // 画像履歴取得（追加機能）

@@ -15,7 +15,7 @@ import {
   PartnerCreate,
   PartnerData
 } from '@/types'
-import { partnersService, onboardingService } from '@/services'
+import { partnersService } from '@/services'
 
 // ステップコンポーネント
 import { Step1Welcome } from './components/Step1Welcome'
@@ -34,6 +34,8 @@ export default function OnboardingPage() {
   const { user } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  
+  console.log('Current render state:', { currentStep, loading, user: !!user })
   
   // オンボーディングの進行状況（クライアント側の一時的な状態）
   interface OnboardingState {
@@ -76,94 +78,36 @@ export default function OnboardingPage() {
     completed: false
   })
 
-  // ページロード時に既存の進捗を取得
+  // ページロード時の処理（API呼び出しは削除）
   useEffect(() => {
-    const loadProgress = async () => {
+    const checkExistingPartner = async () => {
       if (!user) return
       
       try {
-        // 既存の進捗を取得
-        const progressResponse = await onboardingService.getProgress(user.id)
-        
-        if (progressResponse.success && progressResponse.data) {
-          // 既存の進捗データをステートに反映
-          const progress = progressResponse.data
-          setCurrentStep(progress.currentStep)
-          setOnboardingData({
-            currentStep: progress.currentStep,
-            completedSteps: progress.completedSteps || [],
-            userData: progress.userData || {
-              surname: '',
-              firstName: '',
-              birthday: ''
-            },
-            partnerData: progress.partnerData || {
-              gender: Gender.BOYFRIEND,
-              name: '',
-              personality: PersonalityType.GENTLE,
-              speechStyle: SpeechStyle.POLITE,
-              prompt: '',
-              nickname: '',
-              appearance: {
-                hairStyle: 'short',
-                eyeColor: 'brown',
-                bodyType: 'average',
-                clothingStyle: 'casual',
-                generatedImageUrl: undefined
-              }
-            },
-            personalityAnswers: progress.personalityAnswers || [],
-            completed: progress.completed || false
-          })
-        } else {
-          // 新規オンボーディングを開始
-          const startResponse = await onboardingService.startOnboarding({ 
-            userId: user.id,
-            gender: Gender.GIRLFRIEND, // デフォルト値
-            name: ''
-          })
-          if (!startResponse.success) {
-            console.error('オンボーディングの開始に失敗しました:', startResponse.error)
-          }
+        // パートナーが既に存在するか確認
+        const partnersResponse = await partnersService.getPartner()
+        if (partnersResponse.success && partnersResponse.data) {
+          // パートナーが存在する場合はホームへ
+          router.push('/home')
         }
       } catch (error) {
-        console.error('進捗の読み込みに失敗しました:', error)
+        console.error('Failed to check partner existence:', error)
       }
     }
     
-    loadProgress()
+    checkExistingPartner()
   }, [user])
 
-  // ステップの進行
-  const nextStep = async () => {
-    if (currentStep < 10 && user) {
+  // ステップの進行（API呼び出しを削除）
+  const nextStep = () => {
+    if (currentStep < 10) {
       const newStep = currentStep + 1
-      
-      // ローカルステートを更新
       setCurrentStep(newStep)
       setOnboardingData(prev => ({
         ...prev,
         currentStep: newStep,
         completedSteps: [...prev.completedSteps, currentStep]
       }))
-      
-      // APIに進捗を保存
-      try {
-        const updateResponse = await onboardingService.updateProgress(user.id, {
-          step: newStep,
-          currentStep: newStep,
-          completedSteps: [...onboardingData.completedSteps, currentStep],
-          userData: onboardingData.userData,
-          partnerData: onboardingData.partnerData,
-          personalityAnswers: onboardingData.personalityAnswers
-        })
-        
-        if (!updateResponse.success) {
-          console.error('進捗の保存に失敗しました:', updateResponse.error)
-        }
-      } catch (error) {
-        console.error('進捗の保存中にエラーが発生しました:', error)
-      }
     }
   }
 
@@ -178,57 +122,42 @@ export default function OnboardingPage() {
     }
   }
 
-  // データの更新
-  const updateData = async (data: Partial<OnboardingProgress>) => {
-    // ローカルステートを更新
+  // データの更新（ローカルのみ）
+  const updateData = (data: Partial<OnboardingState>) => {
     setOnboardingData(prev => ({
       ...prev,
       ...data
     }))
-    
-    // APIに進捗を保存
-    if (user) {
-      try {
-        const updateResponse = await onboardingService.updateProgress(user.id, {
-          step: data.currentStep || onboardingData.currentStep,
-          currentStep: data.currentStep || onboardingData.currentStep,
-          completedSteps: data.completedSteps || onboardingData.completedSteps,
-          userData: data.userData || onboardingData.userData,
-          partnerData: data.partnerData || onboardingData.partnerData,
-          personalityAnswers: data.personalityAnswers || onboardingData.personalityAnswers
-        })
-        
-        if (!updateResponse.success) {
-          console.error('データの保存に失敗しました:', updateResponse.error)
-        }
-      } catch (error) {
-        console.error('データの保存中にエラーが発生しました:', error)
-      }
-    }
   }
 
-  // オンボーディング完了とパートナー作成
+  // オンボーディング完了とパートナー作成（新API使用）
   const createPartner = async () => {
     if (!user) return
     
     setLoading(true)
     try {
-      // オンボーディング完了APIを呼び出し
-      const completeResponse = await onboardingService.completeOnboarding(user.id, {
+      // デバッグ用ログ
+      console.log('送信するオンボーディングデータ:', {
         userData: onboardingData.userData,
         partnerData: onboardingData.partnerData
       })
       
-      if (completeResponse.success) {
-        // オンボーディング完了成功 - ホームページへリダイレクト
+      // 新しいAPIで一括作成
+      const response = await partnersService.createWithOnboarding({
+        userData: onboardingData.userData,
+        partnerData: onboardingData.partnerData
+      })
+      
+      if (response.success) {
+        // パートナー作成成功 - ホームページへリダイレクト
         router.push('/home')
       } else {
-        console.error('オンボーディングの完了に失敗しました:', completeResponse.error)
-        alert('オンボーディングの完了に失敗しました。再度お試しください。')
+        console.error('パートナーの作成に失敗しました:', response.error)
+        alert('パートナーの作成に失敗しました。再度お試しください。')
       }
     } catch (error) {
-      console.error('オンボーディング完了エラー:', error)
-      alert('オンボーディングの完了中にエラーが発生しました。')
+      console.error('パートナー作成エラー:', error)
+      alert('パートナーの作成中にエラーが発生しました。')
     } finally {
       setLoading(false)
     }
@@ -313,6 +242,7 @@ export default function OnboardingPage() {
               partnerName={onboardingData.partnerData.name}
               personalityAnswers={onboardingData.personalityAnswers}
               selectedPreset={onboardingData.partnerData.personality}
+              gender={onboardingData.partnerData.gender}
               onSelect={(personality, speechStyle, prompt) => updateData({
                 partnerData: { 
                   ...onboardingData.partnerData, 
@@ -331,6 +261,7 @@ export default function OnboardingPage() {
               partnerName={onboardingData.partnerData.name}
               gender={onboardingData.partnerData.gender}
               appearance={onboardingData.partnerData.appearance}
+              personality={onboardingData.partnerData.personality}
               onUpdate={(appearance) => updateData({
                 partnerData: { ...onboardingData.partnerData, appearance }
               })}
@@ -368,6 +299,22 @@ export default function OnboardingPage() {
               onComplete={createPartner}
               loading={loading}
             />
+          )}
+          
+          {/* デフォルトケース - デバッグ用 */}
+          {(currentStep < 1 || currentStep > 10) && (
+            <div className="text-center">
+              <h2 className="text-xl font-bold mb-4">デバッグ情報</h2>
+              <p>現在のステップ: {currentStep}</p>
+              <p>ユーザー: {user ? 'ログイン済み' : '未ログイン'}</p>
+              <p>ローディング: {loading ? 'true' : 'false'}</p>
+              <button 
+                onClick={() => setCurrentStep(1)}
+                className="mt-4 px-4 py-2 bg-pink-500 text-white rounded"
+              >
+                ステップ1に戻る
+              </button>
+            </div>
           )}
         </div>
       </div>

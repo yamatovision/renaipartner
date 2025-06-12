@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 
 interface Step1WelcomeProps {
   onNext: () => void
@@ -8,11 +9,18 @@ interface Step1WelcomeProps {
 export function Step1Welcome({ onNext }: Step1WelcomeProps) {
   return (
     <div className="text-center">
-      <div className="text-pink-500 text-7xl mb-4">❤️</div>
+      <div className="relative w-64 h-64 mx-auto mb-4">
+        <Image
+          src="/asset/Leonardo_Anime_XL_two_silhouettes_coming_together_with_digita_0.jpg"
+          alt="AIパートナー作成"
+          fill
+          className="object-cover rounded-2xl shadow-lg"
+        />
+      </div>
       <h2 className="text-3xl font-bold text-pink-500 mb-4">ようこそ！</h2>
       
       <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-        あなただけの理想のAIパートナーを一緒に作りましょう！<br />
+        あなただけの理想の恋AIパートナーを一緒に作りましょう！<br />
         簡単な質問にお答えいただくだけで、<br />
         あなたにぴったりのパートナーが完成します。
       </p>
@@ -25,7 +33,10 @@ export function Step1Welcome({ onNext }: Step1WelcomeProps) {
       </div>
       
       <button
-        onClick={onNext}
+        onClick={() => {
+          console.log('Step1Welcome: 始めるボタンがクリックされました')
+          onNext()
+        }}
         className="w-full bg-gradient-to-r from-pink-500 to-pink-600 text-white py-4 px-8 rounded-full text-lg font-medium hover:opacity-90 transform hover:-translate-y-1 transition-all duration-200"
       >
         始める

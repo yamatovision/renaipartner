@@ -20,30 +20,30 @@ router.post(
 
 /**
  * 進捗状況取得
- * GET /api/onboarding/progress
+ * GET /api/onboarding/:userId/progress
  */
 router.get(
-  '/progress',
+  '/:userId/progress',
   onboardingValidator.getProgress(),
   onboardingController.getProgress.bind(onboardingController)
 );
 
 /**
  * 進捗更新
- * PUT /api/onboarding/progress
+ * PUT /api/onboarding/:userId/progress
  */
 router.put(
-  '/progress',
+  '/:userId/progress',
   onboardingValidator.updateProgress(),
   onboardingController.updateProgress.bind(onboardingController)
 );
 
 /**
  * オンボーディング完了
- * POST /api/onboarding/complete
+ * POST /api/onboarding/:userId/complete
  */
 router.post(
-  '/complete',
+  '/:userId/complete',
   onboardingValidator.complete(),
   onboardingController.complete.bind(onboardingController)
 );
@@ -74,6 +74,16 @@ router.get(
 router.post(
   '/recommended-presets',
   onboardingController.getRecommendedPresets.bind(onboardingController)
+);
+
+/**
+ * デバッグ用: オンボーディング進捗の詳細取得
+ * GET /api/onboarding/debug/:userId
+ * ※本番環境では削除すること
+ */
+router.get(
+  '/debug/:userId',
+  onboardingController.debug.bind(onboardingController)
 );
 
 export { router as onboardingRoutes };

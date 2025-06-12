@@ -1,21 +1,58 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Home() {
   const router = useRouter()
+  const { isAuthenticated, loading } = useAuth()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // 仮の認証チェック（後でモック/実APIに差し替え）
-    const isAuthenticated = false // TODO: 実際の認証状態をチェック
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    console.log('Root page - auth state:', { isAuthenticated, loading, mounted })
+    console.log('Root page - current URL:', window.location.href)
+    console.log('Root page - current pathname:', window.location.pathname)
     
-    if (isAuthenticated) {
-      router.push('/home')
-    } else {
-      router.push('/login')
+    // マウントされていない場合はスキップ
+    if (!mounted) return
+    
+    // もし既に正しいページにいる場合はリダイレクトしない
+    if (window.location.pathname === '/home' && isAuthenticated) {
+      console.log('Root page - already on /home and authenticated, skipping redirect')
+      return
     }
-  }, [router])
+    
+    if (window.location.pathname === '/login' && !isAuthenticated) {
+      console.log('Root page - already on /login and not authenticated, skipping redirect')
+      return
+    }
+    
+    // 認証状態をチェック
+    if (!loading) {
+      console.log('Root page - checking auth:', { isAuthenticated, loading })
+      
+      if (isAuthenticated) {
+        console.log('Root page - redirecting to /home')
+        router.push('/home')
+      } else {
+        console.log('Root page - redirecting to /login')
+        router.push('/login')
+      }
+    } else {
+      // 5秒後に強制的にログインページへ
+      const timeout = setTimeout(() => {
+        console.log('Root page - timeout reached, forcing redirect to login')
+        router.push('/login')
+      }, 5000)
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [router, isAuthenticated, loading, mounted])
 
   return (
     <div className="flex items-center justify-center min-h-screen">

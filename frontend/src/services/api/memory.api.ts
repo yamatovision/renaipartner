@@ -63,14 +63,29 @@ export const memoryApiService = {
   },
 
   // 関係性メトリクス取得
-  getRelationshipMetrics: async (partnerId: string): Promise<ApiResponse<RelationshipMetrics>> => {
+  getRelationshipMetrics: async (partnerId: string): Promise<ApiResponse<any>> => {
     try {
-      const response = await api.get<RelationshipMetrics>(API_PATHS.MEMORY.RELATIONSHIPS(partnerId))
+      console.log('[MEMORY API] getRelationshipMetrics called for partnerId:', partnerId)
+      console.log('[MEMORY API] API path:', API_PATHS.MEMORY.RELATIONSHIPS(partnerId))
+      
+      const response = await api.get<any>(API_PATHS.MEMORY.RELATIONSHIPS(partnerId))
+      
+      console.log('[MEMORY API] Raw response:', response)
+      console.log('[MEMORY API] Response type:', typeof response)
+      console.log('[MEMORY API] Response keys:', Object.keys(response || {}))
+      
+      // APIレスポンスが既に{success, data, message}形式の場合はそのまま返す
+      if (response && response.success !== undefined) {
+        return response
+      }
+      
+      // そうでない場合は従来の形式でラップ
       return {
         success: true,
         data: response,
       }
     } catch (error: any) {
+      console.error('[MEMORY API] getRelationshipMetrics error:', error)
       return {
         success: false,
         error: error.message || '関係性メトリクスの取得に失敗しました',
