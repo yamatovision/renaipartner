@@ -92,3 +92,8 @@ data/stats.json
 # SillyTavernディレクトリ（別管理）
 SillyTavern/backend/.env.yaml
 docs/deployment/deploy.md
+
+# Firebase
+.firebaserc
+firebase.json
+.firebase/
