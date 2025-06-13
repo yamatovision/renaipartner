@@ -86,11 +86,14 @@
 | **5.2** | `/api/chat/messages` | GET | メッセージ履歴取得 | 必要 | チャットページ | [x] | [x] | [x] |
 | **5.3** | `/api/chat/typing` | POST | タイピング状態通知 | 必要 | チャットページ | [x] | [x] | [x] |
 | **5.4** | `/api/chat/emotion` | GET | 感情状態取得 | 必要 | チャットページ | [x] | [x] | [x] |
+| **5.5** | `/api/chat/proactive-question` | POST | AI主導の戦略的質問生成 | 必要 | チャットページ | [ ] | [ ] | [ ] |
+| **5.6** | `/api/chat/should-ask-question` | GET | 質問タイミング判定 | 必要 | チャットページ | [ ] | [ ] | [ ] |
 | **6.1** | `/api/memory/summary` | POST | 会話要約作成 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.2** | `/api/memory/search` | POST | メモリ検索 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.3** | `/api/memory/episodes` | GET | エピソード記憶取得 | 必要 | パートナー編集ページ | [x] | [x] | [x] |
 | **6.4** | `/api/memory/relationships` | GET | 関係性メトリクス取得 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.5** | `/api/memory/topics` | GET | 継続話題取得 | 必要 | チャットページ | [x] | [x] | [x] |
+| **6.6** | `/api/memory/extract-from-response` | POST | 質問回答からメモリ抽出・更新 | 必要 | チャットページ | [ ] | [ ] | [ ] |
 | **7.1** | `/api/images/generate` | POST | アバター画像生成 | 必要 | パートナー作成/編集 | [x] | [x] | [x] |
 | **7.2** | `/api/images/generate-chat` | POST | チャット用画像生成 | 必要 | チャットページ | [x] | [x] | [x] |
 | **7.3** | `/api/images/backgrounds` | GET | 背景画像一覧取得 | 必要 | チャットページ | [x] | [x] | [x] |
@@ -99,6 +102,11 @@
 | **8.3** | `/api/notifications/schedule` | POST | 通知スケジュール作成 | 必要 | 設定ページ | [x] | [x] | [x] |
 | **9.1** | `/api/settings` | GET | ユーザー設定取得 | 必要 | 設定ページ | [x] | [x] | [x] |
 | **9.2** | `/api/settings` | PUT | ユーザー設定更新 | 必要 | 設定ページ | [x] | [x] | [x] |
+
+**AI主導エンゲージメント機能の新規APIエンドポイント（未実装）**:
+- **5.5**: `/api/chat/proactive-question` - AI主導の戦略的質問生成
+- **5.6**: `/api/chat/should-ask-question` - 質問タイミング判定  
+- **6.6**: `/api/memory/extract-from-response` - 質問回答からメモリ抽出・更新
 
 ### AppGeniusでの開発フロー
 

@@ -2,7 +2,15 @@ import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import ChatService from './chat.service';
 import { AuthRequest } from '../../common/middlewares/auth.middleware';
-import { SendMessageRequest, ApiResponse, ChatResponse } from '../../types';
+import { 
+  SendMessageRequest, 
+  ApiResponse, 
+  ChatResponse,
+  ProactiveQuestionRequest,
+  ProactiveQuestionResponse,
+  ShouldAskQuestionRequest,
+  ShouldAskQuestionResponse
+} from '../../types';
 import { ImagesService } from '../images/images.service';
 
 export class ChatController {
@@ -329,6 +337,110 @@ export class ChatController {
       res.status(500).json({
         success: false,
         error: error.message || 'チャット統計の取得に失敗しました'
+      });
+    }
+  }
+
+  /**
+   * 質問タイミング判定 (API 5.6)
+   * GET /api/chat/should-ask-question
+   */
+  async shouldAskQuestion(req: Request, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: 'バリデーションエラー',
+          details: errors.array()
+        });
+        return;
+      }
+
+      const userId = req.user!.userId;
+      
+      // クエリパラメータから必要な情報を抽出
+      const request: ShouldAskQuestionRequest = {
+        partnerId: req.query.partnerId as string,
+        silenceDuration: parseInt(req.query.silenceDuration as string),
+        currentIntimacy: parseInt(req.query.currentIntimacy as string),
+        timeContext: {
+          hour: parseInt(req.query['timeContext.hour'] as string),
+          dayOfWeek: req.query['timeContext.dayOfWeek'] as string,
+          isWeekend: req.query['timeContext.isWeekend'] === 'true'
+        },
+        lastInteractionTime: req.query.lastInteractionTime ? new Date(req.query.lastInteractionTime as string) : undefined,
+        userEmotionalState: req.query.userEmotionalState as string | undefined
+      };
+
+      console.log(`[${new Date().toISOString()}] ▶️ 質問タイミング判定開始 - パートナー: ${request.partnerId}, 沈黙: ${request.silenceDuration}分`);
+
+      const result = await ChatService.shouldAskQuestion(userId, request);
+
+      console.log(`[${new Date().toISOString()}] ✅ 質問タイミング判定完了 - 判定: ${result.shouldAsk ? '質問すべき' : '待機'}, 理由: ${result.reasoning}`);
+
+      res.status(200).json({
+        success: true,
+        data: result
+      } as ApiResponse<ShouldAskQuestionResponse>);
+
+    } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] ❌ 質問タイミング判定エラー:`, error);
+      
+      const statusCode = error.message.includes('見つかりません') ? 404 : 500;
+      
+      res.status(statusCode).json({
+        success: false,
+        error: error.message || '質問タイミング判定に失敗しました'
+      });
+    }
+  }
+
+  /**
+   * AI主導の戦略的質問生成 (API 5.5)
+   * POST /api/chat/proactive-question
+   */
+  async generateProactiveQuestion(req: Request, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: 'バリデーションエラー',
+          details: errors.array()
+        });
+        return;
+      }
+
+      const userId = req.user!.userId;
+      const request: ProactiveQuestionRequest = {
+        partnerId: req.body.partnerId,
+        currentIntimacy: req.body.currentIntimacy,
+        timeContext: req.body.timeContext,
+        recentContext: req.body.recentContext,
+        uncollectedInfo: req.body.uncollectedInfo
+      };
+
+      console.log(`[${new Date().toISOString()}] ▶️ AI主導質問生成開始 - パートナー: ${request.partnerId}, 親密度: ${request.currentIntimacy}`);
+
+      const result = await ChatService.generateProactiveQuestion(userId, request);
+
+      console.log(`[${new Date().toISOString()}] ✅ AI主導質問生成完了 - 質問タイプ: ${result.questionType}, 対象情報: ${result.targetInfo}`);
+
+      res.status(200).json({
+        success: true,
+        data: result
+      } as ApiResponse<ProactiveQuestionResponse>);
+
+    } catch (error: any) {
+      console.error(`[${new Date().toISOString()}] ❌ AI主導質問生成エラー:`, error);
+      
+      const statusCode = error.message.includes('見つかりません') ? 404 : 
+                        error.message.includes('OpenAI') ? 503 : 500;
+      
+      res.status(statusCode).json({
+        success: false,
+        error: error.message || 'AI主導質問生成に失敗しました'
       });
     }
   }

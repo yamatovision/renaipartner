@@ -282,6 +282,70 @@ export class MemoryController {
   }
 
   /**
+   * 質問回答からメモリ抽出・更新（API 6.6）
+   * POST /api/memory/extract-from-response
+   */
+  async extractFromResponse(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: 'バリデーションエラー',
+          details: errors.array()
+        });
+        return;
+      }
+
+      const userId = req.user!.userId;
+      const { partnerId, question, userResponse, intimacyLevel, questionType } = req.body;
+
+      console.log(`[${new Date().toISOString()}] ▶️ QA情報抽出開始 - ユーザー: ${userId}, パートナー: ${partnerId}`);
+      console.log(`[${new Date().toISOString()}] 📝 質問: ${question.substring(0, 50)}...`);
+      console.log(`[${new Date().toISOString()}] 💬 回答: ${userResponse.substring(0, 50)}...`);
+
+      const result = await this.memoryService.extractFromResponse({
+        partnerId,
+        question,
+        userResponse,
+        intimacyLevel,
+        questionType
+      });
+
+      console.log(`[${new Date().toISOString()}] ✅ QA情報抽出完了 - 作成メモリ数: ${result.extractedMemories.length}, 親密度変化: ${result.intimacyUpdate}`);
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: `${result.extractedMemories.length}件のメモリを抽出しました`
+      } as ApiResponse<typeof result>);
+
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] ❌ QA情報抽出エラー:`, error);
+      
+      let statusCode = 500;
+      let errorMessage = 'QA情報抽出中にエラーが発生しました';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        if (error.message.includes('見つかりません')) {
+          statusCode = 404;
+        } else if (error.message.includes('OpenAI')) {
+          statusCode = 503;
+        } else if (error.message.includes('バリデーション')) {
+          statusCode = 400;
+        }
+      }
+      
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+  }
+
+  /**
    * メモリ統計取得（デバッグ・分析用エンドポイント）
    * GET /api/memory/stats/:partnerId
    */

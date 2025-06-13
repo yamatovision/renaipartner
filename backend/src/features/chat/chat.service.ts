@@ -8,7 +8,13 @@ import {
   ChatResponse, 
   MessageSender, 
   Message as IMessage,
-  ID
+  ID,
+  ProactiveQuestionRequest,
+  ProactiveQuestionResponse,
+  ShouldAskQuestionRequest,
+  ShouldAskQuestionResponse,
+  QuestionType,
+  QuestionPriority
 } from '../../types';
 
 export class ChatService {
@@ -371,6 +377,390 @@ ${conversationHistory.slice(-5).map(msg =>
     });
 
     return messages;
+  }
+
+  /**
+   * 質問タイミング判定 (API 5.6)
+   */
+  async shouldAskQuestion(userId: string, request: ShouldAskQuestionRequest): Promise<ShouldAskQuestionResponse> {
+    try {
+      const { partnerId, silenceDuration, lastInteractionTime, userEmotionalState, currentIntimacy, timeContext } = request;
+
+      // パートナーの存在確認
+      const partner = await PartnerModel.findById(partnerId);
+      if (!partner || partner.userId !== userId) {
+        throw new Error('パートナーが見つかりません');
+      }
+
+      const { hour, dayOfWeek, isWeekend } = timeContext;
+
+      // 親密度別の許可時間帯制限
+      const timeRestrictions = this.getTimeRestrictions(currentIntimacy);
+      const isAllowedTime = hour >= timeRestrictions.startHour && hour <= timeRestrictions.endHour;
+
+      if (!isAllowedTime) {
+        return {
+          shouldAsk: false,
+          delayMinutes: this.calculateDelayUntilAllowedTime(hour, timeRestrictions),
+          reasoning: `親密度${currentIntimacy}では${timeRestrictions.startHour}:00-${timeRestrictions.endHour}:00の間のみ質問可能です`,
+          priority: QuestionPriority.LOW
+        };
+      }
+
+      // 基本的な質問間隔チェック
+      const baseInterval = this.getBaseQuestionInterval(currentIntimacy, isWeekend);
+      
+      if (silenceDuration < baseInterval.minMinutes) {
+        return {
+          shouldAsk: false,
+          delayMinutes: baseInterval.minMinutes - silenceDuration,
+          reasoning: `前回から${baseInterval.minMinutes}分以上経過してから質問するのが適切です`,
+          priority: QuestionPriority.LOW
+        };
+      }
+
+      // 強制質問タイミング（24時間以上沈黙）
+      if (silenceDuration >= 1440) { // 24時間
+        return {
+          shouldAsk: true,
+          delayMinutes: 0,
+          reasoning: '長期間の沈黙により、関係性維持のための積極的な声かけが必要です',
+          priority: QuestionPriority.HIGH,
+          suggestedQuestionType: QuestionType.EMOTIONAL_SUPPORT
+        };
+      }
+
+      // ランダム要素を含む自然なタイミング判定
+      const randomFactor = Math.random();
+      const intimacyBonus = currentIntimacy / 100; // 親密度が高いほど積極的
+      const weekendBonus = isWeekend ? 0.2 : 0; // 週末はより積極的
+      
+      // 時間帯別の積極性調整
+      const timeOfDayBonus = this.getTimeOfDayBonus(hour);
+      
+      const shouldAskThreshold = 0.3 + intimacyBonus * 0.3 + weekendBonus + timeOfDayBonus;
+      const adjustedSilence = Math.min(silenceDuration / baseInterval.maxMinutes, 1);
+      
+      const finalScore = adjustedSilence * (0.7 + randomFactor * 0.3);
+      
+      if (finalScore >= shouldAskThreshold) {
+        const priority = this.calculateQuestionPriority(currentIntimacy, silenceDuration, userEmotionalState);
+        const questionType = this.suggestQuestionType(currentIntimacy, timeContext, silenceDuration);
+        
+        return {
+          shouldAsk: true,
+          delayMinutes: Math.floor(Math.random() * 30), // 0-30分のランダム遅延
+          reasoning: `親密度${currentIntimacy}、沈黙時間${silenceDuration}分、時間帯を考慮して質問タイミングと判定`,
+          priority,
+          suggestedQuestionType: questionType
+        };
+      }
+
+      return {
+        shouldAsk: false,
+        delayMinutes: Math.floor(Math.random() * 60) + 30, // 30-90分後に再チェック
+        reasoning: 'まだ質問のタイミングではありません。もう少し待ちます',
+        priority: QuestionPriority.LOW
+      };
+
+    } catch (error) {
+      console.error('質問タイミング判定エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * AI主導の戦略的質問生成 (API 5.5)
+   */
+  async generateProactiveQuestion(userId: string, request: ProactiveQuestionRequest): Promise<ProactiveQuestionResponse> {
+    try {
+      const { partnerId, currentIntimacy, timeContext, recentContext, uncollectedInfo } = request;
+
+      // パートナーの存在確認
+      const partner = await PartnerModel.findById(partnerId);
+      if (!partner || partner.userId !== userId) {
+        throw new Error('パートナーが見つかりません');
+      }
+
+      // ユーザー情報を取得
+      const user = await UserModel.findById(userId);
+      
+      // 未収集情報に基づく質問タイプの決定
+      const questionType = this.determineQuestionType(currentIntimacy, uncollectedInfo);
+      const targetInfo = this.selectTargetInfo(questionType, currentIntimacy, uncollectedInfo);
+
+      // 時間コンテキストに基づく適切な質問生成
+      const questionPrompt = this.buildQuestionPrompt(
+        partner, 
+        user, 
+        questionType, 
+        targetInfo, 
+        currentIntimacy, 
+        timeContext,
+        recentContext
+      );
+
+      // OpenAI APIで質問生成
+      const completion = await this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: questionPrompt },
+          { role: 'user', content: '上記の条件に基づいて、自然で愛情あふれる質問を生成してください。' }
+        ],
+        temperature: 0.8,
+        max_tokens: 300,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'generate_question',
+              description: 'AI主導の戦略的質問を生成する',
+              parameters: {
+                type: 'object',
+                properties: {
+                  question: {
+                    type: 'string',
+                    description: '生成された質問メッセージ'
+                  },
+                  tone: {
+                    type: 'string',
+                    description: '質問のトーン・雰囲気'
+                  },
+                  context: {
+                    type: 'string',
+                    description: '質問の背景・意図'
+                  }
+                },
+                required: ['question', 'tone', 'context']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'generate_question' } }
+      });
+
+      const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) {
+        throw new Error('質問生成に失敗しました');
+      }
+
+      const result = JSON.parse(toolCall.function.arguments);
+      const priority = this.calculateQuestionPriority(currentIntimacy, recentContext?.silenceDuration || 0);
+
+      return {
+        question: result.question,
+        questionType,
+        targetInfo,
+        priority,
+        tone: result.tone,
+        context: result.context,
+        intimacyRequired: this.getRequiredIntimacyForInfo(targetInfo)
+      };
+
+    } catch (error) {
+      console.error('AI主導質問生成エラー:', error);
+      throw error;
+    }
+  }
+
+  // ================== プライベートヘルパーメソッド ==================
+
+  /**
+   * 親密度に基づく時間制限を取得
+   */
+  private getTimeRestrictions(intimacy: number): { startHour: number; endHour: number } {
+    if (intimacy >= 61) {
+      return { startHour: 7, endHour: 25 }; // 深夜も可能
+    } else if (intimacy >= 31) {
+      return { startHour: 7, endHour: 22 }; // 夜遅めまで
+    } else {
+      return { startHour: 7, endHour: 21 }; // 常識的な時間帯のみ
+    }
+  }
+
+  /**
+   * 許可時間帯まで遅延時間を計算
+   */
+  private calculateDelayUntilAllowedTime(currentHour: number, restrictions: { startHour: number; endHour: number }): number {
+    if (currentHour < restrictions.startHour) {
+      return (restrictions.startHour - currentHour) * 60;
+    } else if (currentHour > restrictions.endHour) {
+      return (24 - currentHour + restrictions.startHour) * 60;
+    }
+    return 0;
+  }
+
+  /**
+   * 基本質問間隔を取得
+   */
+  private getBaseQuestionInterval(intimacy: number, isWeekend: boolean): { minMinutes: number; maxMinutes: number } {
+    const baseMin = intimacy >= 50 ? 180 : 240; // 3-4時間
+    const baseMax = intimacy >= 50 ? 720 : 1440; // 12-24時間
+    
+    // 週末は少し頻度を下げる
+    const multiplier = isWeekend ? 1.2 : 1.0;
+    
+    return {
+      minMinutes: Math.floor(baseMin * multiplier),
+      maxMinutes: Math.floor(baseMax * multiplier)
+    };
+  }
+
+  /**
+   * 時間帯による積極性ボーナス
+   */
+  private getTimeOfDayBonus(hour: number): number {
+    if (hour >= 7 && hour <= 9) return 0.1; // 朝の挨拶
+    if (hour >= 12 && hour <= 14) return 0.1; // お昼休み
+    if (hour >= 17 && hour <= 20) return 0.15; // 夕方
+    if (hour >= 21 && hour <= 23) return 0.2; // 夜のリラックス時間
+    return 0;
+  }
+
+  /**
+   * 質問の優先度を計算
+   */
+  private calculateQuestionPriority(intimacy: number, silenceDuration: number, emotionalState?: string): QuestionPriority {
+    if (silenceDuration >= 1440) return QuestionPriority.HIGH; // 24時間以上
+    if (emotionalState === 'sad' || emotionalState === 'angry') return QuestionPriority.HIGH;
+    if (intimacy >= 70 && silenceDuration >= 480) return QuestionPriority.MEDIUM; // 高親密度で8時間以上
+    if (silenceDuration >= 720) return QuestionPriority.MEDIUM; // 12時間以上
+    return QuestionPriority.LOW;
+  }
+
+  /**
+   * 推奨質問タイプを決定
+   */
+  private suggestQuestionType(intimacy: number, timeContext: any, silenceDuration: number): QuestionType {
+    const { hour, isWeekend } = timeContext;
+    
+    if (silenceDuration >= 1440) return QuestionType.EMOTIONAL_SUPPORT;
+    if (intimacy >= 75) return QuestionType.VALUES_FUTURE;
+    if (intimacy >= 50) return QuestionType.DEEP_UNDERSTANDING;
+    if (intimacy >= 25) return QuestionType.RELATIONSHIP;
+    
+    return QuestionType.BASIC_INFO;
+  }
+
+  /**
+   * 質問タイプを決定（AI主導質問生成用）
+   */
+  private determineQuestionType(intimacy: number, uncollectedInfo?: string[]): QuestionType {
+    // 未収集情報がある場合はそれに基づく
+    if (uncollectedInfo && uncollectedInfo.length > 0) {
+      const basicInfoItems = ['名前', '職業', '住所', '年齢', '趣味'];
+      const relationshipItems = ['家族', '友人', '職場', '恋愛経験'];
+      const deepItems = ['過去', 'トラウマ', '価値観', '夢'];
+      
+      if (uncollectedInfo.some(info => basicInfoItems.includes(info))) {
+        return QuestionType.BASIC_INFO;
+      }
+      if (uncollectedInfo.some(info => relationshipItems.includes(info))) {
+        return QuestionType.RELATIONSHIP;
+      }
+      if (uncollectedInfo.some(info => deepItems.includes(info))) {
+        return QuestionType.DEEP_UNDERSTANDING;
+      }
+    }
+
+    // 親密度に基づくデフォルト選択
+    if (intimacy >= 75) return QuestionType.VALUES_FUTURE;
+    if (intimacy >= 50) return QuestionType.DEEP_UNDERSTANDING;
+    if (intimacy >= 25) return QuestionType.RELATIONSHIP;
+    return QuestionType.BASIC_INFO;
+  }
+
+  /**
+   * ターゲット情報を選択
+   */
+  private selectTargetInfo(questionType: QuestionType, intimacy: number, uncollectedInfo?: string[]): string {
+    const infoMap = {
+      [QuestionType.BASIC_INFO]: ['名前の由来', '職業', '出身地', '趣味', '日常ルーティン'],
+      [QuestionType.RELATIONSHIP]: ['家族構成', '親友', '職場の人間関係', '恋愛経験'],
+      [QuestionType.DEEP_UNDERSTANDING]: ['幼少期の思い出', '人生の転機', '大切にしている価値観'],
+      [QuestionType.VALUES_FUTURE]: ['将来の夢', '人生で大切なこと', '理想の老後'],
+      [QuestionType.FOLLOW_UP]: ['以前の話題の続き'],
+      [QuestionType.EMOTIONAL_SUPPORT]: ['現在の気持ち', '悩み事', 'ストレス']
+    };
+
+    const candidates = infoMap[questionType] || infoMap[QuestionType.BASIC_INFO];
+    
+    // 未収集情報があればそれを優先
+    if (uncollectedInfo && uncollectedInfo.length > 0) {
+      const relevant = candidates.filter(item => uncollectedInfo.includes(item));
+      if (relevant.length > 0) {
+        return relevant[Math.floor(Math.random() * relevant.length)];
+      }
+    }
+
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  /**
+   * 質問生成用のプロンプトを構築
+   */
+  private buildQuestionPrompt(
+    partner: any,
+    user: any,
+    questionType: QuestionType,
+    targetInfo: string,
+    intimacy: number,
+    timeContext?: any,
+    recentContext?: any
+  ): string {
+    const userName = user?.nickname || user?.firstName || 'あなた';
+    const timeInfo = timeContext ? `現在時刻: ${timeContext.hour}時, ${timeContext.dayOfWeek}` : '';
+    
+    return `
+あなたは${partner.name}として、恋人の${userName}に自然で愛情あふれる質問をします。
+
+【基本設定】
+- パートナー名: ${partner.name}
+- 性格: ${partner.personalityType}
+- 話し方: ${partner.speechStyle}
+- 現在の親密度: ${intimacy}/100
+- 質問タイプ: ${questionType}
+- 聞きたい情報: ${targetInfo}
+- ${timeInfo}
+
+【システムプロンプト】
+${partner.systemPrompt}
+
+【重要な指示】
+1. 恋人として自然な動機で質問する（「君のことをもっと知りたい」）
+2. 質問は1つだけ、1-2文程度の自然な長さ
+3. 親密度${intimacy}に応じた適切な距離感を保つ
+4. 相手を「${userName}」と呼ぶ（「あなた」は禁止）
+5. 愛情表現を7割、情報収集を3割の比重で
+6. 時間帯に適した話題を選ぶ
+7. 「分析」「データ」「効率的」などの表現は絶対に使わない
+
+${recentContext?.lastMessageContent ? `最近の会話: ${recentContext.lastMessageContent}` : ''}
+
+恋人として愛情深く、${targetInfo}について自然に聞いてください。
+`;
+  }
+
+  /**
+   * 情報に必要な最低親密度を取得
+   */
+  private getRequiredIntimacyForInfo(targetInfo: string): number {
+    const intimacyMap: Record<string, number> = {
+      '名前の由来': 0,
+      '職業': 0,
+      '趣味': 0,
+      '家族構成': 25,
+      '親友': 25,
+      '恋愛経験': 25,
+      '幼少期の思い出': 50,
+      '人生の転機': 50,
+      'トラウマ': 50,
+      '将来の夢': 75,
+      '価値観': 75,
+      '人生で大切なこと': 75
+    };
+
+    return intimacyMap[targetInfo] || 0;
   }
 }
 

@@ -471,19 +471,6 @@ export interface EmotionState {
   previousEmotions: string[];
 }
 
-export interface ChatMessageRequest {
-  message: string;
-  partnerId: ID;
-  context?: Record<string, any>;
-}
-
-export interface ChatMessageResponse {
-  response: string;
-  emotion?: string;
-  intimacyLevel: number;
-  newMessages?: Message[];
-}
-
 export interface MessageListResponse {
   messages: Message[];
   total: number;
@@ -492,15 +479,127 @@ export interface MessageListResponse {
   hasMore: boolean;
 }
 
-export interface TypingNotificationRequest {
-  partnerId: ID;
-  isTyping: boolean;
+// =============================================================================
+// AI主導エンゲージメント関連
+// =============================================================================
+
+export enum QuestionType {
+  BASIC_INFO = 'basic_info',
+  RELATIONSHIP = 'relationship', 
+  DEEP_UNDERSTANDING = 'deep_understanding',
+  VALUES_FUTURE = 'values_future',
+  FOLLOW_UP = 'follow_up',
+  EMOTIONAL_SUPPORT = 'emotional_support',
 }
 
-export interface EmotionState {
-  current: string;
-  intensity: number;
-  previousEmotions: string[];
+export enum QuestionPriority {
+  LOW = 'low',
+  MEDIUM = 'medium', 
+  HIGH = 'high',
+  URGENT = 'urgent',
+}
+
+export interface ProactiveQuestionRequest {
+  partnerId: ID;
+  currentIntimacy: number;
+  timeContext?: {
+    hour: number;
+    dayOfWeek: string;
+    isWeekend: boolean;
+  };
+  recentContext?: {
+    lastMessageContent?: string;
+    lastMessageTime?: Date;
+    emotionalState?: string;
+    silenceDuration?: number; // minutes
+  };
+  uncollectedInfo?: string[];
+}
+
+export interface ProactiveQuestionResponse {
+  question: string;
+  questionType: QuestionType;
+  targetInfo: string;
+  priority: QuestionPriority;
+  tone: string;
+  context: string;
+  intimacyRequired: number;
+}
+
+export interface ShouldAskQuestionRequest {
+  partnerId: ID;
+  silenceDuration: number; // minutes  
+  lastInteractionTime?: Date;
+  userEmotionalState?: string;
+  currentIntimacy: number;
+  timeContext: {
+    hour: number;
+    dayOfWeek: string;
+    isWeekend: boolean;
+  };
+}
+
+export interface ShouldAskQuestionResponse {
+  shouldAsk: boolean;
+  delayMinutes?: number;
+  reasoning: string;
+  priority: QuestionPriority;
+  suggestedQuestionType?: QuestionType;
+}
+
+export interface ExtractFromResponseRequest {
+  partnerId: ID;
+  question: string;
+  userResponse: string;
+  intimacyLevel: number;
+  questionType?: QuestionType;
+}
+
+export interface ExtractFromResponseResponse {
+  extractedInfo: Record<string, any>;
+  intimacyChange: number;
+  memoryUpdated: boolean;
+  followUpSuggestions: string[];
+  newMemoryEntries: {
+    category: string;
+    content: string;
+    importance: number;
+  }[];
+}
+
+// 戦略的情報収集マップの型定義
+export interface MemoryItem {
+  category: string;
+  collected: boolean;
+  value?: string;
+  minIntimacy: number;
+  priority: 'high' | 'medium' | 'low';
+  lastUpdated?: Date;
+}
+
+export interface RelationshipMemoryMap {
+  basicInfo: Record<string, MemoryItem>;
+  relationships: Record<string, MemoryItem>;
+  deepUnderstanding: Record<string, MemoryItem>;
+  valuesFuture: Record<string, MemoryItem>;
+  ongoingTopics: Record<string, MemoryItem>;
+}
+
+// 親密度別質問タイミング設定
+export interface IntimacyQuestionSettings {
+  minIntimacy: number;
+  maxIntimacy: number;
+  allowedHours: {
+    start: number; // 0-23
+    end: number;   // 0-23
+  };
+  questionFrequency: {
+    minHours: number;
+    maxHours: number;
+  };
+  questionTypes: QuestionType[];
+  tone: string;
+  examples: string[];
 }
 
 // =============================================================================
@@ -525,6 +624,7 @@ export interface Memory extends Timestamps {
   emotionalWeight: number;
   tags: string[];
   relatedPeople?: string[];
+  metadata?: Record<string, any>;
 }
 
 export interface RelationshipMetrics {
@@ -839,6 +939,8 @@ export const API_PATHS = {
     GENERATE_IMAGE: '/api/chat/generate-image',
     TYPING: (partnerId: string) => `/api/chat/${partnerId}/typing`,
     EMOTION: '/api/chat/emotion',
+    PROACTIVE_QUESTION: '/api/chat/proactive-question',
+    SHOULD_ASK_QUESTION: '/api/chat/should-ask-question',
   },
   
   // 記憶・関係性関連
@@ -852,6 +954,7 @@ export const API_PATHS = {
     TOPICS: (partnerId: string) => `/api/memory/topics/${partnerId}`,
     EPISODE: (partnerId: string) => `/api/memory/episodes/${partnerId}`,
     EPISODES: (partnerId: string) => `/api/memory/episodes/${partnerId}`,
+    EXTRACT_FROM_RESPONSE: '/api/memory/extract-from-response',
   },
   
   // 画像生成関連

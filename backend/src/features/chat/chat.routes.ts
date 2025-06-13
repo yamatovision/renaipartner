@@ -61,6 +61,26 @@ router.post('/generate-image',
   ChatController.generateImage
 );
 
+// ===== AI主導エンゲージメント機能 =====
+
+/**
+ * 質問タイミング判定
+ * GET /api/chat/should-ask-question
+ */
+router.get('/should-ask-question',
+  [requireAuth, ...chatValidators.shouldAskQuestion],
+  ChatController.shouldAskQuestion
+);
+
+/**
+ * AI主導の戦略的質問生成
+ * POST /api/chat/proactive-question
+ */
+router.post('/proactive-question',
+  [requireAuth, ...chatValidators.proactiveQuestion],
+  ChatController.generateProactiveQuestion
+);
+
 // ===== 統計・デバッグ用 =====
 
 /**

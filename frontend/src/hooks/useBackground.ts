@@ -73,7 +73,12 @@ export const useBackground = (): UseBackgroundReturn => {
 
   // 背景を順番に切り替え（ホーム画面の🎨ボタン用）
   const cycleThroughBackgrounds = async (): Promise<void> => {
+    console.log('🔄 [useBackground] cycleThroughBackgrounds開始')
+    console.log('🔄 [useBackground] availableBackgrounds.length:', availableBackgrounds.length)
+    console.log('🔄 [useBackground] currentBackground:', currentBackground)
+    
     if (availableBackgrounds.length === 0) {
+      console.warn('🔄 [useBackground] 利用可能な背景がありません')
       return;
     }
 
@@ -81,11 +86,20 @@ export const useBackground = (): UseBackgroundReturn => {
       ? availableBackgrounds.findIndex(bg => bg.id === currentBackground.id)
       : -1;
     
+    console.log('🔄 [useBackground] currentIndex:', currentIndex)
+    
     const nextIndex = (currentIndex + 1) % availableBackgrounds.length;
     const nextBackground = availableBackgrounds[nextIndex];
     
+    console.log('🔄 [useBackground] nextIndex:', nextIndex)
+    console.log('🔄 [useBackground] nextBackground:', nextBackground)
+    
     if (nextBackground) {
+      console.log('🔄 [useBackground] changeBackground呼び出し中...')
       await changeBackground(nextBackground.id);
+      console.log('🔄 [useBackground] changeBackground完了')
+    } else {
+      console.error('🔄 [useBackground] nextBackgroundが見つかりません')
     }
   };
 

@@ -7,7 +7,7 @@ import {
 
 class MemoryModel {
   // メモリ作成
-  static async create(memoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>): Promise<Memory> {
+  static async create(memoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'metadata'>): Promise<Memory> {
     const client = await pool.connect();
     
     try {

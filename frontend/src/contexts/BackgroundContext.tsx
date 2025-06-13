@@ -87,23 +87,34 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
   // 背景を変更
   const changeBackground = async (backgroundId: string) => {
     try {
+      console.log('🔧 [BackgroundContext] changeBackground呼び出し:', backgroundId)
+      console.log('🔧 [BackgroundContext] availableBackgrounds:', availableBackgrounds)
+      console.log('🔧 [BackgroundContext] availableBackgrounds.length:', availableBackgrounds.length)
+      
       setError(null);
       
       const newBackground = availableBackgrounds.find((bg: BackgroundImage) => bg.id === backgroundId);
+      console.log('🔧 [BackgroundContext] 見つかった背景:', newBackground)
+      
       if (!newBackground) {
+        console.error('🔧 [BackgroundContext] 背景が見つかりません:', backgroundId)
         throw new Error('指定された背景が見つかりません');
       }
 
+      console.log('🔧 [BackgroundContext] UIに反映中...')
       // UIの即座反映
       setCurrentBackground(newBackground);
 
+      console.log('🔧 [BackgroundContext] サーバーに保存中...')
       // サーバーに保存
       await settingsApiService.updateSettings({
         userSettings: { backgroundImage: backgroundId }
       });
+      
+      console.log('🔧 [BackgroundContext] 背景変更完了')
 
     } catch (err) {
-      console.error('背景変更に失敗:', err);
+      console.error('🔧 [BackgroundContext] 背景変更に失敗:', err);
       setError('背景の変更に失敗しました');
       
       // エラー時は前の状態に戻す

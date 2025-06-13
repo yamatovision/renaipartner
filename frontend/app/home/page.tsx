@@ -652,7 +652,20 @@ export default function HomePage() {
           {/* アクションボタン */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <button
-              onClick={cycleThroughBackgrounds}
+              onClick={() => {
+                console.log('🎨 [背景変更] ボタンがクリックされました')
+                console.log('🎨 [背景変更] isLoadingBackground:', isLoadingBackground)
+                console.log('🎨 [背景変更] currentBackground:', currentBackground)
+                console.log('🎨 [背景変更] cycleThroughBackgrounds function:', cycleThroughBackgrounds)
+                console.log('🎨 [背景変更] 関数呼び出し開始...')
+                cycleThroughBackgrounds()
+                  .then(() => {
+                    console.log('🎨 [背景変更] 関数呼び出し完了')
+                  })
+                  .catch((error) => {
+                    console.error('🎨 [背景変更] エラー:', error)
+                  })
+              }}
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
               title="背景変更"
               disabled={isLoadingBackground}
@@ -697,13 +710,6 @@ export default function HomePage() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     ⚙️ 設定
-                  </Link>
-                  <Link
-                    href="/edit-partner"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    ✏️ パートナー編集
                   </Link>
                   <hr className="my-1" />
                   <button

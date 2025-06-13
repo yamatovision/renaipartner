@@ -96,6 +96,25 @@ router.get('/topics/:partnerId',
   memoryController.getOngoingTopics.bind(memoryController) as any
 );
 
+// ===== AI主導エンゲージメント連携 =====
+
+/**
+ * 質問回答からメモリ抽出・更新（API 6.6）
+ * POST /api/memory/extract-from-response
+ * 
+ * AI主導質問の回答から重要な情報を自動抽出
+ * 親密度の動的更新と戦略的メモリ構築
+ * リアルタイム関係性メトリクス連動
+ */
+router.post('/extract-from-response',
+  [
+    requireAuth,
+    ...memoryValidators.extractFromResponse,
+    handleValidationErrors
+  ],
+  memoryController.extractFromResponse.bind(memoryController) as any
+);
+
 // ===== 分析・統計 =====
 
 /**
@@ -129,6 +148,7 @@ router.all('*', (req, res) => {
     availableEndpoints: [
       'POST /api/memory/summary - 会話要約作成',
       'POST /api/memory/search - メモリ検索',
+      'POST /api/memory/extract-from-response - QA情報抽出・更新',
       'GET /api/memory/episodes/:partnerId - エピソード記憶取得',
       'GET /api/memory/relationships/:partnerId - 関係性メトリクス取得',
       'GET /api/memory/topics/:partnerId - 継続話題取得',

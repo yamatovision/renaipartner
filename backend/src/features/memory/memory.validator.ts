@@ -170,6 +170,41 @@ export const memoryValidators = {
   ],
 
   /**
+   * 質問回答からメモリ抽出・更新のバリデーション（API 6.6）
+   */
+  extractFromResponse: [
+    body('partnerId')
+      .notEmpty()
+      .withMessage('パートナーIDは必須です')
+      .isUUID()
+      .withMessage('有効なパートナーIDを指定してください'),
+    
+    body('question')
+      .trim()
+      .notEmpty()
+      .withMessage('質問内容は必須です')
+      .isLength({ max: 1000 })
+      .withMessage('質問内容は1000文字以内で入力してください'),
+    
+    body('userResponse')
+      .trim()
+      .notEmpty()
+      .withMessage('ユーザーの回答は必須です')
+      .isLength({ max: 2000 })
+      .withMessage('ユーザーの回答は2000文字以内で入力してください'),
+    
+    body('intimacyLevel')
+      .isInt({ min: 0, max: 100 })
+      .withMessage('親密度は0から100の間で指定してください')
+      .toInt(),
+    
+    body('questionType')
+      .optional()
+      .isString()
+      .withMessage('質問タイプは文字列で指定してください')
+  ],
+
+  /**
    * パートナーIDパラメータの基本バリデーション
    */
   partnerIdParam: [

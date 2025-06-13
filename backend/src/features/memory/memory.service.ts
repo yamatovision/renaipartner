@@ -540,6 +540,55 @@ export class MemoryService {
   }
 
   /**
+   * QA分析用プロンプト構築
+   */
+  private buildQAAnalysisPrompt(question: string, userResponse: string, intimacyLevel: number, questionType?: string, partnerName?: string): string {
+    return `あなたは高度なメモリ分析AIです。恋人同士の質問応答から重要な情報を抽出してください。
+
+【基本情報】
+パートナー名: ${partnerName || 'AI'}
+現在の親密度: ${intimacyLevel}/100
+質問タイプ: ${questionType || '不明'}
+
+【分析観点】
+1. 事実情報（職業、趣味、家族、経験など）
+2. 感情・価値観（好き嫌い、大切にすること、考え方）
+3. 人間関係情報（友人、家族、職場との関係）
+4. 個人的な好み・選択（食べ物、音楽、ライフスタイル）
+5. 深層心理・体験（思い出、トラウマ、人生観）
+
+【メモリタイプ分類】
+- FACT: 客観的事実情報
+- EMOTION: 感情・気持ちに関する情報
+- RELATIONSHIP: 人間関係の情報
+- PREFERENCE: 好み・選択に関する情報
+- EXPERIENCE: 体験・出来事に関する情報
+
+【重要度評価（1-10）】
+- 1-3: 一般的な情報
+- 4-6: 意味のある個人情報
+- 7-8: 重要な価値観・深い情報
+- 9-10: 極めて重要な内面情報
+
+【感情重み評価（-10〜+10）】
+- 負の値: ネガティブな感情・つらい体験
+- 正の値: ポジティブな感情・幸せな体験
+- 0: 中立的な情報
+
+【親密度変化の判定基準】
+- +3〜+5: 深い個人情報を共有、感動的な話
+- +1〜+2: 個人的な話、好みの共有
+- 0: 一般的な会話
+- -1〜-2: 表面的すぎる、避けられた感じ
+- -3〜-5: 拒否、怒り、不快感
+
+【タグ生成ルール】
+関連キーワードを2-5個程度のタグとして抽出（例：「仕事」「家族」「音楽」「過去」）
+
+質問応答から恋人同士の関係性を深めるために重要な情報を抽出し、適切な親密度変化を判定してください。`;
+  }
+
+  /**
    * メモリ分析用プロンプト構築
    */
   private buildMemoryAnalysisPrompt(conversationText: string, summaryType: string, partnerName: string): string {
@@ -611,6 +660,191 @@ export class MemoryService {
     
     
     return recommendations;
+  }
+
+  /**
+   * 質問回答からメモリ抽出・更新（API 6.6）
+   */
+  async extractFromResponse(request: {
+    partnerId: ID;
+    question: string;
+    userResponse: string;
+    intimacyLevel: number;
+    questionType?: string;
+  }): Promise<{
+    success: boolean;
+    extractedMemories: Memory[];
+    intimacyUpdate: number;
+    suggestions: string[];
+  }> {
+    const { partnerId, question, userResponse, intimacyLevel, questionType } = request;
+
+    try {
+      console.log(`[MemoryService] QA情報抽出開始 - Partner: ${partnerId}, Type: ${questionType || 'unknown'}`);
+
+      // パートナーの存在確認
+      const partner = await PartnerModel.findById(partnerId);
+      if (!partner) {
+        throw new Error('パートナーが見つかりません');
+      }
+
+      // 質問応答分析プロンプトの構築
+      const analysisPrompt = this.buildQAAnalysisPrompt(question, userResponse, intimacyLevel, questionType, partner.name);
+
+      // OpenAI APIで質問応答分析・メモリ抽出
+      const completion = await Promise.race([
+        this.openai.chat.completions.create({
+          model: 'gpt-4-turbo-preview',
+          messages: [
+            { role: 'system', content: analysisPrompt },
+            { role: 'user', content: `質問: ${question}\n\nユーザーの回答: ${userResponse}` }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'extract_qa_memories',
+                description: '質問応答から重要なメモリ情報を抽出し親密度変化を判定する',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    memories: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          type: { type: 'string', enum: ['fact', 'emotion', 'relationship', 'preference', 'experience'] },
+                          content: { type: 'string' },
+                          importance: { type: 'number', minimum: 1, maximum: 10 },
+                          emotionalWeight: { type: 'number', minimum: -10, maximum: 10 },
+                          tags: { type: 'array', items: { type: 'string' } },
+                          relatedPeople: { type: 'array', items: { type: 'string' } }
+                        },
+                        required: ['type', 'content', 'importance', 'emotionalWeight']
+                      }
+                    },
+                    intimacyChange: {
+                      type: 'number',
+                      description: '親密度の変化量 (-5から+5の範囲)',
+                      minimum: -5,
+                      maximum: 5
+                    },
+                    suggestions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: '今後の会話に役立つ提案・アドバイス'
+                    },
+                    analysis: {
+                      type: 'string',
+                      description: '質問応答の詳細分析'
+                    }
+                  },
+                  required: ['memories', 'intimacyChange', 'suggestions', 'analysis']
+                }
+              }
+            }
+          ],
+          tool_choice: { type: 'function', function: { name: 'extract_qa_memories' } }
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenAI API request timeout')), 25000)
+        )
+      ]) as any;
+
+      console.log('[MemoryService] OpenAI QA分析応答:', JSON.stringify((completion as any).choices[0], null, 2));
+      
+      const toolCall = (completion as any).choices[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) {
+        console.error('[MemoryService] tool_callが存在しません。応答:', completion);
+        throw new Error('QA分析に失敗しました: OpenAI応答にtool_callが含まれていません');
+      }
+
+      let extractedData;
+      try {
+        extractedData = JSON.parse(toolCall.function.arguments);
+        console.log('[MemoryService] OpenAI QA抽出データ:', JSON.stringify(extractedData, null, 2));
+      } catch (parseError) {
+        console.error('[MemoryService] JSON解析エラー:', parseError);
+        console.error('[MemoryService] 解析対象文字列:', toolCall.function.arguments);
+        throw new Error('QA分析データの解析に失敗しました');
+      }
+
+      const extractedMemories: Memory[] = [];
+
+      // 抽出されたメモリを保存
+      for (const memoryData of extractedData.memories) {
+        console.log('[MemoryService] QAメモリ作成試行:', {
+          type: memoryData.type,
+          importance: memoryData.importance,
+          emotionalWeight: memoryData.emotionalWeight
+        });
+        
+        // ベクトル化（検索用）
+        const vector = await this.generateEmbedding(memoryData.content);
+        
+        const memory = await MemoryModel.create({
+          partnerId,
+          type: memoryData.type,
+          content: memoryData.content,
+          vector,
+          importance: memoryData.importance,
+          emotionalWeight: memoryData.emotionalWeight,
+          tags: memoryData.tags || [],
+          relatedPeople: memoryData.relatedPeople || []
+        });
+        
+        extractedMemories.push(memory);
+
+        // 重要度が高い場合は関係性メトリクスも更新
+        if (memoryData.importance >= 6) {
+          await RelationshipMetricsModel.incrementSharedMemories(partnerId);
+        }
+      }
+
+      // 親密度の更新
+      const intimacyChange = Math.max(-5, Math.min(5, extractedData.intimacyChange || 0));
+      if (intimacyChange !== 0) {
+        await RelationshipMetricsModel.updateIntimacyLevel(partnerId, intimacyChange);
+        console.log(`[MemoryService] QA親密度更新: ${intimacyChange} (パートナー: ${partnerId})`);
+      }
+
+      console.log(`[MemoryService] QA情報抽出完了 - 作成メモリ数: ${extractedMemories.length}, 親密度変化: ${intimacyChange}`);
+
+      return {
+        success: true,
+        extractedMemories,
+        intimacyUpdate: intimacyChange,
+        suggestions: extractedData.suggestions || []
+      };
+
+    } catch (error) {
+      console.error('[MemoryService] QA情報抽出エラー:', error);
+      console.error('[MemoryService] エラー詳細:', {
+        message: (error as any).message,
+        status: (error as any).status,
+        response: (error as any).response?.data,
+        stack: (error as any).stack
+      });
+      
+      // OpenAI API関連エラーの詳細処理
+      if ((error as any).message?.includes('timeout')) {
+        throw new Error('OpenAI APIタイムアウト: リクエストが時間内に完了しませんでした');
+      }
+      
+      if ((error as any).status === 429) {
+        throw new Error('OpenAI APIレート制限: しばらく時間をおいて再試行してください');
+      }
+      
+      if ((error as any).status === 401) {
+        throw new Error('OpenAI API認証エラー: APIキーを確認してください');
+      }
+      
+      if ((error as any).response?.data?.error) {
+        throw new Error(`OpenAI APIエラー: ${(error as any).response.data.error.message}`);
+      }
+      
+      throw new Error(`QA情報抽出に失敗しました: ${(error as any).message || '不明なエラー'}`);
+    }
   }
 
   /**

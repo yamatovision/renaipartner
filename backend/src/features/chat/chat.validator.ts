@@ -133,6 +133,115 @@ export const chatValidators = {
       .trim()
       .isLength({ max: 1000 })
       .withMessage('カスタムプロンプトは1000文字以内で指定してください')
+  ],
+
+  /**
+   * AI主導質問生成のバリデーション
+   */
+  proactiveQuestion: [
+    body('partnerId')
+      .notEmpty()
+      .withMessage('パートナーIDは必須です')
+      .isUUID()
+      .withMessage('有効なパートナーIDを指定してください'),
+    
+    body('currentIntimacy')
+      .isInt({ min: 0, max: 100 })
+      .withMessage('現在の親密度は0-100の範囲で指定してください')
+      .toInt(),
+    
+    body('timeContext')
+      .optional()
+      .isObject()
+      .withMessage('時間コンテキストはオブジェクト形式で指定してください'),
+    
+    body('timeContext.hour')
+      .optional()
+      .isInt({ min: 0, max: 23 })
+      .withMessage('時間は0-23の範囲で指定してください')
+      .toInt(),
+    
+    body('timeContext.dayOfWeek')
+      .optional()
+      .isString()
+      .withMessage('曜日は文字列で指定してください'),
+    
+    body('timeContext.isWeekend')
+      .optional()
+      .isBoolean()
+      .withMessage('週末フラグはboolean値で指定してください'),
+    
+    body('recentContext')
+      .optional()
+      .isObject()
+      .withMessage('最近のコンテキストはオブジェクト形式で指定してください'),
+    
+    body('recentContext.silenceDuration')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('沈黙時間は0以上で指定してください')
+      .toInt(),
+    
+    body('uncollectedInfo')
+      .optional()
+      .isArray()
+      .withMessage('未収集情報は配列で指定してください')
+  ],
+
+  /**
+   * 質問タイミング判定のバリデーション
+   */
+  shouldAskQuestion: [
+    query('partnerId')
+      .notEmpty()
+      .withMessage('パートナーIDは必須です')
+      .isUUID()
+      .withMessage('有効なパートナーIDを指定してください'),
+    
+    query('silenceDuration')
+      .notEmpty()
+      .withMessage('沈黙時間は必須です')
+      .isInt({ min: 0 })
+      .withMessage('沈黙時間は0以上で指定してください')
+      .toInt(),
+    
+    query('currentIntimacy')
+      .notEmpty()
+      .withMessage('現在の親密度は必須です')
+      .isInt({ min: 0, max: 100 })
+      .withMessage('現在の親密度は0-100の範囲で指定してください')
+      .toInt(),
+    
+    query('timeContext.hour')
+      .notEmpty()
+      .withMessage('現在時刻は必須です')
+      .isInt({ min: 0, max: 23 })
+      .withMessage('時間は0-23の範囲で指定してください')
+      .toInt(),
+    
+    query('timeContext.dayOfWeek')
+      .notEmpty()
+      .withMessage('曜日は必須です')
+      .isString()
+      .withMessage('曜日は文字列で指定してください'),
+    
+    query('timeContext.isWeekend')
+      .notEmpty()
+      .withMessage('週末フラグは必須です')
+      .isBoolean()
+      .withMessage('週末フラグはboolean値で指定してください')
+      .toBoolean(),
+    
+    query('lastInteractionTime')
+      .optional()
+      .isISO8601()
+      .withMessage('最終やり取り時刻は有効なISO8601形式で指定してください')
+      .toDate(),
+    
+    query('userEmotionalState')
+      .optional()
+      .isString()
+      .withMessage('ユーザーの感情状態は文字列で指定してください')
   ]
 };
 
