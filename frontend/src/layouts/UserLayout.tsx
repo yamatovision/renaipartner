@@ -70,27 +70,6 @@ export default function UserLayout({ children }: UserLayoutProps) {
 
             {/* 右側のアイコン群 */}
             <div className="flex items-center space-x-2">
-              {/* 設定アイコン */}
-              <Link 
-                href="/settings"
-                className="p-2 text-gray-600 hover:text-pink-600 transition-colors"
-                title="設定"
-              >
-                <span className="text-xl">⚙️</span>
-              </Link>
-
-              {/* カメラ（画像生成）アイコン */}
-              <button 
-                className="p-2 text-gray-600 hover:text-pink-600 transition-colors"
-                title="画像生成"
-                onClick={() => {
-                  // TODO: 画像生成機能
-                  console.log('画像生成')
-                }}
-              >
-                <span className="text-xl">📷</span>
-              </button>
-
               {/* メニューボタン（縦3つ点） */}
               <div className="relative">
                 <button
@@ -120,46 +99,6 @@ export default function UserLayout({ children }: UserLayoutProps) {
                           onClick={() => setIsMenuOpen(false)}
                         >
                           🏠 ホーム
-                        </Link>
-                        <Link
-                          href="/create-partner"
-                          className={`block px-4 py-2 text-sm ${
-                            isActive('/create-partner') ? 'bg-pink-100 text-pink-700' : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          ➕ パートナー作成
-                        </Link>
-                        {!loadingPartner && partner ? (
-                          <Link
-                            href={`/edit-partner?id=${partner.id}`}
-                            className={`block px-4 py-2 text-sm ${
-                              isActive('/edit-partner') ? 'bg-pink-100 text-pink-700' : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                            onClick={() => {
-                              console.log('[UserLayout] パートナー編集クリック:', {
-                                partner,
-                                partnerId: partner.id,
-                                href: `/edit-partner?id=${partner.id}`
-                              })
-                              setIsMenuOpen(false)
-                            }}
-                          >
-                            ✏️ パートナー編集
-                          </Link>
-                        ) : (
-                          <div className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-                            ✏️ パートナー編集 {loadingPartner && '(読込中...)'}
-                          </div>
-                        )}
-                        <Link
-                          href="/settings"
-                          className={`block px-4 py-2 text-sm ${
-                            isActive('/settings') ? 'bg-pink-100 text-pink-700' : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          ⚙️ 設定
                         </Link>
                         <hr className="my-1" />
                         <button

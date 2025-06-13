@@ -81,15 +81,34 @@ export const partnersApiService = {
     }
   },
 
-  // パートナー一覧取得
+  // パートナー一覧取得（実際は単一パートナーを返すAPI）
   list: async (): Promise<ApiResponse<Partner[]>> => {
     try {
-      const response = await api.get<Partner[]>(API_PATHS.PARTNERS.LIST)
-      return {
-        success: true,
-        data: response,
+      const response = await api.get<any>(API_PATHS.PARTNERS.LIST)
+      console.log('[PARTNERS API] パートナー取得レスポンス:', response)
+      
+      // バックエンドからのレスポンスを処理
+      if (response && response.success && response.data) {
+        // 単一のパートナーを配列として返す
+        return {
+          success: true,
+          data: [response.data],
+        }
+      } else if (response && response.success && response.data === null) {
+        // パートナーが存在しない場合は空配列
+        return {
+          success: true,
+          data: [],
+        }
+      } else {
+        // バックエンドがApiResponse形式でない場合の対応
+        return {
+          success: true,
+          data: response ? [response] : [],
+        }
       }
     } catch (error: any) {
+      console.error('[PARTNERS API] パートナー取得エラー:', error)
       return {
         success: false,
         error: error.message || 'パートナー一覧の取得に失敗しました',

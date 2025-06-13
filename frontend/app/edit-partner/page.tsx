@@ -39,19 +39,34 @@ function EditPartnerContent() {
 
     const loadPartner = async () => {
       try {
+        console.log('=== パートナー詳細取得開始 ===')
+        console.log('Partner ID:', partnerId)
+        
         const response = await partnersService.getPartnerDetail(partnerId)
-        if (response.success && response.data) {
-          setPartner(response.data)
+        
+        console.log('=== パートナー詳細取得結果 ===')
+        console.log('Response Success:', response.success)
+        console.log('Response Data:', response.data)
+        
+        // レスポンス構造の確認と修正
+        const partnerData = response.data?.data || response.data
+        console.log('Actual Partner Data:', partnerData)
+        console.log('Base Image URL:', partnerData?.baseImageUrl)
+        console.log('Generated Image URL:', partnerData?.appearance?.generatedImageUrl)
+        
+        if (response.success && partnerData) {
+          setPartner(partnerData)
           setFormData({
-            name: response.data.name,
-            personalityType: response.data.personalityType,
-            speechStyle: response.data.speechStyle,
-            systemPrompt: response.data.systemPrompt,
-            avatarDescription: response.data.avatarDescription,
-            appearance: response.data.appearance,
-            hobbies: response.data.hobbies
+            name: partnerData.name,
+            personalityType: partnerData.personalityType,
+            speechStyle: partnerData.speechStyle,
+            systemPrompt: partnerData.systemPrompt,
+            avatarDescription: partnerData.avatarDescription,
+            appearance: partnerData.appearance,
+            hobbies: partnerData.hobbies
           })
         } else {
+          console.error('パートナーが見つかりません:', response.error)
           alert('パートナーが見つかりません')
           router.push('/home')
         }
@@ -263,10 +278,6 @@ function EditPartnerContent() {
 
   return (
     <UserLayout>
-      {/* モック使用バナー */}
-      <div className="bg-red-500 text-white text-center py-2 text-sm">
-        ⚠️ モックデータ使用中 - 本番環境では使用不可
-      </div>
 
       <div className="bg-gray-50 min-h-[calc(100vh-4rem)]">
         <main className="max-w-4xl mx-auto p-6">
@@ -274,9 +285,13 @@ function EditPartnerContent() {
           <div className="bg-white rounded-xl shadow-md p-6 mb-6">
             <div className="flex items-center gap-6">
               <img
-                src={partner.baseImageUrl || '/images/default-avatar.png'}
+                src={partner.appearance?.generatedImageUrl || partner.baseImageUrl || '/images/default-avatar.png'}
                 alt={partner.name}
                 className="w-32 h-32 rounded-full object-cover shadow-lg"
+                onError={(e) => {
+                  console.error('画像読み込みエラー:', e.currentTarget.src)
+                  e.currentTarget.src = '/images/default-avatar.png'
+                }}
               />
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">

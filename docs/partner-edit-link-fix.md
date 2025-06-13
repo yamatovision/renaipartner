@@ -8,6 +8,7 @@
 2. `/edit-partner`ページの`EditPartnerContent`コンポーネントは、URLパラメータ`id`からパートナーIDを取得する設計
 3. IDパラメータがない場合、35-37行目の処理により`/home`にリダイレクトされる
 4. パートナー情報の非同期読み込みのタイミング問題により、リンククリック時にパートナーIDがまだ利用できない可能性
+5. **重要な問題**: フロントエンドの`partnersService.list()`がパートナー配列を期待しているが、バックエンドAPIは単一パートナーを返すため、レスポンス形式の不整合
 
 ```typescript
 // frontend/app/edit-partner/page.tsx の35-37行目
