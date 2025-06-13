@@ -90,4 +90,5 @@ data/stats.json
 .appgenius_temp/
 
 # SillyTavernディレクトリ（別管理）
-SillyTavern/
+SillyTavern/backend/.env.yaml
+docs/deployment/deploy.md
