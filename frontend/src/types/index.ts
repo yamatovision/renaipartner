@@ -577,7 +577,9 @@ export interface OngoingTopic {
 export interface MemorySummaryRequest {
   partnerId: ID;
   messageIds: ID[];
-  summaryType?: 'daily' | 'weekly' | 'important';
+  summaryType?: 'daily' | 'weekly' | 'important' | 'episode';
+  episodeTitle?: string;
+  episodeDescription?: string;
 }
 
 export interface MemorySearchRequest {
@@ -717,6 +719,12 @@ export interface GeneratedImage {
 
 export type GeneratedImageResponse = ApiResponse<GeneratedImage>;
 
+export interface ImageGenerationResponse {
+  imageUrl: string;
+  imageId?: string;
+  metadata?: Record<string, any>;
+}
+
 export interface BackgroundOption {
   id: string;
   name: string;
@@ -732,6 +740,10 @@ export interface BackgroundImage {
   category: string;
   isDefault: boolean;
   thumbnail?: string;
+  timeOfDay?: 'morning' | 'day' | 'afternoon' | 'evening' | 'sunset' | 'night';
+  season?: 'spring' | 'summer' | 'autumn' | 'winter' | 'all';
+  weather?: 'clear' | 'cloudy' | 'rainy' | 'snowy';
+  intimacyLevel?: 'low' | 'medium' | 'high';
 }
 
 // =============================================================================

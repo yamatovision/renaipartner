@@ -19,12 +19,12 @@ class PartnerModel {
       const query = `
         INSERT INTO partners (
           user_id, name, gender, personality_type, speech_style, 
-          system_prompt, avatar_description, hair_style, eye_color, 
+          system_prompt, avatar_description, hair_style, hair_color, eye_color, 
           body_type, clothing_style, generated_image_url, hobbies, 
           intimacy_level, base_image_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         RETURNING id, user_id, name, gender, personality_type, speech_style,
-                  system_prompt, avatar_description, hair_style, eye_color,
+                  system_prompt, avatar_description, hair_style, hair_color, eye_color,
                   body_type, clothing_style, generated_image_url, hobbies,
                   intimacy_level, base_image_url, created_at, updated_at
       `;
@@ -38,6 +38,7 @@ class PartnerModel {
         partnerData.systemPrompt,
         partnerData.avatarDescription,
         partnerData.appearance.hairStyle,
+        partnerData.appearance.hairColor || null, // 髪色を追加
         partnerData.appearance.eyeColor,
         partnerData.appearance.bodyType,
         partnerData.appearance.clothingStyle,
@@ -72,7 +73,7 @@ class PartnerModel {
     try {
       const query = `
         SELECT id, user_id, name, gender, personality_type, speech_style,
-               system_prompt, avatar_description, hair_style, eye_color,
+               system_prompt, avatar_description, hair_style, hair_color, eye_color,
                body_type, clothing_style, generated_image_url, hobbies,
                intimacy_level, base_image_url, created_at, updated_at
         FROM partners 
@@ -99,7 +100,7 @@ class PartnerModel {
     try {
       const query = `
         SELECT id, user_id, name, gender, personality_type, speech_style,
-               system_prompt, avatar_description, hair_style, eye_color,
+               system_prompt, avatar_description, hair_style, hair_color, eye_color,
                body_type, clothing_style, generated_image_url, hobbies,
                intimacy_level, base_image_url, created_at, updated_at
         FROM partners 
@@ -165,6 +166,12 @@ class PartnerModel {
           paramIndex++;
         }
         
+        if (updateData.appearance.hairColor !== undefined) {
+          updateFields.push(`hair_color = $${paramIndex}`);
+          values.push(updateData.appearance.hairColor);
+          paramIndex++;
+        }
+        
         if (updateData.appearance.eyeColor !== undefined) {
           updateFields.push(`eye_color = $${paramIndex}`);
           values.push(updateData.appearance.eyeColor);
@@ -209,7 +216,7 @@ class PartnerModel {
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex}
         RETURNING id, user_id, name, gender, personality_type, speech_style,
-                  system_prompt, avatar_description, hair_style, eye_color,
+                  system_prompt, avatar_description, hair_style, hair_color, eye_color,
                   body_type, clothing_style, generated_image_url, hobbies,
                   intimacy_level, base_image_url, created_at, updated_at
       `;
@@ -365,6 +372,7 @@ class PartnerModel {
   private static mapDbRowToPartner(row: any): Partner {
     const appearance: AppearanceSettings = {
       hairStyle: row.hair_style,
+      hairColor: row.hair_color, // 髪色を追加
       eyeColor: row.eye_color,
       bodyType: row.body_type,
       clothingStyle: row.clothing_style,

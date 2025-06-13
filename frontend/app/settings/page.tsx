@@ -2,11 +2,13 @@
 
 // U-004: 設定ページ
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import UserLayout from '@/layouts/UserLayout'
-import { usersService, authService, notificationsService, settingsService, imagesService } from '@/services'
-import { NotificationSettings, UserSettings, BackgroundImage } from '@/types'
+import { usersService, authService, notificationsService, settingsService, imagesService, partnersService } from '@/services'
+import { NotificationSettings, UserSettings, BackgroundImage, Partner } from '@/types'
 
 export default function SettingsPage() {
+  const router = useRouter()
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null)
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
   const [backgroundImages, setBackgroundImages] = useState<BackgroundImage[]>([])
@@ -17,6 +19,7 @@ export default function SettingsPage() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [userEmail, setUserEmail] = useState<string>('')
   const [registrationDate, setRegistrationDate] = useState<string>('')
+  const [partner, setPartner] = useState<Partner | null>(null)
   const [userProfile, setUserProfile] = useState<{
     surname: string
     firstName: string
@@ -44,24 +47,35 @@ export default function SettingsPage() {
   // 朝の挨拶スケジュール作成
   const createMorningGreetingSchedule = async (morningTime: string) => {
     try {
-      // 今日の朝の挨拶時刻を設定（もし今日の時刻を過ぎていたら明日の同時刻）
-      const now = new Date()
-      const today = new Date()
-      const [hours, minutes] = morningTime.split(':').map(Number)
-      
-      today.setHours(hours, minutes, 0, 0)
-      
-      // 今日の時刻を過ぎていたら明日にする
-      if (today <= now) {
-        today.setDate(today.getDate() + 1)
+      // パートナー情報を取得
+      const partnerResponse = await partnersService.getPartner()
+      if (!partnerResponse.success || !partnerResponse.data) {
+        throw new Error('パートナー情報が見つかりません')
       }
+
+      // HH:MM形式の時刻を今日の日付でISO 8601形式に変換
+      const [hours, minutes] = morningTime.split(':').map(Number)
+      const scheduledDate = new Date()
+      scheduledDate.setHours(hours, minutes, 0, 0)
+      
+      // 指定時刻が現在時刻より前の場合は明日に設定
+      if (scheduledDate.getTime() < Date.now()) {
+        scheduledDate.setDate(scheduledDate.getDate() + 1)
+      }
+
+      console.log('[DEBUG] スケジュール作成情報:', {
+        morningTime,
+        scheduledDate: scheduledDate.toISOString(),
+        partnerId: partnerResponse.data.id
+      })
 
       const scheduleRequest = {
         type: 'morning_greeting' as const,
-        scheduledTime: today,
+        scheduledTime: scheduledDate.toISOString(), // ISO 8601形式で送信
         recurring: true,
         recurringPattern: 'daily' as const,
-        message: '朝の挨拶メッセージ'
+        message: '朝の挨拶メッセージ',
+        partnerId: partnerResponse.data.id
       }
 
       const response = await notificationsService.createSchedule(scheduleRequest)
@@ -85,6 +99,18 @@ export default function SettingsPage() {
         throw new Error('ユーザー情報の取得に失敗しました')
       }
       
+      // パートナー情報を取得
+      try {
+        const partnerResponse = await partnersService.list()
+        console.log('[Settings] パートナー一覧取得:', partnerResponse)
+        if (partnerResponse.success && partnerResponse.data && partnerResponse.data.length > 0) {
+          setPartner(partnerResponse.data[0])
+          console.log('[Settings] パートナー設定:', partnerResponse.data[0])
+        }
+      } catch (error) {
+        console.error('[Settings] パートナー情報取得エラー:', error)
+      }
+      
       // ユーザーのメールアドレスと登録日を設定
       setUserEmail(userResponse.data?.email || '')
       const createdAt = userResponse.data?.createdAt
@@ -96,6 +122,8 @@ export default function SettingsPage() {
       
       // プロフィール情報を取得
       const profileResponse = await usersService.getProfile()
+      console.log('[DEBUG] プロフィール取得レスポンス:', profileResponse)
+      
       if (!profileResponse.success) {
         throw new Error('プロフィール情報の取得に失敗しました')
       }
@@ -103,17 +131,17 @@ export default function SettingsPage() {
       // プロフィール情報をstateに保存
       if (profileResponse.data) {
         setUserProfile({
-          surname: profileResponse.data.surname,
-          firstName: profileResponse.data.firstName,
+          surname: profileResponse.data.surname || '',
+          firstName: profileResponse.data.firstName || '',
           nickname: profileResponse.data.nickname || '',
-          birthday: profileResponse.data.birthday
+          birthday: profileResponse.data.birthday || ''
         })
         // フォームの初期値も設定
         setProfileForm({
-          surname: profileResponse.data.surname,
-          firstName: profileResponse.data.firstName,
+          surname: profileResponse.data.surname || '',
+          firstName: profileResponse.data.firstName || '',
           nickname: profileResponse.data.nickname || '',
-          birthday: profileResponse.data.birthday
+          birthday: profileResponse.data.birthday || ''
         })
       }
       
@@ -475,7 +503,11 @@ export default function SettingsPage() {
               <div className="flex-1">
                 <div className="font-medium text-gray-800 mb-1">プロフィール編集</div>
                 <div className="text-sm text-gray-600">
-                  {userProfile ? `${userProfile.surname} ${userProfile.firstName}${userProfile.nickname ? ` (${userProfile.nickname})` : ''}` : '名前を取得中...'}
+                  {userProfile ? (
+                    userProfile.surname || userProfile.firstName ? 
+                      `${userProfile.surname} ${userProfile.firstName}${userProfile.nickname ? ` (${userProfile.nickname})` : ''}`.trim() || 'プロフィールを設定してください' : 
+                      'プロフィールを設定してください'
+                  ) : '名前を取得中...'}
                 </div>
               </div>
               <button
@@ -498,6 +530,40 @@ export default function SettingsPage() {
               >
                 <span className="material-icons mr-2">✏️</span>
                 変更
+              </button>
+            </div>
+          </section>
+
+          {/* パートナー設定 */}
+          <section className="mb-8 pb-8 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+              <span className="material-icons mr-2 text-blue-500">💑</span>
+              パートナー設定
+            </h2>
+
+            <div className="flex items-center justify-between py-4">
+              <div className="flex-1">
+                <div className="font-medium text-gray-800 mb-1">パートナー編集</div>
+                <div className="text-sm text-gray-600">
+                  {partner ? `${partner.name}の性格や見た目を編集できます` : 'パートナー情報を読み込み中...'}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (partner) {
+                    console.log('[Settings] パートナー編集ボタンクリック:', partner)
+                    router.push(`/edit-partner?id=${partner.id}`)
+                  }
+                }}
+                disabled={!partner}
+                className={`px-6 py-3 rounded-lg border transition-colors flex items-center ${
+                  partner 
+                    ? 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200' 
+                    : 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                }`}
+              >
+                <span className="material-icons mr-2">✏️</span>
+                編集
               </button>
             </div>
           </section>
@@ -545,19 +611,6 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between py-4">
-              <div className="flex-1">
-                <div className="font-medium text-gray-800 mb-1">会話履歴のみエクスポート</div>
-                <div className="text-sm text-gray-600">メッセージのみを軽量でダウンロード</div>
-              </div>
-              <button
-                onClick={() => handleExportData(false)}
-                className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg border border-gray-300 hover:bg-gray-200 transition-colors flex items-center"
-              >
-                <span className="material-icons mr-2">💬</span>
-                会話のみ
-              </button>
-            </div>
 
             {/* 危険な操作 */}
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 mt-4">

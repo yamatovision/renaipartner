@@ -108,11 +108,20 @@ export const chatApiService = {
   // 画像生成
   generateImage: async (partnerId: string, context: string, emotion?: string): Promise<ApiResponse<{ imageUrl: string }>> => {
     try {
-      const response = await api.post<{ imageUrl: string }>(API_PATHS.CHAT.GENERATE_IMAGE, {
+      const response = await api.post<any>(API_PATHS.CHAT.GENERATE_IMAGE, {
         partnerId,
         context,
         emotion
       })
+      
+      console.log('[CHAT API] generateImage raw response:', response)
+      
+      // APIレスポンスが既に{success, data}形式の場合はそのまま返す
+      if (response && (response as any).success !== undefined) {
+        return response as ApiResponse<{ imageUrl: string }>
+      }
+      
+      // そうでない場合は従来の形式でラップ
       return {
         success: true,
         data: response,

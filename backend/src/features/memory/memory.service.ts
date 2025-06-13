@@ -11,7 +11,8 @@ import {
   EpisodeMemory,
   Message as IMessage,
   MessageSender,
-  ID 
+  ID,
+  MemorySummaryRequest 
 } from '@/types';
 
 interface MemorySearchRequest {
@@ -22,11 +23,7 @@ interface MemorySearchRequest {
   minImportance?: number;
 }
 
-interface MemorySummaryRequest {
-  partnerId: ID;
-  messageIds: ID[];
-  summaryType?: 'daily' | 'weekly' | 'important';
-}
+// MemorySummaryRequest は @/types からインポートして使用
 
 interface OngoingTopic {
   id: string;
@@ -200,7 +197,22 @@ export class MemoryService {
       }
 
       // エピソード記憶の保存
-      if (extractedData.episodes && extractedData.episodes.length > 0) {
+      if (request.summaryType === 'episode' && request.episodeTitle) {
+        // 手動でエピソードを作成する場合
+        await EpisodeMemoryModel.create({
+          partnerId,
+          title: request.episodeTitle,
+          description: request.episodeDescription || extractedData.summary,
+          emotionalWeight: 8, // デフォルトの高い感情的重み
+          tags: extractedData.memories[0]?.tags || [],
+          participants: [partner.name, 'ユーザー'],
+          date: new Date()
+        });
+        
+        // 共有メモリ数も増やす
+        await RelationshipMetricsModel.incrementSharedMemories(partnerId);
+      } else if (extractedData.episodes && extractedData.episodes.length > 0) {
+        // 自動抽出されたエピソードの保存
         for (const episodeData of extractedData.episodes) {
           await EpisodeMemoryModel.create({
             partnerId,

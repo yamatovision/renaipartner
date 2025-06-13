@@ -1,55 +1,81 @@
-import { api } from './client'
-import { 
-  ImageGenerationRequest, 
-  GeneratedImage,
-  BackgroundImage,
+// 画像関連API実サービス実装
+import {
   ApiResponse,
-  API_PATHS 
-} from '../../types'
+  API_PATHS,
+  BackgroundImage,
+  ImageGenerationRequest,
+  ImageGenerationResponse
+} from '@/types'
+import { api } from './client'
 
+// 実画像APIサービス
 export const imagesApiService = {
-  // アバター画像生成（API 7.1）
-  async generateAvatar(request: ImageGenerationRequest): Promise<ApiResponse<GeneratedImage>> {
-    return api.post(API_PATHS.IMAGES.GENERATE, request)
-  },
-
-  // オンボーディング用画像生成（partnerIdなし）
-  async generateOnboardingAvatar(request: Omit<ImageGenerationRequest, 'partnerId'>): Promise<ApiResponse<GeneratedImage>> {
-    return api.post('/api/images/generate-onboarding', request)
-  },
-
-  // チャット用画像生成（API 7.2）
-  async generateChatImage(request: ImageGenerationRequest): Promise<ApiResponse<GeneratedImage>> {
-    return api.post(API_PATHS.IMAGES.GENERATE_CHAT, request)
-  },
-
-  // 背景画像一覧取得（API 7.3）
-  async getBackgrounds(): Promise<BackgroundImage[]> {
-    const response = await api.get<BackgroundImage[]>(API_PATHS.IMAGES.BACKGROUNDS)
-    // APIレスポンスが配列形式でない場合の対応
-    if (response && typeof response === 'object' && 'data' in response) {
-      return Array.isArray(response.data) ? response.data : []
+  // 背景画像一覧取得
+  getBackgrounds: async (): Promise<BackgroundImage[]> => {
+    try {
+      const response = await api.get<BackgroundImage[]>(API_PATHS.IMAGES.BACKGROUNDS)
+      return response
+    } catch (error: any) {
+      console.error('背景画像取得エラー:', error)
+      // フォールバック背景を返す
+      return [{
+        id: 'default-1',
+        url: '/backgrounds/default.jpg',
+        name: 'デフォルト背景',
+        category: 'default',
+        isDefault: true,
+        timeOfDay: 'day',
+        season: 'all',
+        weather: 'clear'
+      }]
     }
-    return Array.isArray(response) ? response : []
   },
 
-  // 画像履歴取得（追加機能）
-  async getHistory(partnerId: string): Promise<GeneratedImage[]> {
-    return api.get(API_PATHS.IMAGES.HISTORY(partnerId))
+  // アバター画像生成
+  generateAvatar: async (request: ImageGenerationRequest): Promise<ApiResponse<ImageGenerationResponse>> => {
+    try {
+      const response = await api.post<ImageGenerationResponse>(API_PATHS.IMAGES.AVATAR, request)
+      return {
+        success: true,
+        data: response,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'アバター画像生成に失敗しました',
+      }
+    }
   },
 
-  // 画像統計取得（追加機能）
-  async getStats(partnerId: string): Promise<{ total: number; lastGenerated: Date }> {
-    return api.get(API_PATHS.IMAGES.STATS(partnerId))
+  // チャット内画像生成
+  generateImage: async (request: ImageGenerationRequest): Promise<ApiResponse<ImageGenerationResponse>> => {
+    try {
+      const response = await api.post<ImageGenerationResponse>(API_PATHS.IMAGES.GENERATE_CHAT, request)
+      return {
+        success: true,
+        data: response,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || '画像生成に失敗しました',
+      }
+    }
   },
 
-  // 画像削除（追加機能）
-  async deleteImage(imageId: string): Promise<void> {
-    return api.delete(API_PATHS.IMAGES.DELETE(imageId))
+  // オンボーディング用画像生成
+  generateOnboardingImage: async (request: ImageGenerationRequest): Promise<ApiResponse<ImageGenerationResponse>> => {
+    try {
+      const response = await api.post<ImageGenerationResponse>(API_PATHS.IMAGES.GENERATE_ONBOARDING, request)
+      return {
+        success: true,
+        data: response,
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'オンボーディング画像生成に失敗しました',
+      }
+    }
   },
-
-  // 利用可能モデル一覧取得（追加機能）
-  async getModels(): Promise<Array<{ id: string; name: string; description: string }>> {
-    return api.get(API_PATHS.IMAGES.MODELS)
-  }
 }

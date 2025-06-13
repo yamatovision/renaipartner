@@ -122,6 +122,8 @@ export class ImagesService {
     message: string, 
     emotion?: string,
     situation?: string,
+    location?: string,
+    intimacyLevel?: number,
     useReference?: boolean
   ): Promise<GeneratedImage> {
     try {
@@ -130,8 +132,8 @@ export class ImagesService {
         throw new Error('パートナーが見つかりません');
       }
 
-      // チャット文脈用プロンプト生成
-      const chatPrompt = await this.buildChatPrompt(partner, message, emotion, situation);
+      // チャット文脈用プロンプト生成（改善版）
+      const chatPrompt = await this.buildChatPrompt(partner, message, emotion, situation, location, intimacyLevel);
 
       // 参考画像を使用する場合、過去の高一貫性画像を取得
       let referenceImages: GeneratedImage[] = [];
@@ -182,67 +184,284 @@ export class ImagesService {
   }
 
   /**
-   * 背景画像一覧を取得
+   * 背景画像一覧を取得（恋愛ゲーム定番24種類対応）
    */
-  async getBackgroundImages(category?: string, limit: number = 20): Promise<BackgroundImage[]> {
-    // 静的な背景画像プリセット
+  async getBackgroundImages(category?: string, limit: number = 24): Promise<BackgroundImage[]> {
+    // 恋愛ゲーム定番背景（24種類）
     const allBackgrounds: BackgroundImage[] = [
+      // 学校関連（必須）
+      {
+        id: 'school-01',
+        name: '教室',
+        url: '/images/backgrounds/school/classroom.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/classroom-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'school-02',
+        name: '屋上',
+        url: '/images/backgrounds/school/rooftop.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/rooftop-thumb.jpg',
+        timeOfDay: 'sunset',
+        season: 'all',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'school-03',
+        name: '廊下',
+        url: '/images/backgrounds/school/hallway.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/hallway-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'school-04',
+        name: '校門',
+        url: '/images/backgrounds/school/gate.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/gate-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'school-05',
+        name: '部室',
+        url: '/images/backgrounds/school/club-room.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/club-room-thumb.jpg',
+        timeOfDay: 'afternoon',
+        season: 'all',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'school-06',
+        name: '図書館',
+        url: '/images/backgrounds/school/library.jpg',
+        category: 'school',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/school/library-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+
+      // プライベート空間
+      {
+        id: 'private-01',
+        name: '自室',
+        url: '/images/backgrounds/private/bedroom.jpg',
+        category: 'private',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/private/bedroom-thumb.jpg',
+        timeOfDay: 'night',
+        season: 'all',
+        intimacyLevel: 'high'
+      },
+      {
+        id: 'private-02',
+        name: 'リビング',
+        url: '/images/backgrounds/private/living-room.jpg',
+        category: 'private',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/private/living-room-thumb.jpg',
+        timeOfDay: 'evening',
+        season: 'all',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'daily-01',
+        name: 'カフェ',
+        url: '/images/backgrounds/daily/cafe.jpg',
+        category: 'daily',
+        isDefault: true, // デフォルト背景に変更
+        thumbnail: '/images/backgrounds/daily/cafe-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'daily-02',
+        name: 'レストラン',
+        url: '/images/backgrounds/daily/restaurant.jpg',
+        category: 'daily',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/daily/restaurant-thumb.jpg',
+        timeOfDay: 'evening',
+        season: 'all',
+        intimacyLevel: 'medium'
+      },
+
+      // ロマンチックスポット
+      {
+        id: 'romantic-01',
+        name: '桜並木',
+        url: '/images/backgrounds/romantic/cherry-blossoms.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/cherry-blossoms-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'spring',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'romantic-02',
+        name: '夜景',
+        url: '/images/backgrounds/romantic/night-view.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/night-view-thumb.jpg',
+        timeOfDay: 'night',
+        season: 'all',
+        intimacyLevel: 'high'
+      },
+      {
+        id: 'romantic-03',
+        name: '水族館',
+        url: '/images/backgrounds/romantic/aquarium.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/aquarium-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'romantic-04',
+        name: '観覧車',
+        url: '/images/backgrounds/romantic/ferris-wheel.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/ferris-wheel-thumb.jpg',
+        timeOfDay: 'sunset',
+        season: 'all',
+        intimacyLevel: 'high'
+      },
+      {
+        id: 'romantic-05',
+        name: '夕暮れの海',
+        url: '/images/backgrounds/romantic/beach-sunset.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/beach-sunset-thumb.jpg',
+        timeOfDay: 'sunset',
+        season: 'summer',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'romantic-06',
+        name: '花火大会',
+        url: '/images/backgrounds/romantic/fireworks.jpg',
+        category: 'romantic',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/romantic/fireworks-thumb.jpg',
+        timeOfDay: 'night',
+        season: 'summer',
+        intimacyLevel: 'medium'
+      },
+
+      // 季節イベント
+      {
+        id: 'seasonal-01',
+        name: 'イルミネーション',
+        url: '/images/backgrounds/seasonal/christmas-illumination.jpg',
+        category: 'seasonal',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/seasonal/christmas-illumination-thumb.jpg',
+        timeOfDay: 'night',
+        season: 'winter',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'seasonal-02',
+        name: '夏祭り',
+        url: '/images/backgrounds/seasonal/summer-festival.jpg',
+        category: 'seasonal',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/seasonal/summer-festival-thumb.jpg',
+        timeOfDay: 'evening',
+        season: 'summer',
+        intimacyLevel: 'medium'
+      },
+      {
+        id: 'seasonal-03',
+        name: '神社',
+        url: '/images/backgrounds/seasonal/shrine.jpg',
+        category: 'seasonal',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/seasonal/shrine-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'seasonal-04',
+        name: 'ハロウィンパーティー',
+        url: '/images/backgrounds/seasonal/halloween-party.jpg',
+        category: 'seasonal',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/seasonal/halloween-party-thumb.jpg',
+        timeOfDay: 'night',
+        season: 'autumn',
+        intimacyLevel: 'medium'
+      },
+
+      // 自然・日常
       {
         id: 'nature-01',
-        name: '桜並木',
-        url: '/images/backgrounds/nature/sakura-path.jpg',
+        name: '公園',
+        url: '/images/backgrounds/nature/park.jpg',
         category: 'nature',
-        isDefault: true,
-        thumbnail: '/images/backgrounds/nature/sakura-path-thumb.jpg',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/nature/park-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'urban-01',
+        name: 'ショッピングモール',
+        url: '/images/backgrounds/urban/shopping-mall.jpg',
+        category: 'urban',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/urban/shopping-mall-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
+      },
+      {
+        id: 'urban-02',
+        name: '駅',
+        url: '/images/backgrounds/urban/train-station.jpg',
+        category: 'urban',
+        isDefault: false,
+        thumbnail: '/images/backgrounds/urban/train-station-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'all',
+        intimacyLevel: 'low'
       },
       {
         id: 'nature-02',
-        name: '夕日の海岸',
-        url: '/images/backgrounds/nature/sunset-beach.jpg',
+        name: '花畑',
+        url: '/images/backgrounds/nature/flower-field.jpg',
         category: 'nature',
         isDefault: false,
-        thumbnail: '/images/backgrounds/nature/sunset-beach-thumb.jpg',
-      },
-      {
-        id: 'indoor-01',
-        name: 'カフェテラス',
-        url: '/images/backgrounds/indoor/cafe-terrace.jpg',
-        category: 'indoor',
-        isDefault: false,
-        thumbnail: '/images/backgrounds/indoor/cafe-terrace-thumb.jpg',
-      },
-      {
-        id: 'indoor-02',
-        name: '図書館',
-        url: '/images/backgrounds/indoor/library.jpg',
-        category: 'indoor',
-        isDefault: false,
-        thumbnail: '/images/backgrounds/indoor/library-thumb.jpg',
-      },
-      {
-        id: 'fantasy-01',
-        name: '魔法の森',
-        url: '/images/backgrounds/fantasy/magic-forest.jpg',
-        category: 'fantasy',
-        isDefault: false,
-        thumbnail: '/images/backgrounds/fantasy/magic-forest-thumb.jpg',
-      },
-      {
-        id: 'modern-01',
-        name: '都市の夜景',
-        url: '/images/backgrounds/modern/city-night.jpg',
-        category: 'modern',
-        isDefault: false,
-        thumbnail: '/images/backgrounds/modern/city-night-thumb.jpg',
-      },
-      {
-        id: 'romantic-01',
-        name: 'ロマンチックガーデン',
-        url: '/images/backgrounds/romantic/rose-garden.jpg',
-        category: 'romantic',
-        isDefault: false,
-        thumbnail: '/images/backgrounds/romantic/rose-garden-thumb.jpg',
-      },
+        thumbnail: '/images/backgrounds/nature/flower-field-thumb.jpg',
+        timeOfDay: 'day',
+        season: 'spring',
+        intimacyLevel: 'low'
+      }
     ];
 
     let filteredBackgrounds = allBackgrounds;
@@ -292,6 +511,117 @@ export class ImagesService {
   }
 
   /**
+   * 場所に応じた服装を取得
+   */
+  private getClothingForLocation(location: string, gender: string): string {
+    const locationClothingMap: Record<string, { male: string; female: string }> = {
+      // 日常系
+      'cafe': { male: 'casual shirt and jeans', female: 'casual sweater and skirt' },
+      'home': { male: 'comfortable t-shirt and shorts', female: 'cozy loungewear' },
+      'park': { male: 'sporty casual wear', female: 'comfortable outdoor outfit' },
+      'library': { male: 'smart casual attire', female: 'modest studious outfit' },
+      
+      // ロマンチック
+      'night_view': { male: 'elegant jacket and dress shirt', female: 'elegant dress' },
+      'beach_sunset': { male: 'beach shirt and shorts', female: 'summer dress' },
+      'cherry_blossoms': { male: 'spring casual wear', female: 'floral spring dress' },
+      'illumination': { male: 'warm coat and scarf', female: 'stylish winter coat' },
+      
+      // 自然
+      'forest': { male: 'outdoor hiking wear', female: 'practical outdoor clothing' },
+      'lake': { male: 'relaxed outdoor wear', female: 'comfortable lake-side outfit' },
+      'mountain': { male: 'mountain climbing gear', female: 'sporty mountain wear' },
+      'flower_field': { male: 'light summer clothing', female: 'flowing summer dress' },
+      
+      // 都市
+      'station': { male: 'business casual', female: 'city casual style' },
+      'shopping': { male: 'trendy casual wear', female: 'fashionable shopping outfit' },
+      'office': { male: 'business suit', female: 'professional office attire' },
+      'residential': { male: 'neighborhood casual', female: 'everyday casual wear' },
+
+      // 学校関連（恋愛ゲーム定番）
+      'classroom': { male: 'school uniform or casual student attire', female: 'school uniform or cute student outfit' },
+      'school_rooftop': { male: 'school uniform', female: 'school uniform' },
+      'school_hallway': { male: 'school uniform', female: 'school uniform' },
+      'school_gate': { male: 'school uniform or after-school casual', female: 'school uniform or after-school cute outfit' },
+      'club_room': { male: 'school uniform or club activity wear', female: 'school uniform or club activity cute outfit' },
+
+      // プライベート空間
+      'bedroom': { male: 'comfortable casual wear', female: 'comfortable cute outfit' },
+      'living_room': { male: 'relaxed home wear', female: 'cozy home outfit' },
+      'restaurant': { male: 'smart casual or semi-formal', female: 'elegant dinner outfit' },
+
+      // 季節イベント
+      'aquarium': { male: 'casual date outfit', female: 'cute date dress' },
+      'ferris_wheel': { male: 'romantic casual wear', female: 'romantic dress' },
+      'fireworks': { male: 'yukata or summer festival outfit', female: 'yukata or summer festival dress' },
+      'summer_festival': { male: 'yukata or casual summer wear', female: 'yukata or summer festival outfit' },
+      'shrine': { male: 'formal visit attire or kimono', female: 'formal visit outfit or kimono' },
+      'halloween_party': { male: 'halloween costume', female: 'cute halloween costume' },
+      'christmas_illumination': { male: 'warm winter coat and scarf', female: 'stylish winter coat and accessories' },
+      'shopping_mall': { male: 'trendy shopping outfit', female: 'fashionable shopping style' },
+      'train_station': { male: 'commuter casual or business casual', female: 'commuter chic or business casual' }
+    };
+
+    const clothingSet = locationClothingMap[location];
+    if (!clothingSet) {
+      // デフォルト服装
+      return gender === 'boyfriend' 
+        ? 'casual shirt and jeans' 
+        : 'casual sweater and skirt';
+    }
+
+    return gender === 'boyfriend' ? clothingSet.male : clothingSet.female;
+  }
+
+  /**
+   * 親密度に応じた表現修飾子を取得
+   */
+  private getIntimacyModifiers(intimacyLevel: number): {
+    emotionIntensity: string;
+    gazeDirection: string;
+    bodyLanguage: string;
+    atmosphere: string;
+  } {
+    if (intimacyLevel <= 20) {
+      return {
+        emotionIntensity: 'subtle reserved',
+        gazeDirection: 'slightly averted gaze',
+        bodyLanguage: 'formal distant posture',
+        atmosphere: 'polite but distant atmosphere'
+      };
+    } else if (intimacyLevel <= 40) {
+      return {
+        emotionIntensity: 'moderate friendly',
+        gazeDirection: 'occasional eye contact',
+        bodyLanguage: 'relaxed but respectful posture',
+        atmosphere: 'friendly and approachable atmosphere'
+      };
+    } else if (intimacyLevel <= 60) {
+      return {
+        emotionIntensity: 'warm expressive',
+        gazeDirection: 'direct friendly gaze',
+        bodyLanguage: 'open comfortable posture',
+        atmosphere: 'warm and trusting atmosphere'
+      };
+    } else if (intimacyLevel <= 80) {
+      return {
+        emotionIntensity: 'deeply expressive',
+        gazeDirection: 'loving direct gaze',
+        bodyLanguage: 'intimate relaxed posture',
+        atmosphere: 'close and affectionate atmosphere'
+      };
+    } else {
+      return {
+        emotionIntensity: 'intensely passionate',
+        gazeDirection: 'deep loving gaze into viewer eyes',
+        bodyLanguage: 'very intimate loving posture',
+        atmosphere: 'deeply romantic and connected atmosphere'
+      };
+    }
+  }
+
+  /**
    * 髪色を英語に変換
    */
   private translateHairColorToEnglish(japaneseColor: string): string {
@@ -311,7 +641,7 @@ export class ImagesService {
   }
 
   /**
-   * パートナー一貫性を保つプロンプト生成
+   * パートナー一貫性を保つプロンプト生成（改善版）
    */
   private async buildConsistentPrompt(partner: Partner, request: any): Promise<string> {
     const appearance = partner.appearance;
@@ -319,45 +649,85 @@ export class ImagesService {
       ? this.translateHairColorToEnglish(appearance.hairColor)
       : 'brown';
     
-    const basePrompt = [
-      `anime style portrait of ${partner.gender === 'boyfriend' ? 'handsome young man' : 'beautiful young woman'}`,
-      `hair: ${hairColorEnglish} ${appearance?.hairStyle || 'medium length'}`,
-      `eyes: ${appearance?.eyeColor || 'brown'} eyes`,
-      `personality: ${partner.personalityType || 'gentle'} character`,
-      `expression: ${request.emotion || 'gentle smile'}`,
-      request.clothing ? `clothing: ${request.clothing}` : '',
-      request.background ? `background: ${request.background}` : '',
-      'high quality, detailed, professional anime artwork',
-      'consistent character design, same person',
+    // 親密度レベルを取得（デフォルト50）
+    const intimacyLevel = request.intimacyLevel || partner.intimacyLevel || 50;
+    const intimacyModifiers = this.getIntimacyModifiers(intimacyLevel);
+    
+    // 場所に応じた服装を自動決定（型チェックを追加）
+    let location = 'cafe'; // デフォルト値
+    
+    if (request.location && typeof request.location === 'string' && request.location !== 'true' && request.location !== 'false') {
+      location = request.location;
+    }
+    
+    const clothing = request.clothing || this.getClothingForLocation(location, partner.gender);
+    
+    // 統一された英語プロンプト形式
+    const enhancedPrompt = [
+      `anime style ${partner.gender === 'boyfriend' ? 'young man' : 'young woman'}`,
+      `${hairColorEnglish} ${appearance?.hairStyle || 'medium length'} hair`,
+      `${appearance?.eyeColor || 'brown'} eyes`,
+      `${partner.personalityType || 'gentle'} personality`,
+      `${request.emotion || 'happy'} expression with ${intimacyModifiers.emotionIntensity}`,
+      intimacyModifiers.gazeDirection,
+      intimacyModifiers.bodyLanguage,
+      `wearing ${clothing}`,
+      `in ${location} setting`,
+      intimacyModifiers.atmosphere,
+      'high quality anime artwork',
+      'consistent character design'
     ].filter(Boolean).join(', ');
 
-    return request.prompt ? `${basePrompt}, ${request.prompt}` : basePrompt;
+    return enhancedPrompt;
   }
 
   /**
-   * チャット用プロンプト生成
+   * チャット用プロンプト生成（改善版）
    */
   private async buildChatPrompt(
     partner: Partner, 
     message: string, 
     emotion?: string, 
-    situation?: string
+    situation?: string,
+    location?: string,
+    intimacyLevel?: number
   ): Promise<string> {
     const appearance = partner.appearance;
     const hairColorEnglish = appearance?.hairColor 
       ? this.translateHairColorToEnglish(appearance.hairColor)
       : 'brown';
     
+    // 親密度レベルに基づく表現修飾子
+    const currentIntimacyLevel = intimacyLevel || partner.intimacyLevel || 50;
+    const intimacyModifiers = this.getIntimacyModifiers(currentIntimacyLevel);
+    
+    // 場所に応じた服装を自動決定（型チェックを追加）
+    let currentLocation = 'cafe'; // デフォルト値
+    
+    if (location && typeof location === 'string' && location !== 'true' && location !== 'false') {
+      currentLocation = location;
+    } else if (situation && typeof situation === 'string') {
+      currentLocation = situation;
+    }
+    
+    const clothing = this.getClothingForLocation(currentLocation, partner.gender);
+    
+    // 改善されたチャット用プロンプト（英語統一）
     const contextualPrompt = [
       `anime style ${partner.gender === 'boyfriend' ? 'young man' : 'young woman'}`,
-      `hair: ${hairColorEnglish} ${appearance?.hairStyle || 'medium length'}`,
-      `eyes: ${appearance?.eyeColor || 'brown'} eyes`,
-      `personality: ${partner.personalityType as string}`,
-      emotion ? `emotion: ${emotion}` : 'friendly expression',
-      situation ? `situation: ${situation}` : '',
-      message ? `context: ${message}` : '',
-      'reacting to conversation',
-      'high quality anime artwork, consistent character',
+      `${hairColorEnglish} ${appearance?.hairStyle || 'medium length'} hair`,
+      `${appearance?.eyeColor || 'brown'} eyes`,
+      `${partner.personalityType || 'gentle'} personality`,
+      `${emotion || 'happy'} expression with ${intimacyModifiers.emotionIntensity}`,
+      intimacyModifiers.gazeDirection,
+      intimacyModifiers.bodyLanguage,
+      `wearing ${clothing}`,
+      `sitting in ${currentLocation}`,
+      'looking at viewer',
+      intimacyModifiers.atmosphere,
+      'high quality anime artwork',
+      'consistent character design',
+      'detailed background'
     ].filter(Boolean).join(', ');
 
     return contextualPrompt;

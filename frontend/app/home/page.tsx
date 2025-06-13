@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import { useBackground } from '@/hooks/useBackground'
 import { 
   Message, 
   Partner, 
@@ -20,13 +21,18 @@ import { chatService, partnersService, memoryService } from '@/services'
 export default function HomePage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { 
+    currentBackground, 
+    getCurrentBackgroundStyle, 
+    cycleThroughBackgrounds,
+    isLoading: isLoadingBackground 
+  } = useBackground()
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [partner, setPartner] = useState<Partner | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [backgroundIndex, setBackgroundIndex] = useState(0)
   const [relationshipMetrics, setRelationshipMetrics] = useState<RelationshipMetrics | null>(null)
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [previousMetrics, setPreviousMetrics] = useState<RelationshipMetrics | null>(null)
@@ -37,18 +43,14 @@ export default function HomePage() {
   const [continuousTopics, setContinuousTopics] = useState<ContinuousTopic[]>([])
   const [loadingTopics, setLoadingTopics] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showMemoryDialog, setShowMemoryDialog] = useState(false)
+  const [selectedMessages, setSelectedMessages] = useState<Message[]>([])
+  const [memoryTitle, setMemoryTitle] = useState('')
+  const [memoryDescription, setMemoryDescription] = useState('')
+  const [savingMemory, setSavingMemory] = useState(false)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-
-  // 背景画像のプリセット
-  const backgrounds = [
-    'linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=800&q=80)',
-    'linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80)',
-    'linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80)',
-    'linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&q=80)',
-    'linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)), url(https://images.unsplash.com/photo-1480714378408-67cf0d13bc1f?w=800&q=80)'
-  ]
 
   // モックインジケーター表示は layout.tsx で処理
 
@@ -469,9 +471,52 @@ export default function HomePage() {
     }
   }, [messages])
 
-  // 背景変更
-  const changeBackground = () => {
-    setBackgroundIndex((prev) => (prev + 1) % backgrounds.length)
+  // 思い出として保存
+  const saveAsMemory = async () => {
+    if (!partner || selectedMessages.length === 0) return
+
+    setSavingMemory(true)
+    try {
+      // 選択されたメッセージのIDを取得
+      const messageIds = selectedMessages
+        .filter(msg => msg.id && msg.id.trim() !== '')
+        .map(msg => msg.id)
+
+      if (messageIds.length === 0) {
+        alert('保存するメッセージを選択してください')
+        return
+      }
+
+      // メモリ要約APIを呼び出し（エピソードメモリを作成）
+      const response = await memoryService.createSummary({
+        partnerId: partner.id,
+        messageIds,
+        summaryType: 'episode',
+        episodeTitle: memoryTitle,
+        episodeDescription: memoryDescription
+      })
+
+      if (response.success) {
+        // 成功メッセージ
+        alert('思い出として保存されました！')
+        
+        // ダイアログを閉じる
+        setShowMemoryDialog(false)
+        setSelectedMessages([])
+        setMemoryTitle('')
+        setMemoryDescription('')
+        
+        // 共有メモリ数を更新
+        loadRelationshipMetrics(partner.id)
+      } else {
+        alert('保存に失敗しました: ' + response.error)
+      }
+    } catch (error) {
+      console.error('思い出の保存エラー:', error)
+      alert('思い出の保存中にエラーが発生しました')
+    } finally {
+      setSavingMemory(false)
+    }
   }
 
   // 画像生成（モック）
@@ -487,7 +532,12 @@ export default function HomePage() {
         'happy'
       )
 
-      if (response.success && response.data) {
+      console.log('🎨 [画像生成] API応答:', response)
+      console.log('🎨 [画像生成] response全体:', JSON.stringify(response, null, 2))
+      console.log('🎨 [画像生成] response.data:', response.data)
+      console.log('🎨 [画像生成] response.data?.imageUrl:', response.data?.imageUrl)
+
+      if (response.success && response.data && response.data.imageUrl) {
         const imageMessage: Message = {
           id: `img-${Date.now()}`,
           partnerId: partner.id,
@@ -502,13 +552,20 @@ export default function HomePage() {
           updatedAt: new Date()
         }
 
+        console.log('🎨 [画像生成] 作成したメッセージ:', imageMessage)
+        console.log('🎨 [画像生成] context.imageUrl:', imageMessage.context?.imageUrl)
+
         setMessages(prev => {
           const currentMessages = Array.isArray(prev) ? prev : []
           return [...currentMessages, imageMessage]
         })
+      } else {
+        console.error('🎨 [画像生成] エラー: レスポンスに画像URLが含まれていません', response)
+        alert('画像生成に失敗しました。しばらく時間をおいてからお試しください。')
       }
     } catch (error) {
-      console.error('画像生成エラー:', error)
+      console.error('🎨 [画像生成] エラー:', error)
+      alert('画像生成中にエラーが発生しました。')
     } finally {
       setIsTyping(false)
     }
@@ -595,11 +652,25 @@ export default function HomePage() {
           {/* アクションボタン */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <button
-              onClick={changeBackground}
+              onClick={cycleThroughBackgrounds}
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
               title="背景変更"
+              disabled={isLoadingBackground}
             >
               🎨
+            </button>
+            <button
+              onClick={() => {
+                // 最新の10メッセージを自動選択
+                const recentMessages = messages.slice(-10)
+                setSelectedMessages(recentMessages)
+                setShowMemoryDialog(true)
+              }}
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
+              title="思い出を作成"
+              disabled={messages.length === 0}
+            >
+              💝
             </button>
             <button
               onClick={generateImage}
@@ -657,13 +728,7 @@ export default function HomePage() {
         <div 
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto p-2 md:p-4"
-          style={{
-            backgroundImage: backgrounds[backgroundIndex],
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundAttachment: 'fixed',
-            backgroundRepeat: 'no-repeat'
-          }}
+          style={getCurrentBackgroundStyle()}
         >
           <div className="max-w-none md:max-w-3xl mx-auto space-y-3 md:space-y-4">
           {messages && Array.isArray(messages) && messages.length > 0 ? messages.map((message) => (
@@ -702,9 +767,13 @@ export default function HomePage() {
                   {message.context?.imageUrl ? (
                     <div>
                       <img 
-                        src={`https://picsum.photos/300/200?random=${message.id}`} 
+                        src={message.context.imageUrl} 
                         alt="Generated" 
-                        className="rounded-lg mb-2 max-w-full"
+                        className="rounded-lg mb-2 max-w-full w-full max-w-xs"
+                        onError={(e) => {
+                          console.error('画像読み込みエラー:', message.context?.imageUrl);
+                          e.currentTarget.src = '/images/placeholder.jpg'; // フォールバック画像
+                        }}
                       />
                       <p>{message.content}</p>
                     </div>
@@ -1049,6 +1118,101 @@ export default function HomePage() {
           </button>
         </div>
       </div>
+
+      {/* 思い出作成ダイアログ */}
+      {showMemoryDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center">
+                <span className="mr-2">💝</span>
+                思い出を作成
+              </h2>
+              
+              {/* タイトル入力 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  タイトル
+                </label>
+                <input
+                  type="text"
+                  value={memoryTitle}
+                  onChange={(e) => setMemoryTitle(e.target.value)}
+                  placeholder="例: 初めてのデート計画"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  maxLength={50}
+                />
+              </div>
+              
+              {/* 説明入力 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  思い出の説明
+                </label>
+                <textarea
+                  value={memoryDescription}
+                  onChange={(e) => setMemoryDescription(e.target.value)}
+                  placeholder="この会話の特別な瞬間について書いてください..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  rows={3}
+                  maxLength={200}
+                />
+              </div>
+              
+              {/* 選択されたメッセージのプレビュー */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  保存する会話（最新10件）
+                </label>
+                <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto text-sm">
+                  {selectedMessages.map((msg, index) => (
+                    <div key={msg.id || index} className="mb-2 last:mb-0">
+                      <span className={`font-medium ${
+                        msg.sender === MessageSender.USER ? 'text-purple-600' : 'text-pink-600'
+                      }`}>
+                        {msg.sender === MessageSender.USER ? 'あなた' : partner?.name}:
+                      </span>
+                      <span className="ml-2 text-gray-700">
+                        {msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* アクションボタン */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowMemoryDialog(false)
+                    setMemoryTitle('')
+                    setMemoryDescription('')
+                    setSelectedMessages([])
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={savingMemory}
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={saveAsMemory}
+                  disabled={!memoryTitle.trim() || savingMemory}
+                  className={`px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {savingMemory ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></span>
+                      保存中...
+                    </span>
+                  ) : (
+                    '思い出として保存'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes fade-in {

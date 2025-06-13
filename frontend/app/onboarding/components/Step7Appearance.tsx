@@ -135,7 +135,8 @@ export function Step7Appearance({
       console.log('Generating image with prompt:', prompt)
       
       // オンボーディング用のエンドポイントを使用（partnerIdなし）
-      const response = await imagesService.generateOnboardingAvatar({
+      const response = await imagesService.generateOnboardingImage({
+        partnerId: '', // オンボーディング時はpartnerIdがまだない
         prompt,
         context: `${partnerName} avatar generation`,
         emotion: 'neutral',

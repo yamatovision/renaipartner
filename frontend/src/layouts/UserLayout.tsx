@@ -26,9 +26,11 @@ export default function UserLayout({ children }: UserLayoutProps) {
   const loadPartner = async () => {
     try {
       const response = await partnersService.list()
+      console.log('[UserLayout] パートナー一覧取得:', response)
       if (response.success && response.data && response.data.length > 0) {
         // 最初のパートナーを使用（将来的には選択機能を追加）
         setPartner(response.data[0])
+        console.log('[UserLayout] パートナー設定:', response.data[0])
       }
     } catch (error) {
       console.error('パートナー情報の取得に失敗しました:', error)
@@ -128,15 +130,28 @@ export default function UserLayout({ children }: UserLayoutProps) {
                         >
                           ➕ パートナー作成
                         </Link>
-                        <Link
-                          href="/edit-partner"
-                          className={`block px-4 py-2 text-sm ${
-                            isActive('/edit-partner') ? 'bg-pink-100 text-pink-700' : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          ✏️ パートナー編集
-                        </Link>
+                        {!loadingPartner && partner ? (
+                          <Link
+                            href={`/edit-partner?id=${partner.id}`}
+                            className={`block px-4 py-2 text-sm ${
+                              isActive('/edit-partner') ? 'bg-pink-100 text-pink-700' : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                            onClick={() => {
+                              console.log('[UserLayout] パートナー編集クリック:', {
+                                partner,
+                                partnerId: partner.id,
+                                href: `/edit-partner?id=${partner.id}`
+                              })
+                              setIsMenuOpen(false)
+                            }}
+                          >
+                            ✏️ パートナー編集
+                          </Link>
+                        ) : (
+                          <div className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+                            ✏️ パートナー編集 {loadingPartner && '(読込中...)'}
+                          </div>
+                        )}
                         <Link
                           href="/settings"
                           className={`block px-4 py-2 text-sm ${

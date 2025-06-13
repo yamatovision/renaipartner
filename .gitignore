@@ -97,3 +97,5 @@ docs/deployment/deploy.md
 .firebaserc
 firebase.json
 .firebase/
+backend/.env.yaml
+SillyTavern/

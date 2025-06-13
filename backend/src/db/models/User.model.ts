@@ -421,6 +421,7 @@ class UserModel {
       firstName: row.first_name,
       nickname: row.nickname,
       birthday: row.birthday,
+      profileCompleted: row.profile_completed,
       role: row.role as UserRole,
       status: row.status as UserStatus,
       createdAt: new Date(row.created_at),
