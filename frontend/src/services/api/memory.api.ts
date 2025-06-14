@@ -8,7 +8,9 @@ import {
   RelationshipMetrics,
   ContinuousTopic,
   ApiResponse,
-  API_PATHS
+  API_PATHS,
+  ExtractFromResponseRequest,
+  ExtractFromResponseResponse
 } from '@/types'
 import { api } from './client'
 
@@ -106,6 +108,29 @@ export const memoryApiService = {
         success: false,
         error: error.message || '継続話題の取得に失敗しました',
       }
+    }
+  },
+
+  // 質問回答からのメモリ抽出
+  extractFromResponse: async (data: ExtractFromResponseRequest): Promise<ApiResponse<ExtractFromResponseResponse>> => {
+    try {
+      const response = await api.post<any>(API_PATHS.MEMORY.EXTRACT_FROM_RESPONSE, data);
+      
+      // APIレスポンスが既に{success, data}形式の場合はそのまま返す
+      if (response && (response as any).success !== undefined) {
+        return response as ApiResponse<ExtractFromResponseResponse>;
+      }
+      
+      // そうでない場合は従来の形式でラップ
+      return {
+        success: true,
+        data: response,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'メモリ抽出に失敗しました',
+      };
     }
   },
 }

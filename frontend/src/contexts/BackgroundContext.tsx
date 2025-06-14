@@ -33,8 +33,12 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
       setIsLoading(true);
       setError(null);
       
-      // 背景を取得
+      // 背景を取得（imagesApiServiceが配列を返すように修正済み）
       const backgrounds = await imagesApiService.getBackgrounds();
+      console.log('🏞️ [BackgroundContext] 取得した背景:', backgrounds);
+      console.log('🏞️ [BackgroundContext] 背景は配列か:', Array.isArray(backgrounds));
+      console.log('🏞️ [BackgroundContext] 背景の数:', backgrounds.length);
+      
       setAvailableBackgrounds(backgrounds);
       
       // 時間帯に基づいたデフォルト背景を設定

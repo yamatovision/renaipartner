@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBackground } from '@/hooks/useBackground'
+import { useLocation } from '@/contexts/LocationContext'
+import { LocationSelector } from '@/components/features/LocationSelector'
+import { useLocationBackground } from '@/hooks/useLocationBackground'
 import { 
   Message, 
   Partner, 
@@ -14,7 +17,8 @@ import {
   RelationshipMetrics,
   ContinuousTopic,
   MessageListResponse,
-  ChatMessageResponse
+  ChatMessageResponse,
+  QuestionType
 } from '@/types'
 import { chatService, partnersService, memoryService } from '@/services'
 
@@ -27,6 +31,8 @@ export default function HomePage() {
     cycleThroughBackgrounds,
     isLoading: isLoadingBackground 
   } = useBackground()
+  const { currentLocation } = useLocation()
+  const { changeBackgroundForLocation } = useLocationBackground()
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
@@ -48,6 +54,25 @@ export default function HomePage() {
   const [memoryTitle, setMemoryTitle] = useState('')
   const [memoryDescription, setMemoryDescription] = useState('')
   const [savingMemory, setSavingMemory] = useState(false)
+  const [showLocationSelector, setShowLocationSelector] = useState(false)
+  
+  // AI主導エンゲージメント機能のstate
+  const [showQuestionSuggestion, setShowQuestionSuggestion] = useState<{
+    show: boolean;
+    priority?: string;
+    reasoning?: string;
+    type?: string;
+  }>({ show: false })
+  const [nextQuestionSuggestions, setNextQuestionSuggestions] = useState<string[]>([])
+  const [intimacyAnimation, setIntimacyAnimation] = useState<{
+    show: boolean;
+    value?: number;
+    x?: number;
+    y?: number;
+  }>({ show: false })
+  const [lastQuestionTime, setLastQuestionTime] = useState<Date | null>(null)
+  const [lastAIQuestion, setLastAIQuestion] = useState<Message | null>(null)
+  
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -82,6 +107,21 @@ export default function HomePage() {
 
     loadPartnerAndMessages()
   }, [user])
+
+  // AI主導エンゲージメント: 質問タイミングチェック
+  useEffect(() => {
+    if (!partner) return
+
+    // 初回チェック
+    checkIfShouldAskQuestion()
+
+    // 5分ごとにチェック
+    const interval = setInterval(() => {
+      checkIfShouldAskQuestion()
+    }, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [partner, messages])
 
   const loadPartnerAndMessages = async () => {
     if (!user) return
@@ -373,6 +413,16 @@ export default function HomePage() {
       return [...currentMessages, userMessage]
     })
     
+    // AIからの質問に対する回答の場合、メモリ抽出を実行
+    if (lastAIQuestion?.metadata?.isProactiveQuestion) {
+      await extractMemoryFromResponse(
+        lastAIQuestion.content,
+        inputMessage,
+        lastAIQuestion.metadata.questionType as QuestionType
+      )
+      setLastAIQuestion(null) // リセット
+    }
+    
     setInputMessage('')
     setSending(true)
     setIsTyping(true)
@@ -408,7 +458,7 @@ export default function HomePage() {
         setIsTyping(false)
         
         // AIの返答を追加
-        const newMessages = actualData.newMessages
+        const newMessages = actualData?.newMessages
         console.log('🔍 [DEBUG] newMessages:', newMessages)
         console.log('🔍 [DEBUG] newMessages is array:', Array.isArray(newMessages))
         
@@ -430,7 +480,7 @@ export default function HomePage() {
         }
 
         // 親密度を更新
-        if (actualData.intimacyLevel !== partner?.intimacyLevel) {
+        if (actualData?.intimacyLevel !== undefined && actualData.intimacyLevel !== partner?.intimacyLevel) {
           setPartner(prev => prev ? { ...prev, intimacyLevel: actualData.intimacyLevel } : null)
           // 関係性メトリクスも更新（変化を表示）
           if (partner) {
@@ -519,6 +569,155 @@ export default function HomePage() {
     }
   }
 
+  // AI主導エンゲージメント: 質問タイミングチェック関数
+  const checkIfShouldAskQuestion = async () => {
+    if (!partner || isTyping) return
+
+    try {
+      // 最後のメッセージからの経過時間を計算
+      const lastMessage = messages[messages.length - 1]
+      const silenceDuration = lastMessage 
+        ? Math.floor((Date.now() - new Date(lastMessage.createdAt).getTime()) / (1000 * 60))
+        : 0
+
+      const now = new Date()
+      const response = await chatService.shouldAskQuestion({
+        partnerId: partner.id,
+        silenceDuration,
+        currentIntimacy: partner.intimacyLevel,
+        timeContext: {
+          hour: now.getHours(),
+          dayOfWeek: now.toLocaleDateString('en-US', { weekday: 'long' }),
+          isWeekend: now.getDay() === 0 || now.getDay() === 6
+        }
+      })
+
+      if (response.success && response.data?.shouldAsk) {
+        // 高優先度の場合は即座に質問
+        if (response.data?.priority === 'high') {
+          await generateAndSendProactiveQuestion(response.data?.suggestedQuestionType)
+        } else {
+          // 低・中優先度の場合はユーザーに提案
+          setShowQuestionSuggestion({
+            show: true,
+            priority: response.data?.priority,
+            reasoning: response.data?.reasoning,
+            type: response.data?.suggestedQuestionType
+          })
+        }
+      }
+    } catch (error) {
+      console.error('質問タイミングチェックエラー:', error)
+    }
+  }
+
+  // AI主導エンゲージメント: AI主導質問の生成と送信
+  const generateAndSendProactiveQuestion = async (questionType?: string) => {
+    if (!partner) return
+
+    setIsTyping(true)
+    try {
+      // 質問を生成
+      const response = await chatService.generateProactiveQuestion({
+        partnerId: partner.id,
+        currentIntimacy: partner.intimacyLevel,
+        lastInteractionContext: {
+          topic: messages.slice(-5).map(m => m.content).join(' '),
+          depth: 'medium',
+          emotionalTone: 'neutral'
+        }
+      })
+
+      if (response.success && response.data) {
+        // AIからの質問メッセージを追加
+        const aiQuestion: Message = {
+          id: `ai-question-${Date.now()}`,
+          partnerId: partner.id,
+          content: response.data?.question || '',
+          sender: MessageSender.PARTNER,
+          emotion: response.data?.emotionalTone as any,
+          metadata: {
+            isProactiveQuestion: true,
+            questionType: response.data?.questionType,
+            expectedDepth: response.data?.expectedDepth
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+
+        setMessages(prev => [...prev, aiQuestion])
+        setLastAIQuestion(aiQuestion)
+        setLastQuestionTime(new Date())
+
+        // 次の質問候補を保存
+        setNextQuestionSuggestions(response.data?.followUpSuggestions || [])
+      }
+    } catch (error) {
+      console.error('AI質問生成エラー:', error)
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
+  // AI主導エンゲージメント: メモリ抽出関数
+  const extractMemoryFromResponse = async (
+    question: string, 
+    userResponse: string,
+    questionType?: QuestionType
+  ) => {
+    if (!partner) return
+
+    try {
+      const response = await memoryService.extractFromResponse({
+        partnerId: partner.id,
+        question,
+        userResponse,
+        intimacyLevel: partner.intimacyLevel,
+        questionType
+      })
+
+      if (response.success && response.data) {
+        // 親密度の更新を反映
+        if (response.data?.intimacyUpdate) {
+          const intimacyUpdate = response.data.intimacyUpdate
+          const intimacyChange = intimacyUpdate.after - intimacyUpdate.before
+          
+          setPartner(prev => prev ? { ...prev, intimacyLevel: intimacyUpdate.after } : null)
+          
+          // 親密度変化のアニメーション表示
+          showIntimacyChange(intimacyChange)
+        }
+
+        // フォローアップ質問の提案があれば保存
+        if (response.data?.suggestedFollowUp) {
+          setNextQuestionSuggestions(prev => [response.data!.suggestedFollowUp!, ...prev])
+        }
+
+        // 重要なメモリが抽出された場合の通知
+        const importantMemories = response.data?.extractedMemories?.filter(m => m.importance >= 7) || []
+        if (importantMemories.length > 0) {
+          console.log('重要なメモリが抽出されました:', importantMemories)
+        }
+      }
+    } catch (error) {
+      console.error('メモリ抽出エラー:', error)
+    }
+  }
+
+  // AI主導エンゲージメント: 親密度変化アニメーション
+  const showIntimacyChange = (change: number) => {
+    setIntimacyAnimation({
+      show: true,
+      value: change,
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2
+    })
+
+    setTimeout(() => {
+      setIntimacyAnimation({ show: false })
+    }, 2000)
+  }
+
   // 画像生成（モック）
   const generateImage = async () => {
     if (!partner) return
@@ -537,7 +736,7 @@ export default function HomePage() {
       console.log('🎨 [画像生成] response.data:', response.data)
       console.log('🎨 [画像生成] response.data?.imageUrl:', response.data?.imageUrl)
 
-      if (response.success && response.data && response.data.imageUrl) {
+      if (response.success && response.data?.imageUrl) {
         const imageMessage: Message = {
           id: `img-${Date.now()}`,
           partnerId: partner.id,
@@ -651,6 +850,13 @@ export default function HomePage() {
           
           {/* アクションボタン */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowLocationSelector(true)}
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
+              title="場所変更"
+            >
+              📍
+            </button>
             <button
               onClick={() => {
                 console.log('🎨 [背景変更] ボタンがクリックされました')
@@ -1220,6 +1426,17 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* 場所選択モーダル */}
+      <LocationSelector
+        isOpen={showLocationSelector}
+        onClose={() => setShowLocationSelector(false)}
+        onLocationChange={async (locationId) => {
+          console.log('場所が変更されました:', locationId)
+          // 場所変更に伴う背景の自動切り替え
+          await changeBackgroundForLocation(locationId)
+        }}
+      />
+
       <style jsx>{`
         @keyframes fade-in {
           from {
@@ -1234,6 +1451,21 @@ export default function HomePage() {
         
         .animate-fade-in {
           animation: fade-in 0.3s ease-out;
+        }
+        
+        @keyframes float-up {
+          0% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-50px);
+          }
+        }
+        
+        .animate-float-up {
+          animation: float-up 2s ease-out forwards;
         }
       `}</style>
     </div>

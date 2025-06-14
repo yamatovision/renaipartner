@@ -200,10 +200,18 @@ export class GeneratedImageModel {
     };
   }
 
+
   /**
-   * JSONシリアライゼーション用
+   * IDで画像を検索（エイリアス）
    */
-  toJSON(): GeneratedImage {
-    return this as any;
+  static async findById(id: ID): Promise<GeneratedImage | null> {
+    return this.findByPk(id);
+  }
+
+  /**
+   * IDで画像を削除（エイリアス）
+   */
+  static async deleteById(id: ID): Promise<void> {
+    return this.destroy(id);
   }
 }

@@ -86,14 +86,14 @@
 | **5.2** | `/api/chat/messages` | GET | メッセージ履歴取得 | 必要 | チャットページ | [x] | [x] | [x] |
 | **5.3** | `/api/chat/typing` | POST | タイピング状態通知 | 必要 | チャットページ | [x] | [x] | [x] |
 | **5.4** | `/api/chat/emotion` | GET | 感情状態取得 | 必要 | チャットページ | [x] | [x] | [x] |
-| **5.5** | `/api/chat/proactive-question` | POST | AI主導の戦略的質問生成 | 必要 | チャットページ | [ ] | [ ] | [ ] |
-| **5.6** | `/api/chat/should-ask-question` | GET | 質問タイミング判定 | 必要 | チャットページ | [ ] | [ ] | [ ] |
+| **5.5** | `/api/chat/proactive-question` | POST | AI主導の戦略的質問生成 | 必要 | チャットページ | [x] | [x] | [x] |
+| **5.6** | `/api/chat/should-ask-question` | GET | 質問タイミング判定 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.1** | `/api/memory/summary` | POST | 会話要約作成 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.2** | `/api/memory/search` | POST | メモリ検索 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.3** | `/api/memory/episodes` | GET | エピソード記憶取得 | 必要 | パートナー編集ページ | [x] | [x] | [x] |
 | **6.4** | `/api/memory/relationships` | GET | 関係性メトリクス取得 | 必要 | チャットページ | [x] | [x] | [x] |
 | **6.5** | `/api/memory/topics` | GET | 継続話題取得 | 必要 | チャットページ | [x] | [x] | [x] |
-| **6.6** | `/api/memory/extract-from-response` | POST | 質問回答からメモリ抽出・更新 | 必要 | チャットページ | [ ] | [ ] | [ ] |
+| **6.6** | `/api/memory/extract-from-response` | POST | 質問回答からメモリ抽出・更新 | 必要 | チャットページ | [x] | [x] | [x] |
 | **7.1** | `/api/images/generate` | POST | アバター画像生成 | 必要 | パートナー作成/編集 | [x] | [x] | [x] |
 | **7.2** | `/api/images/generate-chat` | POST | チャット用画像生成 | 必要 | チャットページ | [x] | [x] | [x] |
 | **7.3** | `/api/images/backgrounds` | GET | 背景画像一覧取得 | 必要 | チャットページ | [x] | [x] | [x] |
@@ -103,10 +103,12 @@
 | **9.1** | `/api/settings` | GET | ユーザー設定取得 | 必要 | 設定ページ | [x] | [x] | [x] |
 | **9.2** | `/api/settings` | PUT | ユーザー設定更新 | 必要 | 設定ページ | [x] | [x] | [x] |
 
-**AI主導エンゲージメント機能の新規APIエンドポイント（未実装）**:
-- **5.5**: `/api/chat/proactive-question` - AI主導の戦略的質問生成
-- **5.6**: `/api/chat/should-ask-question` - 質問タイミング判定  
-- **6.6**: `/api/memory/extract-from-response` - 質問回答からメモリ抽出・更新
+**AI主導エンゲージメント機能の新規APIエンドポイント（✅ 実装・テスト完了）**:
+- **5.5**: `/api/chat/proactive-question` - AI主導の戦略的質問生成 ✅
+- **5.6**: `/api/chat/should-ask-question` - 質問タイミング判定 ✅ 
+- **6.6**: `/api/memory/extract-from-response` - 質問回答からメモリ抽出・更新 ✅
+
+**統合テスト結果（2025-01-14）**: 17/17テスト成功（100%）🎉
 
 ### AppGeniusでの開発フロー
 
@@ -321,50 +323,51 @@ npm test
 
 **★9統合テスト成功請負人への引き継ぎ情報**
 
-**バックエンド実装エージェント より**（2025-01-11 完了）
+**バックエンド実装エージェント より**（2025-01-14 完了）
 
-🎉 **通知システムスライスの実装が完了しました！**
+🎉 **場所・背景統合システムの実装が完了しました！**
 
 **実装完了機能**
-- 通知設定管理（朝の挨拶、リマインダー、特別な日）
-- 通知スケジューリング機能（即時・繰り返し）
-- 朝の挨拶自動メッセージ生成
-- 通知統計情報（管理者向け）
-- 設定検証と推奨事項提供
+- AIチャットへの場所情報注入システム
+- 画像生成の場所連動服装システム
+- 季節対応服装プロンプト生成（casual_date, casual_outdoor）
+- 場所-背景マッピングと自動切り替え
+- 服装プロンプト生成API
+- 場所データとの完全統合
 
-**APIエンドポイント（★9が実行するテスト）**
-- `GET /api/notifications/settings` - 通知設定取得（API 8.1）
-- `PUT /api/notifications/settings` - 通知設定更新（API 8.2）
-- `POST /api/notifications/schedule` - 通知スケジュール作成（API 8.3）
-- `GET /api/notifications/schedules` - スケジュール一覧取得（追加機能）
-- `DELETE /api/notifications/schedules/:scheduleId` - スケジュール削除（追加機能）
-- `POST /api/notifications/settings/reset` - 設定リセット（追加機能）
-- `GET /api/notifications/settings/validate` - 設定検証（追加機能）
-- `GET /api/notifications/stats` - 通知統計取得（管理者のみ）
+**新規APIエンドポイント（★9が実行するテスト）**
+- `POST /api/chat/messages` - locationIdパラメータ対応（場所情報注入）
+- `POST /api/images/generate-chat` - locationId、gender、season対応（場所連動画像生成）
+- `POST /api/images/clothing-prompt` - 季節対応服装プロンプト生成
+- 既存の場所API（`/api/locations/*`）との統合
 
 **新規実装ファイル：**
-- `backend/src/db/models/NotificationSchedule.model.ts` - 通知スケジュールモデル
-- `backend/src/features/notifications/notifications.controller.ts` - 8つのエンドポイント実装
-- `backend/src/features/notifications/notifications.routes.ts` - ルート定義とミドルウェア
+- `backend/src/features/images/clothing-prompts.ts` - 季節対応服装プロンプトサービス
+- `backend/src/features/locations/location-background-map.ts` - 場所-背景マッピングシステム
+- `backend/tests/integration/location-background-integration/location-background-integration.test.ts` - 統合テスト
 
-**既存ファイルの更新：**
-- `backend/src/db/models/NotificationSetting.model.ts` - 既存（統計機能含む）
-- `backend/src/features/notifications/notifications.validator.ts` - 既存（完全実装済み）
-- `backend/src/features/notifications/notifications.service.ts` - NotificationScheduleモデル統合
-- `backend/src/db/models/index.ts` - NotificationScheduleエクスポート追加
-- `backend/src/config/sequelize.config.ts` - NotificationSchedule初期化追加
-- `backend/src/app.ts` - 通知ルート追加
+**既存ファイルの拡張：**
+- `backend/src/features/chat/chat.service.ts` - buildSystemPromptメソッドに場所情報注入機能追加
+- `backend/src/features/chat/chat.controller.ts` - locationIdパラメータ対応
+- `backend/src/features/images/images.service.ts` - 場所連動画像生成ロジック追加
+- `backend/src/features/images/images.controller.ts` - 新規パラメータ対応
+- `backend/src/features/images/images.routes.ts` - 新規エンドポイント追加
+- フロントエンド・バックエンド`/src/types/index.ts` - 場所・背景関連型定義の完全同期
 
 **統合テスト情報（★9が実行するテスト）**
-- `backend/tests/integration/notifications/notifications.flow.test.ts` - 通知システム統合テスト
+- `backend/tests/integration/location-background-integration/location-background-integration.test.ts` - 場所・背景統合システムテスト
 - **テスト実行コマンド**: `cd backend && npm test`
-- **テストケース数**: 36テスト（包括的なカバレッジ）
+- **マイルストーントラッカーの場所**: `/backend/tests/utils/MilestoneTracker.ts`
+- **テストユーティリティの場所**: `/backend/tests/utils/`
 
 **★9への注意事項**
 - **PostgreSQL実データベース使用**（モックなし）
-- **朝の挨拶時刻制限**（4:00-12:00の間のみ許可）
-- **パートナー所有権チェック**（他ユーザーのパートナー指定不可）
-- **管理者限定機能**（統計情報は管理者のみアクセス可能）
+- **OpenAI API実連携**（システムプロンプトに場所情報注入、モックなし）
+- **場所データの有効性確認**（存在しない場所IDでもエラーにならず処理継続）
+- **季節対応服装の自動判定**（casual_date, casual_outdoorは現在の季節で自動調整）
+- **各テストファイルは独立して実行可能**（データの相互依存なし）
+- **完全統合フローテスト**（場所設定→チャット→画像生成の完全フロー）
+- **エラーハンドリング強化**（無効な場所ID、権限チェック等）
 - **繰り返しパターン**（daily, weekly, monthly対応）
 - **通知タイプ**（morning_greeting, reminder, special_day, custom）
 - **自動スケジュール作成**（朝の挨拶有効化時）
@@ -518,6 +521,33 @@ npm test
 
 **次のスライス候補：**
 メモリシステムスライス完了後、「**画像生成スライス（API 7.1-7.3）**」または「**通知システムスライス（API 8.1-8.3）**」の実装を推奨
+
+---
+
+## 5. 差し込みタスク
+
+### 背景設定統一システム（2025-01-13追加）
+- [ ] **T-BG-001**: 戦略的背景システムの実装
+  - 目標: 2025-01-20
+  - 参照: [/docs/plans/planning/ext-strategic-background-system-2025-01-13.md]
+  - 内容: 背景と服装の連携、AIチャット・画像生成との統合によるデート体験の実現
+  - 詳細:
+    - 場所状態のグローバル管理（LocationContext）
+    - AIチャットへの場所情報注入
+    - 場所に応じた服装マッピング（制服、水着、コスプレ等）
+    - 親密度による場所解放システム
+    - お宝画像への段階的到達設計
+
+- [ ] **T-BG-002**: 背景・場所統合システムの完成
+  - 目標: 2025-01-21
+  - 参照: [/docs/plans/planning/ext-background-location-integration-2025-01-14.md]
+  - 内容: AIチャット・画像生成への場所システム統合、UX向上機能の実装
+  - 前提: T-BG-001（戦略的背景システムの基盤実装）完了
+  - 詳細:
+    - AIチャットのシステムプロンプトへの場所情報注入
+    - 画像生成時の場所連動服装プロンプト適用
+    - 背景画像と場所データの完全統合
+    - 場所解放通知システムの実装
 
 ---
 

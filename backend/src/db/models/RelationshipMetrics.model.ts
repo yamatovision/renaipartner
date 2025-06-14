@@ -99,14 +99,34 @@ class RelationshipMetricsModel {
           intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $1)),
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $2
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+        RETURNING id, partner_id, intimacy_level,
                   communication_frequency, last_interaction, shared_experiences
       `;
       
       const result = await client.query(query, [intimacyChange, partnerId]);
       
       if (result.rows.length === 0) {
-        throw new Error('関係性メトリクスが見つかりません');
+        // 関係性メトリクスが存在しない場合は作成
+        console.log(`[RelationshipMetrics.model] メトリクスが存在しないため作成: ${partnerId}`);
+        const createQuery = `
+          INSERT INTO relationship_metrics (partner_id, intimacy_level)
+          VALUES ($1, GREATEST(0, LEAST(100, $2)))
+          RETURNING id, partner_id, intimacy_level,
+                    communication_frequency, last_interaction, shared_experiences
+        `;
+        const createResult = await client.query(createQuery, [partnerId, intimacyChange]);
+        if (createResult.rows.length === 0) {
+          throw new Error('関係性メトリクスの作成に失敗しました');
+        }
+        const row = createResult.rows[0];
+        return {
+          id: row.id,
+          partnerId: row.partner_id,
+          intimacyLevel: row.intimacy_level,
+          conversationFrequency: row.communication_frequency,
+          lastInteraction: new Date(row.last_interaction),
+          sharedMemories: row.shared_experiences
+        };
       }
       
       const row = result.rows[0];
@@ -120,6 +140,12 @@ class RelationshipMetricsModel {
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 親密度更新エラー:', error);
+      console.error('[RelationshipMetrics.model] エラー詳細:', {
+        partnerId,
+        intimacyChange,
+        errorMessage: (error as any).message,
+        errorCode: (error as any).code
+      });
       throw new Error('親密度の更新に失敗しました');
     } finally {
       client.release();

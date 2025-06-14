@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import { ImagesService } from './images.service';
+import ClothingPromptsService from './clothing-prompts';
 import type { 
   ImageGenerationRequest, 
-  ID 
+  ID,
+  ClothingPromptRequest,
+  ClothingPromptResponse
 } from '@/types';
 import type { AuthRequest } from '@/common/middlewares/auth.middleware';
 
@@ -195,17 +198,23 @@ export class ImagesController {
         emotion,
         situation,
         useReference = true,
+        locationId, // 現在の場所ID（場所連動画像生成用）
+        gender,     // 性別（季節対応服装用）
+        season,     // 季節（季節対応服装用）
       } = req.body;
 
       console.log(`[画像生成] チャット画像生成開始 - Partner: ${partnerId}, Message: "${message.substring(0, 50)}..."`);
 
-      const generatedImage = await this.imagesService.generateChatImage(
+      const generatedImage = await this.imagesService.generateChatImage({
         partnerId,
-        message,
+        context: message,
         emotion,
-        situation,
-        useReference
-      );
+        background: situation,
+        useReference,
+        locationId, // 場所連動画像生成用
+        gender,     // 性別対応服装用
+        season      // 季節対応服装用
+      } as ImageGenerationRequest);
 
       console.log(`[画像生成] チャット画像生成完了 - Image ID: ${generatedImage.id}`);
 
@@ -302,7 +311,7 @@ export class ImagesController {
 
       console.log(`[画像生成] 画像履歴取得 - Partner: ${partnerId}, Limit: ${limit}, MinConsistency: ${minConsistency}`);
 
-      const images = await this.imagesService.getImageHistory(partnerId, limit, minConsistency);
+      const images = await this.imagesService.getImageHistory(partnerId, limit);
 
       res.status(200).json({
         success: true,
@@ -387,7 +396,7 @@ export class ImagesController {
 
       console.log(`[画像生成] 画像削除 - Image ID: ${imageId}, User: ${req.user?.userId}`);
 
-      await this.imagesService.deleteImage(imageId);
+      await this.imagesService.deleteImage(imageId, (req as AuthRequest).user!.userId);
 
       console.log(`[画像生成] 画像削除完了 - Image ID: ${imageId}`);
 
@@ -467,6 +476,50 @@ export class ImagesController {
         success: false,
         error: 'モデル一覧の取得に失敗しました',
         code: 'MODELS_FETCH_FAILED',
+      });
+    }
+  };
+
+  /**
+   * 季節対応服装プロンプト生成 (POST /api/images/clothing-prompt)
+   */
+  generateClothingPrompt = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: 'バリデーションエラー',
+          validationErrors: errors.array(),
+        });
+        return;
+      }
+
+      const { clothingStyle, gender, season } = req.body;
+
+      console.log(`[画像生成] 服装プロンプト生成開始 - Style: ${clothingStyle}, Gender: ${gender}, Season: ${season}`);
+
+      // 服装プロンプト生成
+      const clothingPrompt: ClothingPromptResponse = ClothingPromptsService.getPrompt({
+        clothingStyle,
+        gender,
+        season
+      } as ClothingPromptRequest);
+
+      console.log(`[画像生成] 服装プロンプト生成完了 - 季節調整: ${clothingPrompt.isSeasonallyAdjusted}`);
+
+      res.status(200).json({
+        success: true,
+        data: clothingPrompt,
+      });
+
+    } catch (error) {
+      console.error('[画像生成] 服装プロンプト生成エラー:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: '服装プロンプト生成に失敗しました',
+        code: 'CLOTHING_PROMPT_GENERATION_FAILED',
       });
     }
   };

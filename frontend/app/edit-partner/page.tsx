@@ -49,7 +49,7 @@ function EditPartnerContent() {
         console.log('Response Data:', response.data)
         
         // レスポンス構造の確認と修正
-        const partnerData = response.data?.data || response.data
+        const partnerData = response.data
         console.log('Actual Partner Data:', partnerData)
         console.log('Base Image URL:', partnerData?.baseImageUrl)
         console.log('Generated Image URL:', partnerData?.appearance?.generatedImageUrl)

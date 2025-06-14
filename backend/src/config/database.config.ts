@@ -200,7 +200,7 @@ export async function initializeDatabase(): Promise<void> {
         content TEXT NOT NULL CHECK (LENGTH(content) > 0),
         vector JSONB,
         importance INTEGER DEFAULT 5 CHECK (importance >= 1 AND importance <= 10),
-        emotional_weight INTEGER DEFAULT 5 CHECK (emotional_weight >= 1 AND emotional_weight <= 10),
+        emotional_weight INTEGER DEFAULT 5 CHECK (emotional_weight >= -10 AND emotional_weight <= 10),
         tags JSONB DEFAULT '[]',
         related_people JSONB,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

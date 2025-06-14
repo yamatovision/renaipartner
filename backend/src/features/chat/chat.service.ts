@@ -3,6 +3,8 @@ import { Message } from '../../db/models/Message.model';
 import { PartnerModel } from '../../db/models/Partner.model';
 import { UserModel } from '../../db/models/User.model';
 import RelationshipMetricsModel from '../../db/models/RelationshipMetrics.model';
+import { LocationsService } from '../locations/locations.service';
+import ClothingPromptsService from '../images/clothing-prompts';
 import { 
   SendMessageRequest, 
   ChatResponse, 
@@ -30,7 +32,7 @@ export class ChatService {
    * メッセージ送信処理
    */
   async sendMessage(userId: string, request: SendMessageRequest): Promise<ChatResponse> {
-    const { message, partnerId, context = {} } = request;
+    const { message, partnerId, context = {}, locationId } = request;
 
     try {
       // パートナーの存在確認と所有者チェック（ユーザー情報も含めて取得）
@@ -53,8 +55,8 @@ export class ChatService {
       // 会話履歴を取得
       const conversationHistory = await Message.getContextMessages(partnerId, 15);
       
-      // OpenAI APIで応答生成（ユーザー情報も渡す）
-      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message, user);
+      // OpenAI APIで応答生成（ユーザー情報と場所情報も渡す）
+      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message, user, locationId);
       
       // AIの応答を保存
       const aiMessage = await Message.create({
@@ -190,7 +192,8 @@ export class ChatService {
     partner: any, 
     conversationHistory: IMessage[], 
     userMessage: string,
-    user: any
+    user: any,
+    locationId?: string
   ): Promise<{
     response: string;
     emotion: string;
@@ -200,8 +203,8 @@ export class ChatService {
     emotionAnalysis: string;
   }> {
     try {
-      // システムプロンプトの構築
-      const systemPrompt = this.buildSystemPrompt(partner, conversationHistory, user);
+      // システムプロンプトの構築（場所情報も含む）
+      const systemPrompt = await this.buildSystemPrompt(partner, conversationHistory, user, locationId);
       
       // 会話履歴をOpenAI形式に変換
       const messages = this.buildConversationMessages(systemPrompt, conversationHistory, userMessage);
@@ -293,9 +296,9 @@ export class ChatService {
   }
 
   /**
-   * システムプロンプトの構築
+   * システムプロンプトの構築（場所情報注入対応）
    */
-  private buildSystemPrompt(partner: any, conversationHistory: IMessage[], user: any): string {
+  private async buildSystemPrompt(partner: any, conversationHistory: IMessage[], user: any, locationId?: string): Promise<string> {
     const userName = user?.nickname || user?.firstName || user?.surname || 'あなた';
     const intimacyLevel = partner.intimacyLevel || 0;
     
@@ -315,6 +318,32 @@ export class ChatService {
       callingStyle = `${userName}`;
     }
 
+    // 場所情報の取得と服装描写の生成
+    let locationContext = '';
+    if (locationId) {
+      try {
+        const location = await LocationsService.getLocationById(locationId);
+        if (location) {
+          const clothingPrompt = ClothingPromptsService.getPrompt({
+            clothingStyle: location.clothing,
+            gender: partner.gender
+          });
+          
+          locationContext = `
+## 現在の状況
+- 場所: ${location.name}
+- 雰囲気: ${location.appealPoint}
+- ${partner.name}の服装: ${clothingPrompt.prompt}
+- 場所の特徴: ${location.description || '特別な場所での時間'}
+
+この場所と状況を考慮して、その場にふさわしい会話をしてください。`;
+        }
+      } catch (error) {
+        console.error('場所情報の取得に失敗:', error);
+        // エラーが発生しても処理を継続
+      }
+    }
+
     const basePrompt = `
 あなたは${partner.name}という名前のAIパートナーです。
 
@@ -327,6 +356,7 @@ export class ChatService {
 
 【性格・行動指針】
 ${partner.systemPrompt}
+${locationContext}
 
 【重要な指示】
 1. 常に${partner.name}として一貫した人格を保つ
@@ -339,6 +369,7 @@ ${partner.systemPrompt}
 8. 1-3文程度の自然な長さで応答する
 9. 【厳重禁止】ユーザーの発言をそのまま繰り返してはいけない
 10. 必ずユーザーの発言に対して独自の応答をする
+${locationId ? `11. 現在の場所（${locationId}）の雰囲気を自然に会話に反映させる` : ''}
 
 【会話履歴】
 ${conversationHistory.slice(-5).map(msg => 
@@ -755,9 +786,9 @@ ${recentContext?.lastMessageContent ? `最近の会話: ${recentContext.lastMess
       '幼少期の思い出': 50,
       '人生の転機': 50,
       'トラウマ': 50,
-      '将来の夢': 75,
-      '価値観': 75,
-      '人生で大切なこと': 75
+      '将来の夢': 60,
+      '価値観': 60,
+      '人生で大切なこと': 60
     };
 
     return intimacyMap[targetInfo] || 0;

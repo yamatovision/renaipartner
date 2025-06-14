@@ -41,7 +41,8 @@ export class ChatController {
       const messageRequest: SendMessageRequest = {
         message: req.body.message,
         partnerId: req.body.partnerId,
-        context: req.body.context
+        context: req.body.context,
+        locationId: req.body.locationId // 現在の場所ID（場所情報注入用）
       };
 
       console.log(`[${new Date().toISOString()}] ▶️ メッセージ送信開始 - ユーザー: ${userId}, パートナー: ${messageRequest.partnerId}`);
@@ -242,13 +243,13 @@ export class ChatController {
       console.log(`[${new Date().toISOString()}] 📍 状況: ${situation || 'なし'}`);
 
       // 実際の画像生成サービスを呼び出す
-      const generatedImage = await this.imagesService.generateChatImage(
+      const generatedImage = await this.imagesService.generateChatImage({
         partnerId,
-        message || context || '愛してるよ💕',
+        context: message || context || '愛してるよ💕',
         emotion,
-        situation,
+        background: situation,
         useReference
-      );
+      });
 
       console.log(`[${new Date().toISOString()}] ✅ 画像生成完了 - ID: ${generatedImage.id}`);
       console.log(`[${new Date().toISOString()}] 🖼️ 画像URL: ${generatedImage.imageUrl}`);

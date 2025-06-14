@@ -26,6 +26,7 @@ import memoryRoutes from '@/features/memory/memory.routes';
 import { imagesRoutes } from '@/features/images/images.routes';
 import { settingsRoutes } from '@/features/settings/settings.routes';
 import notificationsRoutes from '@/features/notifications/notifications.routes';
+import locationsRoutes from '@/features/locations/locations.routes';
 
 const app = express();
 
@@ -145,6 +146,7 @@ app.use('/api/memory', memoryRoutes); // メモリシステム機能
 app.use('/api/images', imagesRoutes); // 画像生成機能
 app.use('/api/settings', settingsRoutes); // 設定管理機能
 app.use('/api/notifications', notificationsRoutes); // 通知システム機能
+app.use('/api/locations', locationsRoutes); // 場所管理機能
 
 // ===== エラーハンドリング =====
 

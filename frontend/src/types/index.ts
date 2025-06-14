@@ -222,7 +222,12 @@ export enum SpeechStyle {
 export type HairStyle = 'short' | 'medium' | 'long';
 export type EyeColor = 'brown' | 'black' | 'blue' | 'green';
 export type BodyType = 'slim' | 'average' | 'athletic';
-export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant';
+export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant' | 
+  'school_uniform' | 'swimsuit' | 'yukata' | 'kimono' | 'loungewear' | 
+  'yoga_wear' | 'devil_costume' | 'santa_costume' | 'pajamas' | 
+  'spring_dress' | 'winter_dress' | 'autumn_coat' | 'competition_swimsuit' | 
+  'premium_swimsuit' | 'towel_wrap' | 'casual_date' | 'casual_outdoor' | 
+  'casual_yukata' | 'office_suit' | 'ski_wear';
 
 export interface AppearanceSettings {
   hairStyle: HairStyle;
@@ -243,6 +248,7 @@ export interface PartnerBase {
   appearance: AppearanceSettings;
   hobbies: string[];
   intimacyLevel: number;
+  interests?: string[]; // ユーザーの興味・関心事項
 }
 
 export interface PartnerCreate extends PartnerBase {
@@ -424,6 +430,11 @@ export interface Message extends MessageBase, Timestamps {
   partnerId: ID;
   emotion?: string;
   context?: Record<string, any>;
+  metadata?: {
+    isProactiveQuestion?: boolean;
+    questionType?: string;
+    expectedDepth?: string;
+  };
 }
 
 export interface ChatResponse {
@@ -437,12 +448,14 @@ export interface SendMessageRequest {
   message: string;
   partnerId: ID;
   context?: Record<string, any>;
+  locationId?: string; // 現在の場所ID（AI会話への場所情報注入用）
 }
 
 export interface ChatMessageRequest {
   message: string;
   partnerId: ID;
   context?: Record<string, any>;
+  locationId?: string; // 現在の場所ID（AI会話への場所情報注入用）
 }
 
 export interface ChatMessageResponse {
@@ -514,6 +527,11 @@ export interface ProactiveQuestionRequest {
     silenceDuration?: number; // minutes
   };
   uncollectedInfo?: string[];
+  lastInteractionContext?: {
+    topic?: string;
+    depth?: string;
+    emotionalTone?: string;
+  };
 }
 
 export interface ProactiveQuestionResponse {
@@ -524,6 +542,9 @@ export interface ProactiveQuestionResponse {
   tone: string;
   context: string;
   intimacyRequired: number;
+  emotionalTone?: string;
+  expectedDepth?: string;
+  followUpSuggestions?: string[];
 }
 
 export interface ShouldAskQuestionRequest {
@@ -565,6 +586,17 @@ export interface ExtractFromResponseResponse {
     content: string;
     importance: number;
   }[];
+  intimacyUpdate?: {
+    before: number;
+    after: number;
+    reason: string;
+  };
+  suggestedFollowUp?: string;
+  extractedMemories?: Array<{
+    type: string;
+    content: string;
+    importance: number;
+  }>;
 }
 
 // 戦略的情報収集マップの型定義
@@ -608,10 +640,12 @@ export interface IntimacyQuestionSettings {
 
 export enum MemoryType {
   CONVERSATION = 'conversation',
-  EPISODE = 'episode',
-  RELATIONSHIP = 'relationship',
+  FACT = 'fact',
   EMOTION = 'emotion',
+  EVENT = 'event',
+  RELATIONSHIP = 'relationship',
   PREFERENCE = 'preference',
+  EXPERIENCE = 'experience',
 }
 
 export interface Memory extends Timestamps {
@@ -783,6 +817,82 @@ export interface NotificationStatsResponse {
 }
 
 // =============================================================================
+// 場所・背景システム関連
+// =============================================================================
+
+// 季節の型定義
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+
+// 季節対応服装の型定義
+export interface SeasonalClothingPrompt {
+  spring: string;
+  summer: string;
+  autumn: string;
+  winter: string;
+}
+
+export interface SeasonalClothingMapping {
+  male: SeasonalClothingPrompt;
+  female: SeasonalClothingPrompt;
+}
+
+// 服装プロンプト生成のリクエスト
+export interface ClothingPromptRequest {
+  clothingStyle: ClothingStyle;
+  gender: Gender;
+  season?: Season;
+}
+
+export interface ClothingPromptResponse {
+  prompt: string;
+  season: Season;
+  isSeasonallyAdjusted: boolean; // casual_date, casual_outdoorの場合true
+}
+
+export interface LocationData {
+  id: string;
+  name: string;
+  description?: string; // 場所の説明
+  backgroundImage?: string; // 背景画像のパス
+  category?: string; // 場所のカテゴリ
+  emoji?: string; // 場所のアイコン絵文字
+  clothing: ClothingStyle;
+  appealPoint: string;
+  unlockIntimacy: number;
+  timeOfDay?: string; // 時間帯
+  timeSpecific?: boolean; // 特定の時間帯のみ有効
+  isSeasonalEvent?: boolean; // 季節イベント場所
+  availablePeriod?: {
+    start: string; // MM-DD形式
+    end: string;   // MM-DD形式
+  };
+}
+
+export interface LocationState {
+  currentLocationId: string;
+  previousLocationId?: string;
+  enteredAt: Date;
+  availableLocations: LocationData[];
+}
+
+export interface SeasonalEvent extends LocationData {
+  isSeasonalEvent: true;
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
+  specialReward?: {
+    specialImage: boolean;
+    uniqueDialogue: boolean;
+    memoryBonus: number;
+  };
+}
+
+export interface LocationUnlockInfo {
+  location: LocationData;
+  isUnlocked: boolean;
+  requiredIntimacy: number;
+  daysUntilAvailable?: number; // 季節イベントの場合
+}
+
+// =============================================================================
 // 画像生成関連
 // =============================================================================
 
@@ -794,12 +904,16 @@ export interface ImageGenerationRequest {
   clothing?: string;
   prompt?: string;
   useAppearance?: boolean;
+  useReference?: boolean;
   referenceImageId?: string;
   modelId?: string;
   width?: number;
   height?: number;
   numImages?: number;
   guidanceScale?: number;
+  locationId?: string; // 現在の場所ID（場所に応じた服装生成のため）
+  gender?: Gender; // 性別に応じた服装プロンプトの切り替え用
+  season?: 'spring' | 'summer' | 'autumn' | 'winter'; // 季節対応服装のため
 }
 
 export interface GeneratedImage {
@@ -843,7 +957,9 @@ export interface BackgroundImage {
   timeOfDay?: 'morning' | 'day' | 'afternoon' | 'evening' | 'sunset' | 'night';
   season?: 'spring' | 'summer' | 'autumn' | 'winter' | 'all';
   weather?: 'clear' | 'cloudy' | 'rainy' | 'snowy';
-  intimacyLevel?: 'low' | 'medium' | 'high';
+  intimacyLevel?: string; // '0-40', '40-70', '70-90', '85-100'等の範囲文字列
+  locationId?: string; // 場所識別子（例: 'cafe', 'beach', 'school_classroom'）
+  isSeasonalEvent?: boolean; // 季節限定イベント場所かどうか
 }
 
 // =============================================================================
@@ -969,6 +1085,18 @@ export const API_PATHS = {
     STATS: (partnerId: string) => `/api/images/stats/${partnerId}`,
     DELETE: (imageId: string) => `/api/images/${imageId}`,
     MODELS: '/api/images/models',
+    CLOTHING_PROMPT: '/api/images/clothing-prompt', // 季節対応服装プロンプト生成
+  },
+  
+  // 場所関連
+  LOCATIONS: {
+    BASE: '/api/locations',
+    CURRENT: '/api/locations/current',
+    AVAILABLE: '/api/locations/available',
+    UNLOCK: (locationId: string) => `/api/locations/${locationId}/unlock`,
+    SEASONAL: '/api/locations/seasonal',
+    UPCOMING_EVENTS: '/api/locations/upcoming-events',
+    SET_CURRENT: '/api/locations/set-current',
   },
   
   // 通知関連

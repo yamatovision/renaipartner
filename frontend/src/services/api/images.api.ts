@@ -13,21 +13,68 @@ export const imagesApiService = {
   // 背景画像一覧取得
   getBackgrounds: async (): Promise<BackgroundImage[]> => {
     try {
-      const response = await api.get<BackgroundImage[]>(API_PATHS.IMAGES.BACKGROUNDS)
-      return response
+      const response = await api.get<any>(API_PATHS.IMAGES.BACKGROUNDS)
+      console.log('📸 [imagesApiService] API応答:', response)
+      
+      // APIレスポンスが {success: true, data: {backgrounds: [...]}} 形式の場合
+      if (response && response.success && response.data && response.data.backgrounds) {
+        console.log('📸 [imagesApiService] backgrounds配列を返します:', response.data.backgrounds)
+        return response.data.backgrounds
+      }
+      
+      // レスポンスが直接配列の場合
+      if (Array.isArray(response)) {
+        return response
+      }
+      
+      // 予期しない形式の場合はフォールバック
+      console.warn('📸 [imagesApiService] 予期しない応答形式、フォールバックを使用')
+      throw new Error('Invalid response format')
     } catch (error: any) {
       console.error('背景画像取得エラー:', error)
-      // フォールバック背景を返す
-      return [{
-        id: 'default-1',
-        url: '/backgrounds/default.jpg',
-        name: 'デフォルト背景',
-        category: 'default',
-        isDefault: true,
-        timeOfDay: 'day',
-        season: 'all',
-        weather: 'clear'
-      }]
+      // フォールバック背景を返す（実際に存在するファイルパス）
+      return [
+        {
+          id: 'cafe_morning',
+          url: '/images/backgrounds/public/cafe_morning.jpg',
+          name: 'カフェ（朝）',
+          category: 'public',
+          isDefault: true,
+          timeOfDay: 'morning',
+          season: 'all',
+          weather: 'clear'
+        },
+        {
+          id: 'cafe_afternoon',
+          url: '/images/backgrounds/public/cafe_afternoon.jpg',
+          name: 'カフェ（昼）',
+          category: 'public',
+          isDefault: false,
+          timeOfDay: 'afternoon',
+          season: 'all',
+          weather: 'clear'
+        },
+        {
+          id: 'park_morning',
+          url: '/images/backgrounds/public/park_morning.jpg',
+          name: '公園（朝）',
+          category: 'public',
+          isDefault: false,
+          timeOfDay: 'morning',
+          season: 'all',
+          weather: 'clear'
+        },
+        {
+          id: 'home_living_afternoon',
+          url: '/images/backgrounds/private/home_living_afternoon.jpg',
+          name: 'リビング（昼）',
+          category: 'private',
+          isDefault: false,
+          timeOfDay: 'afternoon',
+          season: 'all',
+          weather: 'clear'
+        }
+      ]
     }
   },
 

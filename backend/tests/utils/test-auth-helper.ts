@@ -85,13 +85,37 @@ export class TestAuthHelper {
     user: any;
     cookies: string[];
   }> {
-    // DbTestHelperを使用してユーザーを作成（パラメータ不要）
-    const { user, credentials } = await DbTestHelper.createTestUser();
+    // まず管理者ユーザーを作成・ログイン
+    const { user: adminUser, credentials: adminCredentials } = await DbTestHelper.createTestAdmin();
+    const adminAuth = await this.loginAndGetTokens(adminCredentials);
 
-    console.log(`[TEST AUTH] テストユーザー作成成功: ${credentials.email}`);
+    // ユニークなテストデータを生成
+    const testData = DbTestHelper.generateUniqueTestData('user');
+    const password = 'TestPassword123!';
+
+    // 管理者APIでテストユーザーを作成
+    const userCreateResponse = await request(app)
+      .post('/api/admin/users')
+      .set('Authorization', `Bearer ${adminAuth.accessToken}`)
+      .send({
+        email: userData?.email || testData.email,
+        password: userData?.password || password,
+        surname: userData?.surname || testData.surname,
+        firstName: userData?.firstName || testData.firstName,
+        birthday: userData?.birthday || testData.birthday
+      });
+
+    if (userCreateResponse.status !== 201) {
+      throw new Error(`テストユーザー作成失敗: ${userCreateResponse.body.error}`);
+    }
+
+    console.log(`[TEST AUTH] テストユーザー作成成功: ${userCreateResponse.body.data.email}`);
 
     // 作成したユーザーでログイン
-    return await this.loginAndGetTokens(credentials);
+    return await this.loginAndGetTokens({
+      email: userCreateResponse.body.data.email,
+      password: userData?.password || password
+    });
   }
 
   // Cookieを使用した認証付きリクエスト

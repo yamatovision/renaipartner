@@ -118,6 +118,17 @@ router.delete(
   imagesController.deleteImage as any
 );
 
+/**
+ * POST /api/images/clothing-prompt
+ * 季節対応服装プロンプト生成
+ */
+router.post(
+  '/clothing-prompt',
+  requireAuth,
+  validateRequest,
+  imagesController.generateClothingPrompt as any
+);
+
 // =============================================================================
 // エラーハンドリングミドルウェア
 // =============================================================================
