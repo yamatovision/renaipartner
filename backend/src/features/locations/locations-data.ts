@@ -196,12 +196,12 @@ export const locationsData: LocationData[] = [
   // 高親密度（70-90）
   {
     id: 'home_living',
-    name: '自宅リビング',
-    description: 'くつろげる自宅のリビング。二人だけの空間。',
+    name: '自宅',
+    description: 'くつろげる自宅。リラックスできる場所。',
     backgroundImage: '/backgrounds/home_living.jpg',
     category: 'home',
     clothing: 'loungewear' as ClothingStyle,
-    unlockIntimacy: 70,
+    unlockIntimacy: 0,
     appealPoint: 'リラックスした自然体の魅力',
     timeOfDay: 'evening'
   },
@@ -224,7 +224,7 @@ export const locationsData: LocationData[] = [
     description: '落ち着いた雰囲気のベッドルーム。',
     backgroundImage: '/backgrounds/bedroom_night.jpg',
     category: 'home',
-    clothing: 'pajamas' as ClothingStyle,
+    clothing: 'short_camisole' as ClothingStyle,
     unlockIntimacy: 85,
     appealPoint: '親密で特別な時間',
     timeOfDay: 'night'

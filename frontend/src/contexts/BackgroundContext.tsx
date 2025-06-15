@@ -62,9 +62,16 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
         
         setCurrentBackground(defaultBg);
       }
-    } catch (err) {
-      console.error('背景画像の取得に失敗:', err);
-      setError('背景画像の取得に失敗しました');
+    } catch (err: any) {
+      console.error('🏞️ [BackgroundContext] 背景画像の取得に失敗:', err);
+      console.error('🏞️ [BackgroundContext] エラー詳細:', err.message);
+      
+      // より詳細なエラーメッセージを設定
+      const errorMessage = err.message || '背景画像の取得に失敗しました';
+      setError(errorMessage);
+      
+      // 空の配列を設定（フォールバックなし）
+      setAvailableBackgrounds([]);
     } finally {
       setIsLoading(false);
     }

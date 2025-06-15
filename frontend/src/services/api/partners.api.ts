@@ -119,12 +119,43 @@ export const partnersApiService = {
   // パートナー詳細取得
   getPartnerDetail: async (partnerId: string): Promise<ApiResponse<Partner>> => {
     try {
-      const response = await api.get<Partner>(API_PATHS.PARTNERS.DETAIL(partnerId))
+      console.log('[PARTNERS API] パートナー詳細取得開始:', partnerId)
+      const response = await api.get<any>(API_PATHS.PARTNERS.DETAIL(partnerId))
+      console.log('[PARTNERS API] 生レスポンス:', response)
+      console.log('[PARTNERS API] レスポンス型:', typeof response)
+      console.log('[PARTNERS API] レスポンスキー:', response ? Object.keys(response) : 'null')
+      
+      // バックエンドからのレスポンス構造を適切に処理
+      let partnerData: Partner
+      
+      if (response && response.success && response.data) {
+        // バックエンドが {success: true, data: Partner} 形式で返す場合
+        console.log('[PARTNERS API] APIレスポンス形式検出')
+        partnerData = response.data
+      } else if (response && response.id) {
+        // バックエンドが直接Partner形式で返す場合
+        console.log('[PARTNERS API] 直接Partner形式検出')
+        partnerData = response
+      } else {
+        throw new Error('不正なレスポンス形式です')
+      }
+      
+      console.log('[PARTNERS API] パートナー取得レスポンス:', {
+        success: true,
+        data: partnerData,
+        meta: {
+          partnerId: partnerData.id,
+          hasBaseImage: !!partnerData.baseImageUrl,
+          hasGeneratedImage: !!partnerData.appearance?.generatedImageUrl
+        }
+      })
+      
       return {
         success: true,
-        data: response,
+        data: partnerData,
       }
     } catch (error: any) {
+      console.error('[PARTNERS API] パートナー詳細取得エラー:', error)
       return {
         success: false,
         error: error.message || 'パートナー詳細の取得に失敗しました',

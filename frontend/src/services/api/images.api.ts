@@ -57,50 +57,10 @@ export const imagesApiService = {
       console.error('📸 [imagesApiService] 背景画像取得エラー:', error)
       console.error('📸 [imagesApiService] エラー詳細:', error.message)
       console.error('📸 [imagesApiService] スタックトレース:', error.stack)
-      console.error('📸 [imagesApiService] フォールバックデータを返します')
-      // フォールバック背景を返す（実際に存在するファイルパス）
-      return [
-        {
-          id: 'cafe_morning',
-          url: '/images/backgrounds/public/cafe_morning.jpg',
-          name: 'カフェ（朝）',
-          category: 'public',
-          isDefault: true,
-          timeOfDay: 'morning',
-          season: 'all',
-          weather: 'clear'
-        },
-        {
-          id: 'cafe_afternoon',
-          url: '/images/backgrounds/public/cafe_afternoon.jpg',
-          name: 'カフェ（昼）',
-          category: 'public',
-          isDefault: false,
-          timeOfDay: 'afternoon',
-          season: 'all',
-          weather: 'clear'
-        },
-        {
-          id: 'park_morning',
-          url: '/images/backgrounds/public/park_morning.jpg',
-          name: '公園（朝）',
-          category: 'public',
-          isDefault: false,
-          timeOfDay: 'morning',
-          season: 'all',
-          weather: 'clear'
-        },
-        {
-          id: 'home_living_afternoon',
-          url: '/images/backgrounds/private/home_living_afternoon.jpg',
-          name: 'リビング（昼）',
-          category: 'private',
-          isDefault: false,
-          timeOfDay: 'afternoon',
-          season: 'all',
-          weather: 'clear'
-        }
-      ]
+      console.error('📸 [imagesApiService] API URL:', API_PATHS.IMAGES.BACKGROUNDS)
+      
+      // エラーの詳細情報を含めて再スロー
+      throw new Error(`背景画像の取得に失敗しました: ${error.message || '不明なエラー'}`)
     }
   },
 

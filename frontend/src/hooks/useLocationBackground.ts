@@ -101,8 +101,11 @@ export const useLocationBackground = () => {
     
     // その場所で利用可能な背景を全て取得
     const availableBackgroundsForLocation = availableBackgrounds.filter(bg => {
-      const isMatch = bg.id.startsWith(`${targetBackgroundId}_`)
-      console.log(`背景ID確認: ${bg.id} - 条件 "${targetBackgroundId}_"で始まる: ${isMatch}`)
+      // 完全一致または "_時間帯" で始まる背景をマッチ
+      const exactMatch = bg.id === targetBackgroundId
+      const prefixMatch = bg.id.startsWith(`${targetBackgroundId}_`)
+      const isMatch = exactMatch || prefixMatch
+      console.log(`背景ID確認: ${bg.id} - 完全一致: ${exactMatch}, プリフィックス一致: ${prefixMatch}, 結果: ${isMatch}`)
       return isMatch
     })
     
@@ -114,13 +117,26 @@ export const useLocationBackground = () => {
     }
 
     // 時間帯に最適な背景を探す
+    console.log('時間帯による背景選択:', `${targetBackgroundId}_${timeOfDaySuffix}`)
+    
     let targetBackground = availableBackgroundsForLocation.find(bg => 
       bg.id === `${targetBackgroundId}_${timeOfDaySuffix}`
     )
     
-    // 見つからない場合は利用可能な最初の背景を使用
+    // 時間帯付きが見つからない場合は、完全一致（時間帯なし）を探す
+    if (!targetBackground) {
+      targetBackground = availableBackgroundsForLocation.find(bg => 
+        bg.id === targetBackgroundId
+      )
+      if (targetBackground) {
+        console.log('時間帯なしの背景を使用:', targetBackground.id)
+      }
+    }
+    
+    // それでも見つからない場合は利用可能な最初の背景を使用
     if (!targetBackground) {
       targetBackground = availableBackgroundsForLocation[0]
+      console.log('デフォルト背景を使用:', targetBackground?.id)
     }
     
     const finalBackgroundId = targetBackground.id

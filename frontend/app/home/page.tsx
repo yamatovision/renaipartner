@@ -117,7 +117,8 @@ export default function HomePage() {
   const { 
     currentBackground, 
     getCurrentBackgroundStyle, 
-    isLoading: isLoadingBackground 
+    isLoading: isLoadingBackground,
+    error: backgroundError 
   } = useBackground()
   const { currentLocation } = useLocation()
   const { partner, relationshipMetrics, isLoading: isLoadingRelationship, error: relationshipError, updateIntimacyLevel, refreshMetrics, clearError } = useRelationshipMetrics()
@@ -621,14 +622,15 @@ export default function HomePage() {
 
 
   // エラー表示
-  if (relationshipError && !isLoadingRelationship) {
+  // エラー表示（背景エラーも含む）
+  if ((relationshipError || backgroundError) && !isLoadingRelationship && !isLoadingBackground) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-purple-100 to-pink-100">
         <div className="text-center">
           <div className="mb-4">
             <span className="text-red-500 text-4xl">⚠️</span>
           </div>
-          <p className="text-red-600 mb-4">{relationshipError}</p>
+          <p className="text-red-600 mb-4">{relationshipError || backgroundError}</p>
           <button
             onClick={() => {
               clearError()

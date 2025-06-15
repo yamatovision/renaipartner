@@ -234,7 +234,7 @@ export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant' |
   'spring_dress' | 'winter_dress' | 'autumn_coat' | 'competition_swimsuit' | 
   'premium_swimsuit' | 'towel_wrap' | 'casual_date' | 'casual_outdoor' | 
   'casual_yukata' | 'office_suit' | 'ski_wear' | 'elegant_dress' | 'bathrobe' |
-  'casual_elegant' | 'sportswear' | 'outdoor_gear' | 'beach_wear';
+  'casual_elegant' | 'sportswear' | 'outdoor_gear' | 'beach_wear' | 'short_camisole';
 
 export interface AppearanceSettings {
   hairStyle: HairStyle;

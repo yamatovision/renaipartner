@@ -239,6 +239,10 @@ export class ClothingPromptsService {
       beach_wear: {
         male: 'beach shorts, casual tank top, flip flops, relaxed beach style',
         female: 'beach dress over swimsuit, sandals, sun hat, beach vacation style'
+      },
+      short_camisole: {
+        male: 'casual tank top, comfortable shorts, relaxed intimate style',
+        female: 'short camisole, cute shorts, intimate sleepwear, cozy bedtime style'
       }
     };
 

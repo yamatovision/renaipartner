@@ -47,12 +47,23 @@ function EditPartnerContent() {
         console.log('=== パートナー詳細取得結果 ===')
         console.log('Response Success:', response.success)
         console.log('Response Data:', response.data)
+        console.log('Response Data Type:', typeof response.data)
+        console.log('Response Data Keys:', response.data ? Object.keys(response.data) : 'null')
         
-        // レスポンス構造の確認と修正
-        const partnerData = response.data
+        // レスポンス構造の確認と修正 - data.data構造の可能性を確認
+        let partnerData = response.data
+        if (response.data && response.data.data) {
+          console.log('Nested data structure detected')
+          partnerData = response.data.data
+        }
+        
+        console.log('=== 最終パートナーデータ ===')
         console.log('Actual Partner Data:', partnerData)
+        console.log('Partner Data Type:', typeof partnerData)
+        console.log('Partner Data Keys:', partnerData ? Object.keys(partnerData) : 'null')
         console.log('Base Image URL:', partnerData?.baseImageUrl)
         console.log('Generated Image URL:', partnerData?.appearance?.generatedImageUrl)
+        console.log('Appearance Object:', partnerData?.appearance)
         
         if (response.success && partnerData) {
           setPartner(partnerData)
@@ -289,8 +300,19 @@ function EditPartnerContent() {
                 alt={partner.name}
                 className="w-32 h-32 rounded-full object-cover shadow-lg"
                 onError={(e) => {
-                  console.error('画像読み込みエラー:', e.currentTarget.src)
-                  e.currentTarget.src = '/images/default-avatar.png'
+                  console.error('=== 画像読み込みエラー詳細 ===')
+                  console.error('エラー発生URL:', e.currentTarget.src)
+                  console.error('Partner Object:', partner)
+                  console.error('Generated Image URL:', partner.appearance?.generatedImageUrl)
+                  console.error('Base Image URL:', partner.baseImageUrl)
+                  console.error('Fallback Image URL:', '/images/default-avatar.png')
+                  
+                  if (e.currentTarget.src !== '/images/default-avatar.png') {
+                    console.log('フォールバック画像に切り替え中...')
+                    e.currentTarget.src = '/images/default-avatar.png'
+                  } else {
+                    console.error('フォールバック画像も読み込めませんでした')
+                  }
                 }}
               />
               <div className="flex-1">

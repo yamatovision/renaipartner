@@ -137,13 +137,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setAvailableLocations(locationsData.locations || [])
       setSeasonalEvents(locationsData.seasonalEvents || [])
       
-      // デフォルトは教室（パートナーオブジェクトにはcurrentLocationIdが含まれていないため）
-      const defaultLocation = locationsData.locations.find(l => l.id === 'school_classroom')
+      // デフォルトは自宅（パートナーオブジェクトにはcurrentLocationIdが含まれていないため）
+      const defaultLocation = locationsData.locations.find(l => l.id === 'home_living')
       if (defaultLocation) {
         console.log('[LocationContext] Setting default location to:', defaultLocation)
         setCurrentLocation(defaultLocation)
         // 初回設定時のみlocation APIを呼び出し（必要に応じて）
-        // await locationsApi.updateCurrentLocation(partner.id, 'school_classroom')
+        // await locationsApi.updateCurrentLocation(partner.id, 'home_living')
       }
       
       // 解放済み場所を記録（メトリクスが取得できた場合のみ）

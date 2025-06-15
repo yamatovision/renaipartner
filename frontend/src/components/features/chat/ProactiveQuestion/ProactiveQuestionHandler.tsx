@@ -48,14 +48,29 @@ const ProactiveQuestionHandler = React.forwardRef<
 
   // 質問タイミングチェック
   const checkIfShouldAskQuestion = useCallback(async () => {
+    console.log('=== AI話しかけチェック開始 ===');
+    console.log('partner:', partner?.name);
+    console.log('isTyping:', isTyping);
+    
     if (!partner || isTyping) return;
 
     try {
       // 最後のメッセージからの経過時間を計算
       const lastMessage = messages[messages.length - 1];
+      console.log('最後のメッセージ:', lastMessage?.content, 'from:', lastMessage?.sender);
+      
+      // 最新2つのメッセージがどちらもAIからの場合は何もしない（3連続防止）
+      const lastTwoMessages = messages.slice(-2);
+      if (lastTwoMessages.length >= 2 && 
+          lastTwoMessages.every(msg => msg.sender === MessageSender.PARTNER)) {
+        console.log('AI2連続なので停止');
+        return;
+      }
+      
       const silenceDuration = lastMessage 
         ? Math.floor((Date.now() - new Date(lastMessage.createdAt).getTime()) / (1000 * 60))
         : 0;
+      console.log('沈黙時間:', silenceDuration, '分');
 
       const now = new Date();
       const response = await chatApiService.shouldAskQuestion({
@@ -68,27 +83,17 @@ const ProactiveQuestionHandler = React.forwardRef<
           isWeekend: now.getDay() === 0 || now.getDay() === 6
         }
       });
+      
+      console.log('APIレスポンス:', response);
+      console.log('shouldAsk:', response.data?.shouldAsk);
+      console.log('理由:', response.data?.reasoning);
 
       if (response.success && response.data && response.data.shouldAsk) {
-        // 高優先度の場合は即座に質問
-        if (response.data.priority === 'high' || response.data.priority === 'urgent') {
-          await generateAndSendProactiveQuestion(response.data.suggestedQuestionType);
-        } else {
-          // 低・中優先度の場合はユーザーに提案
-          const priorityMapping: { [key: string]: 'low' | 'medium' | 'high' } = {
-            'low': 'low',
-            'medium': 'medium',
-            'high': 'high',
-            'urgent': 'high'
-          };
-          
-          setQuestionSuggestion({
-            show: true,
-            priority: priorityMapping[response.data.priority] || 'low',
-            reasoning: response.data.reasoning,
-            type: response.data.suggestedQuestionType
-          });
-        }
+        console.log('AI発言を生成します');
+        // 優先度に関わらず自動的に話しかける
+        await generateAndSendProactiveQuestion(response.data.suggestedQuestionType);
+      } else {
+        console.log('AI発言スキップ');
       }
     } catch (error) {
       console.error('質問タイミングチェックエラー:', error);
@@ -209,15 +214,20 @@ const ProactiveQuestionHandler = React.forwardRef<
 
   // 定期的なチェック
   useEffect(() => {
+    console.log('=== ProactiveQuestionHandler 初期化 ===');
+    console.log('partner存在:', !!partner);
+    
     if (!partner) return;
 
     // 初回チェック
+    console.log('初回チェック実行');
     checkIfShouldAskQuestion();
 
-    // 5分ごとにチェック
+    // 1分ごとにチェック
     checkIntervalRef.current = setInterval(() => {
+      console.log('定期チェック実行');
       checkIfShouldAskQuestion();
-    }, 5 * 60 * 1000);
+    }, 1 * 60 * 1000);
 
     return () => {
       if (checkIntervalRef.current) {
