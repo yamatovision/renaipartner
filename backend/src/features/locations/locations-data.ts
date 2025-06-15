@@ -15,17 +15,6 @@ export const locationsData: LocationData[] = [
     timeOfDay: 'afternoon'
   },
   {
-    id: 'school_classroom_morning',
-    name: '教室（朝）',
-    description: '朝の爽やかな教室。新しい一日の始まりを感じる。',
-    backgroundImage: '/backgrounds/school_classroom_morning.jpg',
-    category: 'school',
-    clothing: 'school_uniform' as ClothingStyle,
-    unlockIntimacy: 0,
-    appealPoint: '清々しい朝の雰囲気',
-    timeOfDay: 'morning'
-  },
-  {
     id: 'cafe',
     name: 'カフェ',
     description: 'おしゃれなカフェでゆったりとした時間を過ごす。',
@@ -48,14 +37,36 @@ export const locationsData: LocationData[] = [
     timeOfDay: 'afternoon'
   },
   {
-    id: 'library',
-    name: '図書館',
-    description: '静かな図書館。本に囲まれた知的な空間。',
-    backgroundImage: '/backgrounds/library.jpg',
-    category: 'study',
-    clothing: 'casual' as ClothingStyle,
+    id: 'school_library',
+    name: '学校の図書館',
+    description: '静かな図書館。勉強に集中できる環境。',
+    backgroundImage: '/backgrounds/school_library.jpg',
+    category: 'school',
+    clothing: 'school_uniform' as ClothingStyle,
+    unlockIntimacy: 5,
+    appealPoint: '二人で勉強する静かな時間',
+    timeOfDay: 'afternoon'
+  },
+  {
+    id: 'museum',
+    name: '美術館',
+    description: '静寂に包まれた美術館。芸術に触れる時間。',
+    backgroundImage: '/backgrounds/museum.jpg',
+    category: 'leisure',
+    clothing: 'casual_elegant' as ClothingStyle,
     unlockIntimacy: 30,
-    appealPoint: '二人だけの静かな時間',
+    appealPoint: '知的で落ち着いた雰囲気',
+    timeOfDay: 'afternoon'
+  },
+  {
+    id: 'amusement_park',
+    name: '遊園地',
+    description: 'わくわくする遊園地。楽しい思い出をたくさん作ろう。',
+    backgroundImage: '/backgrounds/amusement_park.jpg',
+    category: 'leisure',
+    clothing: 'casual_outdoor' as ClothingStyle,
+    unlockIntimacy: 35,
+    appealPoint: '笑顔があふれる楽しい空間',
     timeOfDay: 'afternoon'
   },
 
@@ -83,17 +94,6 @@ export const locationsData: LocationData[] = [
     timeOfDay: 'afternoon'
   },
   {
-    id: 'hot_yoga',
-    name: 'ホットヨガスタジオ',
-    description: '暖かいスタジオでリラックスヨガ。',
-    backgroundImage: '/backgrounds/hot_yoga.jpg',
-    category: 'fitness',
-    clothing: 'yoga_wear' as ClothingStyle,
-    unlockIntimacy: 55,
-    appealPoint: '健康的で魅力的な一面',
-    timeOfDay: 'morning'
-  },
-  {
     id: 'pool',
     name: 'プール',
     description: '屋内プール。スポーティーな雰囲気。',
@@ -105,15 +105,92 @@ export const locationsData: LocationData[] = [
     timeOfDay: 'afternoon'
   },
   {
-    id: 'cooking_class',
-    name: '料理教室',
-    description: '一緒に料理を楽しむアットホームな空間。',
-    backgroundImage: '/backgrounds/cooking_class.jpg',
-    category: 'activity',
-    clothing: 'casual_apron' as ClothingStyle,
-    unlockIntimacy: 65,
-    appealPoint: '共同作業で深まる絆',
+    id: 'gym',
+    name: 'ジム',
+    description: 'トレーニングジム。健康的な汗を流そう。',
+    backgroundImage: '/backgrounds/gym.jpg',
+    category: 'fitness',
+    clothing: 'sportswear' as ClothingStyle,
+    unlockIntimacy: 55,
+    appealPoint: 'スポーティーで健康的な魅力',
     timeOfDay: 'afternoon'
+  },
+  {
+    id: 'restaurant',
+    name: 'レストラン',
+    description: '落ち着いた雰囲気のレストラン。美味しい料理を楽しもう。',
+    backgroundImage: '/backgrounds/restaurant.jpg',
+    category: 'leisure',
+    clothing: 'elegant_dress' as ClothingStyle,
+    unlockIntimacy: 60,
+    appealPoint: 'ロマンチックなディナータイム',
+    timeOfDay: 'evening'
+  },
+  {
+    id: 'karaoke',
+    name: 'カラオケ',
+    description: '二人だけのカラオケボックス。思い切り歌おう！',
+    backgroundImage: '/backgrounds/karaoke.jpg',
+    category: 'leisure',
+    clothing: 'casual' as ClothingStyle,
+    unlockIntimacy: 65,
+    appealPoint: '楽しく盛り上がれる空間',
+    timeOfDay: 'evening'
+  },
+  {
+    id: 'spa',
+    name: 'スパ',
+    description: 'リラックスできるスパ。心も体も癒される。',
+    backgroundImage: '/backgrounds/spa.jpg',
+    category: 'leisure',
+    clothing: 'bathrobe' as ClothingStyle,
+    unlockIntimacy: 60,
+    appealPoint: '究極のリラクゼーション',
+    timeOfDay: 'afternoon'
+  },
+  {
+    id: 'jewelry_shop',
+    name: 'ジュエリーショップ',
+    description: 'きらめくジュエリーに囲まれた特別な空間。',
+    backgroundImage: '/backgrounds/jewelry_shop.jpg',
+    category: 'leisure',
+    clothing: 'elegant_dress' as ClothingStyle,
+    unlockIntimacy: 70,
+    appealPoint: '特別な瞬間を演出',
+    timeOfDay: 'afternoon'
+  },
+  {
+    id: 'camping',
+    name: 'キャンプ場',
+    description: '自然の中でのキャンプ。星空の下で過ごす特別な時間。',
+    backgroundImage: '/backgrounds/camping.jpg',
+    category: 'outdoor',
+    clothing: 'outdoor_gear' as ClothingStyle,
+    unlockIntimacy: 70,
+    appealPoint: '自然の中での特別な体験',
+    timeOfDay: 'evening'
+  },
+  {
+    id: 'jazz_bar',
+    name: 'ジャズバー',
+    description: '大人の雰囲気漂うジャズバー。素敵な音楽に包まれて。',
+    backgroundImage: '/backgrounds/jazz_bar.jpg',
+    category: 'leisure',
+    clothing: 'elegant_dress' as ClothingStyle,
+    unlockIntimacy: 65,
+    appealPoint: '大人の雰囲気を楽しむ',
+    timeOfDay: 'night'
+  },
+  {
+    id: 'sports_bar',
+    name: 'スポーツバー',
+    description: 'スポーツ観戦を楽しむバー。盛り上がろう！',
+    backgroundImage: '/backgrounds/sports_bar.jpg',
+    category: 'leisure',
+    clothing: 'casual' as ClothingStyle,
+    unlockIntimacy: 40,
+    appealPoint: 'カジュアルに楽しめる空間',
+    timeOfDay: 'evening'
   },
 
   // 高親密度（70-90）
@@ -137,17 +214,6 @@ export const locationsData: LocationData[] = [
     clothing: 'elegant_dress' as ClothingStyle,
     unlockIntimacy: 75,
     appealPoint: 'ロマンチックで特別な夜',
-    timeOfDay: 'night'
-  },
-  {
-    id: 'rooftop',
-    name: '屋上',
-    description: '星空の下、二人だけの秘密の場所。',
-    backgroundImage: '/backgrounds/rooftop.jpg',
-    category: 'outdoor',
-    clothing: 'casual_date' as ClothingStyle,
-    unlockIntimacy: 80,
-    appealPoint: '特別な二人だけの時間',
     timeOfDay: 'night'
   },
 
@@ -183,6 +249,17 @@ export const locationsData: LocationData[] = [
     clothing: 'towel_wrap' as ClothingStyle,
     unlockIntimacy: 95,
     appealPoint: '究極のリラックス空間',
+    timeOfDay: 'evening'
+  },
+  {
+    id: 'luxury_hotel',
+    name: '高級ホテル',
+    description: '最高級のホテルスイート。特別な夜を過ごす。',
+    backgroundImage: '/backgrounds/luxury_hotel.jpg',
+    category: 'travel',
+    clothing: 'elegant_dress' as ClothingStyle,
+    unlockIntimacy: 100,
+    appealPoint: '最高にラグジュアリーな空間',
     timeOfDay: 'evening'
   }
 ]
@@ -236,6 +313,23 @@ export const seasonalEventsData: SeasonalEvent[] = [
     unlockIntimacy: 35,
     appealPoint: '日本の夏を満喫',
     timeOfDay: 'evening',
+    isSeasonalEvent: true,
+    season: 'summer',
+    availablePeriod: {
+      start: '07-01',
+      end: '08-31'
+    }
+  },
+  {
+    id: 'beach_house',
+    name: 'ビーチハウス',
+    description: '海辺のビーチハウス。夏の特別な時間を過ごそう。',
+    backgroundImage: '/backgrounds/beach_house.jpg',
+    category: 'seasonal',
+    clothing: 'beach_wear' as ClothingStyle,
+    unlockIntimacy: 50,
+    appealPoint: '夏限定の開放的な空間',
+    timeOfDay: 'afternoon',
     isSeasonalEvent: true,
     season: 'summer',
     availablePeriod: {
@@ -347,6 +441,23 @@ export const seasonalEventsData: SeasonalEvent[] = [
     availablePeriod: {
       start: '02-10',
       end: '02-14'
+    }
+  },
+  {
+    id: 'ski_resort',
+    name: 'スキー場',
+    description: '雪山でのスキー。冬のアクティビティを楽しもう。',
+    backgroundImage: '/backgrounds/ski_resort.jpg',
+    category: 'seasonal',
+    clothing: 'ski_wear' as ClothingStyle,
+    unlockIntimacy: 55,
+    appealPoint: '冬限定のアクティブな体験',
+    timeOfDay: 'afternoon',
+    isSeasonalEvent: true,
+    season: 'winter',
+    availablePeriod: {
+      start: '12-15',
+      end: '03-15'
     }
   }
 ]

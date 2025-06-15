@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { BackgroundProvider } from '@/contexts/BackgroundContext'
+import { RelationshipMetricsProvider } from '@/contexts/RelationshipMetricsContext'
 import { LocationProvider } from '@/contexts/LocationContext'
 import EmotionRegistry from './registry'
 import '../src/styles/globals.css'
@@ -23,11 +24,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <EmotionRegistry>
           <AuthProvider>
-            <BackgroundProvider>
-              <LocationProvider>
-                {children}
-              </LocationProvider>
-            </BackgroundProvider>
+            <RelationshipMetricsProvider>
+              <BackgroundProvider>
+                <LocationProvider>
+                  {children}
+                </LocationProvider>
+              </BackgroundProvider>
+            </RelationshipMetricsProvider>
           </AuthProvider>
         </EmotionRegistry>
       </body>

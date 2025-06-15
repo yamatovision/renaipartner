@@ -18,23 +18,18 @@ interface Step7AppearanceProps {
 
 // 髪色パレット
 const hairColorPalette = [
-  { value: '#000000', label: '黒', english: 'black' },
-  { value: '#3B2F2F', label: 'ダークブラウン', english: 'dark brown' },
-  { value: '#8B4513', label: 'ブラウン', english: 'brown' },
-  { value: '#FFD700', label: 'ブロンド', english: 'blonde' },
-  { value: '#FF6B6B', label: 'ピンク', english: 'pink' },
-  { value: '#4ECDC4', label: '水色', english: 'light blue' },
-  { value: '#95E1D3', label: 'ミントグリーン', english: 'mint green' },
-  { value: '#C7CEEA', label: 'ラベンダー', english: 'lavender' },
-  { value: '#FFEAA7', label: 'ライトゴールド', english: 'light gold' },
-  { value: '#636E72', label: 'シルバー', english: 'silver' }
+  { value: '#000000', label: 'black', japanese: '黒' },
+  { value: '#3B2F2F', label: 'dark brown', japanese: 'ダークブラウン' },
+  { value: '#8B4513', label: 'brown', japanese: 'ブラウン' },
+  { value: '#FFD700', label: 'blonde', japanese: 'ブロンド' },
+  { value: '#FF6B6B', label: 'pink', japanese: 'ピンク' },
+  { value: '#4ECDC4', label: 'light blue', japanese: '水色' },
+  { value: '#95E1D3', label: 'mint green', japanese: 'ミントグリーン' },
+  { value: '#C7CEEA', label: 'lavender', japanese: 'ラベンダー' },
+  { value: '#FFEAA7', label: 'light gold', japanese: 'ライトゴールド' },
+  { value: '#636E72', label: 'silver', japanese: 'シルバー' }
 ]
 
-// 日本語の髪色を英語に変換
-const getHairColorEnglish = (japaneseColor: string): string => {
-  const colorMap = hairColorPalette.find(color => color.label === japaneseColor)
-  return colorMap?.english || 'brown'
-}
 
 // 名前タイプ判定
 const getNameType = (name: string): 'japanese' | 'western' | 'anime' => {
@@ -113,9 +108,8 @@ export function Step7Appearance({
       prompt += 'fantasy anime character style, '
     }
     
-    // 外見設定（英語に変換）
-    const hairColorEnglish = appearance.hairColor ? getHairColorEnglish(appearance.hairColor) : 'brown'
-    prompt += `hair: ${hairColorEnglish} ${appearance.hairStyle}, `
+    // 外見設定（すでに英語）
+    prompt += `hair: ${appearance.hairColor || 'brown'} ${appearance.hairStyle}, `
     prompt += `eyes: ${appearance.eyeColor} eyes, `
     prompt += `${personalityFeatures.style}, `
     prompt += `${personalityFeatures.atmosphere}, `
@@ -298,13 +292,14 @@ export function Step7Appearance({
                   }
                 `}
                 style={{ backgroundColor: color.value }}
+                title={color.japanese}
               >
                 {appearance.hairColor === color.label && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-white text-lg drop-shadow-md">✓</span>
                   </div>
                 )}
-                <span className="sr-only">{color.label}</span>
+                <span className="sr-only">{color.japanese}</span>
               </button>
             ))}
           </div>

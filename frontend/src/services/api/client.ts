@@ -114,6 +114,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
   
+  patch: <T>(path: string, data?: any) => 
+    apiClient<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  
   delete: <T>(path: string) => 
     apiClient<T>(path, {
       method: 'DELETE',

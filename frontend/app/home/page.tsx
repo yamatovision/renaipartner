@@ -1,12 +1,13 @@
 'use client'
 
 // U-001: ホーム（チャット）ページ
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBackground } from '@/hooks/useBackground'
 import { useLocation } from '@/contexts/LocationContext'
+import { useRelationshipMetrics } from '@/contexts/RelationshipMetricsContext'
 import { LocationSelector } from '@/components/features/LocationSelector'
 import { useLocationBackground } from '@/hooks/useLocationBackground'
 import { 
@@ -22,25 +23,112 @@ import {
 } from '@/types'
 import { chatService, partnersService, memoryService } from '@/services'
 
+// メッセージコンポーネントをメモ化 - プロパティ比較関数追加
+const MessageItem = memo(({ message, partner, formatTime }: {
+  message: Message
+  partner: Partner | null
+  formatTime: (date: Date) => string
+}) => {
+  return (
+    <div
+      className={`flex ${message.sender === MessageSender.USER ? 'justify-end' : 'justify-start'} animate-fade-in`}
+    >
+      {message.sender === MessageSender.PARTNER && partner && (
+        <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-200 mr-1 md:mr-2 flex-shrink-0 overflow-hidden">
+          {partner.appearance?.generatedImageUrl ? (
+            <img 
+              src={partner.appearance.generatedImageUrl} 
+              alt={partner.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+              <span className="text-white font-bold text-xs">
+                {partner.name.charAt(0)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      
+      <div className={`max-w-[85%] md:max-w-[70%]`}>
+        <div
+          className={`
+            px-3 py-2 md:px-4 md:py-3 rounded-2xl text-sm md:text-base
+            ${message.sender === MessageSender.USER 
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+              : 'bg-white text-gray-800 shadow-md border border-gray-100'
+            }
+          `}
+        >
+          {message.context?.imageUrl ? (
+            <div>
+              <img 
+                src={message.context.imageUrl} 
+                alt="Generated" 
+                className="rounded-lg mb-2 max-w-full w-full max-w-xs"
+                onError={(e) => {
+                  console.error('画像読み込みエラー:', message.context?.imageUrl);
+                  if (e.currentTarget.src !== 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTBlMGUwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIE5vdCBGb3VuZDwvdGV4dD4KPC9zdmc+') {
+                    e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZTBlMGUwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIE5vdCBGb3VuZDwvdGV4dD4KPC9zdmc+';
+                  }
+                }}
+              />
+              <p>{message.content}</p>
+            </div>
+          ) : (
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          )}
+        </div>
+        <p className={`
+          text-xs text-gray-500 mt-1
+          ${message.sender === MessageSender.USER ? 'text-right' : 'text-left'}
+        `}>
+          {formatTime(message.createdAt)}
+        </p>
+      </div>
+    </div>
+  )
+}, (prevProps, nextProps) => {
+  // カスタム比較関数でプロパティの変更を正確に検知
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.sender === nextProps.message.sender &&
+    prevProps.partner?.id === nextProps.partner?.id &&
+    prevProps.partner?.name === nextProps.partner?.name &&
+    prevProps.partner?.appearance?.generatedImageUrl === nextProps.partner?.appearance?.generatedImageUrl
+  )
+})
+
+MessageItem.displayName = 'MessageItem'
+
+// formatTime関数を外に移動
+const formatTime = (date: Date) => {
+  return new Date(date).toLocaleTimeString('ja-JP', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+}
+
 export default function HomePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { 
     currentBackground, 
     getCurrentBackgroundStyle, 
-    cycleThroughBackgrounds,
     isLoading: isLoadingBackground 
   } = useBackground()
   const { currentLocation } = useLocation()
+  const { partner, relationshipMetrics, isLoading: isLoadingRelationship, error: relationshipError, updateIntimacyLevel, refreshMetrics, clearError } = useRelationshipMetrics()
+  
   const { changeBackgroundForLocation } = useLocationBackground()
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const [partner, setPartner] = useState<Partner | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [relationshipMetrics, setRelationshipMetrics] = useState<RelationshipMetrics | null>(null)
-  const [loadingMetrics, setLoadingMetrics] = useState(false)
+  const [hasLoadedMessages, setHasLoadedMessages] = useState(false)
   const [previousMetrics, setPreviousMetrics] = useState<RelationshipMetrics | null>(null)
   const [metricsChanges, setMetricsChanges] = useState<{intimacy?: number} | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -49,11 +137,6 @@ export default function HomePage() {
   const [continuousTopics, setContinuousTopics] = useState<ContinuousTopic[]>([])
   const [loadingTopics, setLoadingTopics] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [showMemoryDialog, setShowMemoryDialog] = useState(false)
-  const [selectedMessages, setSelectedMessages] = useState<Message[]>([])
-  const [memoryTitle, setMemoryTitle] = useState('')
-  const [memoryDescription, setMemoryDescription] = useState('')
-  const [savingMemory, setSavingMemory] = useState(false)
   const [showLocationSelector, setShowLocationSelector] = useState(false)
   
   // AI主導エンゲージメント機能のstate
@@ -76,8 +159,17 @@ export default function HomePage() {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // モックインジケーター表示は layout.tsx で処理
+
+  // 親密度の変更を監視
+  useEffect(() => {
+    console.log('[Home] relationshipMetrics変更検知:', {
+      intimacyLevel: relationshipMetrics?.intimacyLevel,
+      partnerId: relationshipMetrics?.partnerId
+    })
+  }, [relationshipMetrics?.intimacyLevel])
 
   // メニューの外側クリックを検知
   useEffect(() => {
@@ -93,199 +185,88 @@ export default function HomePage() {
     }
   }, [])
 
-  // パートナーとメッセージの取得
+  const loadMessages = useCallback(async () => {
+    if (!user || !partner) return
+
+    console.log('[DEBUG] loadMessages開始')
+
+    // 既存のリクエストをキャンセル
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // 新しいAbortControllerを作成
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    try {
+      const messagesResponse = await chatService.getMessages({
+        partnerId: partner.id,
+        page: 1,
+        limit: 50
+      })
+      
+      console.log('[DEBUG] APIレスポンス受信:', messagesResponse.success)
+      console.log('[DEBUG] controller.signal.aborted:', controller.signal.aborted)
+      console.log('[DEBUG] abortControllerRef.current === controller:', abortControllerRef.current === controller)
+      
+      if (messagesResponse.success && messagesResponse.data) {
+        const responseData = messagesResponse.data as MessageListResponse
+        const fetchedMessages = responseData.messages || []
+        console.log('[DEBUG] メッセージ数:', fetchedMessages.length)
+        console.log('[DEBUG] 最初のメッセージ:', fetchedMessages[0])
+        setMessages(Array.isArray(fetchedMessages) ? fetchedMessages : [])
+        
+        // 継続話題は初回読み込み時のみ（後で非同期で読み込む）
+        if (fetchedMessages.length > 0) {
+          setTimeout(() => {
+            loadContinuousTopics(partner.id)
+          }, 100)
+        }
+      } else {
+        setMessages([])
+      }
+      
+    } catch (error) {
+      console.log('[DEBUG] エラー発生:', error)
+      if (!controller.signal.aborted) {
+        setMessages([])
+      }
+    } finally {
+      console.log('[DEBUG] finally実行 - aborted:', controller.signal.aborted)
+      // 現在のコントローラーがまだアクティブな場合のみローディングを解除
+      if (abortControllerRef.current === controller) {
+        console.log('[DEBUG] setLoading(false)実行')
+        setLoading(false)
+      }
+    }
+  }, [user, partner])
+
+  // メッセージの取得
   useEffect(() => {
-    console.log('[HOME PAGE] useEffect triggered, user:', user)
-    console.log('[HOME PAGE] User ID:', user?.id)
-    console.log('[HOME PAGE] User authenticated:', !!user)
+    console.log('[DEBUG] useEffect実行: user=', !!user, 'partner=', !!partner, 'hasLoadedMessages=', hasLoadedMessages)
     
     if (!user) {
-      console.log('[HOME PAGE] No user found, redirecting to login')
       router.push('/login')
       return
     }
 
-    loadPartnerAndMessages()
-  }, [user])
-
-  // AI主導エンゲージメント: 質問タイミングチェック
-  useEffect(() => {
-    if (!partner) return
-
-    // 初回チェック
-    checkIfShouldAskQuestion()
-
-    // 5分ごとにチェック
-    const interval = setInterval(() => {
-      checkIfShouldAskQuestion()
-    }, 5 * 60 * 1000)
-
-    return () => clearInterval(interval)
-  }, [partner, messages])
-
-  const loadPartnerAndMessages = async () => {
-    if (!user) return
-
-    try {
-      // パートナー情報を取得
-      const partnersResponse = await partnersService.getPartner()
-      console.log('Partner response:', partnersResponse)
-      console.log('partnersResponse.success:', partnersResponse.success)
-      console.log('partnersResponse.data:', partnersResponse.data)
-      console.log('partnersResponse.data !== null:', partnersResponse.data !== null)
-      
-      if (partnersResponse.success && partnersResponse.data !== null && partnersResponse.data !== undefined) {
-        const partnerData = partnersResponse.data
-        setPartner(partnerData)
-        console.log('Partner data (should be actual partner):', partnerData)
-
-        // partnerId が undefined でないことを確認
-        if (!partnerData.id) {
-          console.error('Partner ID is undefined:', partnerData)
-          return
-        }
-
-        // メッセージ履歴を取得
-        console.log('[MESSAGE RESTORE] Fetching messages for partner:', partnerData.id)
-        console.log('[MESSAGE RESTORE] API call starting...')
-        
-        const messagesResponse = await chatService.getMessages({
-          partnerId: partnerData.id,
-          page: 1,
-          limit: 50
-        })
-        
-        console.log('[MESSAGE RESTORE] API Response:', messagesResponse)
-        console.log('[MESSAGE RESTORE] Response Success:', messagesResponse.success)
-        console.log('[MESSAGE RESTORE] Response Data:', messagesResponse.data)
-        console.log('[MESSAGE RESTORE] Response Error:', messagesResponse.error)
-        
-        if (messagesResponse.success && messagesResponse.data) {
-          // 型安全な方法でメッセージを取得
-          const responseData = messagesResponse.data as MessageListResponse
-          const fetchedMessages = responseData.messages || []
-          
-          console.log('[MESSAGE RESTORE] Response data structure:', responseData)
-          console.log('[MESSAGE RESTORE] 取得したメッセージ:', fetchedMessages)
-          console.log('[MESSAGE RESTORE] メッセージ数:', fetchedMessages?.length)
-          console.log('[MESSAGE RESTORE] メッセージが配列か確認:', Array.isArray(fetchedMessages))
-          
-          setMessages(Array.isArray(fetchedMessages) ? fetchedMessages : [])
-        } else {
-          console.error('[MESSAGE RESTORE] メッセージ取得失敗')
-          console.error('[MESSAGE RESTORE] Error details:', messagesResponse.error)
-          setMessages([])
-        }
-
-        // 関係性メトリクスを取得
-        console.log('Loading relationship metrics for partner:', partnerData.id)
-        loadRelationshipMetrics(partnerData.id)
-        
-        // 継続話題を取得
-        console.log('Loading continuous topics for partner:', partnerData.id)
-        loadContinuousTopics(partnerData.id)
-      } else {
-        // パートナーがいない場合はオンボーディングへ
-        console.log('No partner found, redirecting to onboarding...')
-        router.push('/onboarding')
-      }
-    } catch (error) {
-      console.error('データの取得に失敗しました:', error)
-    } finally {
-      setLoading(false)
+    if (partner && !hasLoadedMessages) {
+      console.log('[DEBUG] useEffect: メッセージ読み込み開始')
+      loadMessages()
+      setHasLoadedMessages(true)
     }
-  }
 
-  // 関係性メトリクス取得
-  const loadRelationshipMetrics = async (partnerId: string, showChanges: boolean = false) => {
-    if (!partnerId) {
-      console.error('PartnerId is undefined in loadRelationshipMetrics')
-      return
-    }
-    
-    try {
-      setLoadingMetrics(true)
-      console.log('Calling getRelationshipMetrics with partnerId:', partnerId)
-      
-      // 前回の値を保存（変化表示用）
-      if (showChanges && relationshipMetrics) {
-        setPreviousMetrics(relationshipMetrics)
+    // クリーンアップ: コンポーネントアンマウント時にリクエストをキャンセル
+    return () => {
+      console.log('[DEBUG] useEffect: クリーンアップ実行')
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
-      
-      // 実際のAPIを呼び出し
-      const response = await memoryService.getRelationshipMetrics(partnerId)
-      console.log('[METRICS DEBUG] API Response:', response)
-      console.log('[METRICS DEBUG] Response Success:', response.success)
-      console.log('[METRICS DEBUG] Response Data:', response.data)
-      console.log('[METRICS DEBUG] Response Data Keys:', response.data ? Object.keys(response.data) : 'no data')
-      
-      if (response.success && response.data) {
-        // 二重ネスト対応: APIレスポンス構造を確認
-        let newMetrics = null
-        
-        // MemoryService形式のレスポンスをチェック
-        const responseData = response.data as any
-        if (responseData.current && responseData.current.intimacyLevel !== undefined) {
-          // response.data.current形式
-          newMetrics = responseData.current as RelationshipMetrics
-          console.log('[METRICS DEBUG] Using response.data.current:', newMetrics)
-        } else if (responseData.intimacyLevel !== undefined) {
-          // 直接RelationshipMetrics形式
-          newMetrics = responseData as RelationshipMetrics
-          console.log('[METRICS DEBUG] Using response.data as RelationshipMetrics:', newMetrics)
-        } else {
-          console.error('[METRICS DEBUG] Invalid response structure:', response.data)
-          newMetrics = null
-        }
-        
-        console.log('[METRICS DEBUG] Final processed metrics:', newMetrics)
-        console.log('[METRICS DEBUG] newMetrics.intimacyLevel:', newMetrics?.intimacyLevel)
-        
-        // 変化を計算
-        if (showChanges && relationshipMetrics && newMetrics) {
-          const changes = {
-            intimacy: newMetrics.intimacyLevel - relationshipMetrics.intimacyLevel
-          }
-          
-          // 変化があった場合のみ表示
-          if (changes.intimacy !== 0) {
-            setMetricsChanges(changes)
-            // 3秒後に変化表示をクリア
-            setTimeout(() => setMetricsChanges(null), 3000)
-          }
-        }
-        
-        console.log('[METRICS DEBUG] Setting new metrics:', newMetrics)
-        if (newMetrics && newMetrics.intimacyLevel !== undefined) {
-          console.log('[METRICS DEBUG] About to call setRelationshipMetrics with valid metrics:', newMetrics)
-          setRelationshipMetrics(newMetrics)
-          console.log('[METRICS DEBUG] setRelationshipMetrics called successfully')
-        } else {
-          console.error('[METRICS DEBUG] Invalid metrics data, not setting state:', newMetrics)
-          console.log('[METRICS DEBUG] Will use fallback data')
-          // フォールバックへ
-        }
-      } else {
-        console.error('関係性メトリクスAPI呼び出し失敗:', response.error)
-        console.log('[METRICS DEBUG] Using fallback mock data')
-        // フォールバック: モックデータを使用
-        const mockMetrics = {
-          id: partnerId,
-          partnerId: partnerId,
-          intimacyLevel: 85,
-          conversationFrequency: 0,
-          lastInteraction: new Date(),
-          sharedMemories: 0
-        }
-        console.log('[METRICS DEBUG] Mock metrics:', mockMetrics)
-        setRelationshipMetrics(mockMetrics)
-      }
-    } catch (error) {
-      console.error('関係性メトリクスの取得に失敗しました:', error)
-    } finally {
-      setLoadingMetrics(false)
     }
-  }
+  }, [user, partner, hasLoadedMessages])
+
+  // 関係性メトリクスはRelationshipMetricsContextで管理
 
   // 会話要約作成
   const createConversationSummary = async (partnerId: string, recentMessages: Message[]) => {
@@ -310,7 +291,7 @@ export default function HomePage() {
       if (response.success) {
         console.log('会話要約が作成されました:', response.data)
         // 関係性メトリクスを更新（要約により共有メモリが増える可能性）
-        loadRelationshipMetrics(partnerId)
+        refreshMetrics()
       }
     } catch (error) {
       console.error('会話要約の作成に失敗しました:', error)
@@ -345,52 +326,27 @@ export default function HomePage() {
     }
   }
 
-  // 継続話題取得
-  const loadContinuousTopics = async (partnerId: string) => {
-    if (!partnerId) {
-      console.error('PartnerId is undefined in loadContinuousTopics')
-      return
-    }
+  // 継続話題取得 - 軽量化
+  const loadContinuousTopics = useCallback(async (partnerId: string) => {
+    if (!partnerId) return
     
     try {
       setLoadingTopics(true)
-      console.log('Calling getContinuousTopics with partnerId:', partnerId)
-      
-      // 実際のAPIを呼び出し
       const response = await memoryService.getContinuousTopics(partnerId)
       if (response.success && response.data) {
         setContinuousTopics(response.data)
       } else {
-        console.error('継続話題API呼び出し失敗:', response.error)
-        // フォールバック: モックデータを使用
-        const mockTopics = [
-          {
-            id: 'topic-1',
-            partnerId: partnerId,
-            topic: '趣味について',
-            relatedPeople: [],
-            status: 'active' as const,
-            emotionalWeight: 0.7,
-            updates: [
-              {
-                date: new Date(),
-                content: '初回の会話で趣味について話しました'
-              }
-            ],
-            nextCheckIn: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 1週間後
-          }
-        ]
-        setContinuousTopics(mockTopics)
+        setContinuousTopics([]) // モックデータは削除して軽量化
       }
     } catch (error) {
-      console.error('継続話題の取得に失敗しました:', error)
+      setContinuousTopics([])
     } finally {
       setLoadingTopics(false)
     }
-  }
+  }, [])
 
-  // メッセージ送信
-  const sendMessage = async () => {
+  // メッセージ送信 - useCallbackで最適化
+  const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !partner || sending) return
 
     const userMessage: Message = {
@@ -401,17 +357,12 @@ export default function HomePage() {
       createdAt: new Date(),
       updatedAt: new Date()
     }
-
-    console.log('🔍 [DEBUG] メッセージ送信開始')
-    console.log('🔍 [DEBUG] 送信前のmessages状態:', messages)
-    console.log('🔍 [DEBUG] 追加するuserMessage:', userMessage)
-    console.log('🔍 [DEBUG] partner.id:', partner.id)
     
-    // ユーザーメッセージを即座に画面に追加
-    setMessages(prev => {
-      const currentMessages = Array.isArray(prev) ? prev : []
-      return [...currentMessages, userMessage]
-    })
+    // state更新をバッチ化
+    setMessages(prev => [...(Array.isArray(prev) ? prev : []), userMessage])
+    setInputMessage('')
+    setSending(true)
+    setIsTyping(true)
     
     // AIからの質問に対する回答の場合、メモリ抽出を実行
     if (lastAIQuestion?.metadata?.isProactiveQuestion) {
@@ -422,163 +373,75 @@ export default function HomePage() {
       )
       setLastAIQuestion(null) // リセット
     }
-    
-    setInputMessage('')
-    setSending(true)
-    setIsTyping(true)
 
     try {
-      // メッセージ履歴を軽量化（最新3件のみ、必要な情報のみ）
-      const lightMessages = messages ? messages.slice(-3).map(msg => ({
-        content: msg.content.length > 200 ? msg.content.substring(0, 200) + '...' : msg.content,
-        sender: msg.sender,
-        emotion: msg.emotion
-      })) : []
-
       const request: SendMessageRequest = {
         partnerId: partner.id,
         message: userMessage.content,
         context: {
           intimacyLevel: partner.intimacyLevel,
-          lastMessages: lightMessages
-        }
+          lastMessages: [] // 軽量化のため空配列に
+        },
+        locationId: currentLocation?.id
       }
 
-      console.log('🔍 [DEBUG] API送信リクエスト:', request)
       const response = await chatService.sendMessage(request)
-      console.log('🔍 [DEBUG] API応答全体:', response)
-      console.log('🔍 [DEBUG] response.success:', response.success)
-      console.log('🔍 [DEBUG] response.data:', response.data)
-      
-      // 型安全な方法でレスポンスを処理
       const actualData = response.data as ChatMessageResponse
-      console.log('🔍 [DEBUG] actualData:', actualData)
       
       if (response.success && actualData) {
-        setIsTyping(false)
-        
-        // AIの返答を追加
         const newMessages = actualData?.newMessages
-        console.log('🔍 [DEBUG] newMessages:', newMessages)
-        console.log('🔍 [DEBUG] newMessages is array:', Array.isArray(newMessages))
         
         if (newMessages && Array.isArray(newMessages)) {
-          // APIレスポンスからAIメッセージのみを抽出（ユーザーメッセージは既に追加済み）
+          // APIレスポンスからAIメッセージのみを抽出
           const aiMessages = newMessages.filter(msg => msg.sender === MessageSender.PARTNER)
-          console.log('🔍 [DEBUG] AIメッセージのみ抽出:', aiMessages)
           
-          setMessages(prev => {
-            console.log('🔍 [DEBUG] AIメッセージ追加時のprev:', prev)
-            const currentMessages = Array.isArray(prev) ? prev : []
-            const updatedMessages = [...currentMessages, ...aiMessages]
-            console.log('🔍 [DEBUG] AIメッセージ追加後の状態:', updatedMessages)
-            return updatedMessages
-          })
+          // state更新をバッチ化
+          setIsTyping(false)
+          setMessages(prev => [...(Array.isArray(prev) ? prev : []), ...aiMessages])
         } else {
-          console.error('❌ [ERROR] newMessagesが配列ではない:', newMessages)
-          console.log('🔍 [DEBUG] APIレスポンス構造を確認してください')
+          setIsTyping(false)
         }
 
-        // 親密度を更新
+        // 親密度を更新（即座に実行してUIに反映）
         if (actualData?.intimacyLevel !== undefined && actualData.intimacyLevel !== partner?.intimacyLevel) {
-          setPartner(prev => prev ? { ...prev, intimacyLevel: actualData.intimacyLevel } : null)
-          // 関係性メトリクスも更新（変化を表示）
-          if (partner) {
-            loadRelationshipMetrics(partner.id, true)
-          }
+          console.log('[Home] 親密度更新検知:', {
+            current: partner?.intimacyLevel,
+            new: actualData.intimacyLevel,
+            change: actualData.intimacyLevel - (partner?.intimacyLevel || 0)
+          })
+          // RelationshipMetricsContext経由で親密度を即座に更新
+          updateIntimacyLevel(actualData.intimacyLevel)
         }
 
-        // 長時間会話の場合は要約を作成
-        if (newMessages && Array.isArray(newMessages)) {
-          setTimeout(() => {
-            setMessages(currentMessages => {
-              console.log('🔍 [DEBUG] 要約作成時のcurrentMessages長さ:', currentMessages.length)
-              
-              if (currentMessages.length > 0 && currentMessages.length % 20 === 0) {
-                createConversationSummary(partner.id, currentMessages.slice(-20))
-              }
-              
-              return currentMessages // 状態は変更せず、要約作成のみ
-            })
-          }, 100) // メッセージ追加後に実行
-        }
+        // 要約作成は軽量化のため一時的に無効化
+        // if (messages.length % 20 === 0) {
+        //   createConversationSummary(partner.id, messages.slice(-20))
+        // }
       } else {
-        console.error('❌ [ERROR] API応答が失敗:', response.error)
         setIsTyping(false)
       }
     } catch (error) {
-      console.error('❌ [ERROR] メッセージ送信エラー:', error)
       setIsTyping(false)
     } finally {
       setSending(false)
     }
-  }
+  }, [inputMessage, partner, sending, lastAIQuestion])
 
-  // スクロールを最下部に
+  // スクロールを最下部に - 軽量化
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }, [messages])
 
-  // 思い出として保存
-  const saveAsMemory = async () => {
-    if (!partner || selectedMessages.length === 0) return
-
-    setSavingMemory(true)
-    try {
-      // 選択されたメッセージのIDを取得
-      const messageIds = selectedMessages
-        .filter(msg => msg.id && msg.id.trim() !== '')
-        .map(msg => msg.id)
-
-      if (messageIds.length === 0) {
-        alert('保存するメッセージを選択してください')
-        return
-      }
-
-      // メモリ要約APIを呼び出し（エピソードメモリを作成）
-      const response = await memoryService.createSummary({
-        partnerId: partner.id,
-        messageIds,
-        summaryType: 'episode',
-        episodeTitle: memoryTitle,
-        episodeDescription: memoryDescription
-      })
-
-      if (response.success) {
-        // 成功メッセージ
-        alert('思い出として保存されました！')
-        
-        // ダイアログを閉じる
-        setShowMemoryDialog(false)
-        setSelectedMessages([])
-        setMemoryTitle('')
-        setMemoryDescription('')
-        
-        // 共有メモリ数を更新
-        loadRelationshipMetrics(partner.id)
-      } else {
-        alert('保存に失敗しました: ' + response.error)
-      }
-    } catch (error) {
-      console.error('思い出の保存エラー:', error)
-      alert('思い出の保存中にエラーが発生しました')
-    } finally {
-      setSavingMemory(false)
-    }
-  }
 
   // AI主導エンゲージメント: 質問タイミングチェック関数
-  const checkIfShouldAskQuestion = async () => {
+  const checkIfShouldAskQuestion = useCallback(async () => {
     if (!partner || isTyping) return
 
     try {
-      // 最後のメッセージからの経過時間を計算
-      const lastMessage = messages[messages.length - 1]
-      const silenceDuration = lastMessage 
-        ? Math.floor((Date.now() - new Date(lastMessage.createdAt).getTime()) / (1000 * 60))
-        : 0
+      // silenceDurationは簡略化（常に0として扱う）
+      const silenceDuration = 0
 
       const now = new Date()
       const response = await chatService.shouldAskQuestion({
@@ -609,7 +472,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('質問タイミングチェックエラー:', error)
     }
-  }
+  }, [partner, isTyping])
 
   // AI主導エンゲージメント: AI主導質問の生成と送信
   const generateAndSendProactiveQuestion = async (questionType?: string) => {
@@ -622,7 +485,7 @@ export default function HomePage() {
         partnerId: partner.id,
         currentIntimacy: partner.intimacyLevel,
         lastInteractionContext: {
-          topic: messages.slice(-5).map(m => m.content).join(' '),
+          topic: '', // 軽量化のため空文字
           depth: 'medium',
           emotionalTone: 'neutral'
         }
@@ -682,7 +545,8 @@ export default function HomePage() {
           const intimacyUpdate = response.data.intimacyUpdate
           const intimacyChange = intimacyUpdate.after - intimacyUpdate.before
           
-          setPartner(prev => prev ? { ...prev, intimacyLevel: intimacyUpdate.after } : null)
+          // RelationshipMetricsContext経由で親密度を更新
+          updateIntimacyLevel(intimacyUpdate.after)
           
           // 親密度変化のアニメーション表示
           showIntimacyChange(intimacyChange)
@@ -728,62 +592,70 @@ export default function HomePage() {
       const response = await chatService.generateImage(
         partner.id,
         '君を思って作った画像',
-        'happy'
+        'happy',
+        currentLocation?.id // 現在の場所IDを渡す
       )
 
-      console.log('🎨 [画像生成] API応答:', response)
-      console.log('🎨 [画像生成] response全体:', JSON.stringify(response, null, 2))
-      console.log('🎨 [画像生成] response.data:', response.data)
-      console.log('🎨 [画像生成] response.data?.imageUrl:', response.data?.imageUrl)
 
       if (response.success && response.data?.imageUrl) {
+        // 画像メッセージを直接追加（再読み込み不要）
         const imageMessage: Message = {
-          id: `img-${Date.now()}`,
+          id: `image-${Date.now()}`,
           partnerId: partner.id,
-          content: `君のこと思って、こんな画像を作ってみたよ💕`,
+          content: '君を思って作った画像',
           sender: MessageSender.PARTNER,
-          emotion: 'happy',
-          context: {
-            imageUrl: response.data.imageUrl,
-            isGenerated: true
-          },
+          context: { imageUrl: response.data.imageUrl },
           createdAt: new Date(),
           updatedAt: new Date()
         }
-
-        console.log('🎨 [画像生成] 作成したメッセージ:', imageMessage)
-        console.log('🎨 [画像生成] context.imageUrl:', imageMessage.context?.imageUrl)
-
-        setMessages(prev => {
-          const currentMessages = Array.isArray(prev) ? prev : []
-          return [...currentMessages, imageMessage]
-        })
+        setMessages(prev => [...(Array.isArray(prev) ? prev : []), imageMessage])
       } else {
-        console.error('🎨 [画像生成] エラー: レスポンスに画像URLが含まれていません', response)
-        alert('画像生成に失敗しました。しばらく時間をおいてからお試しください。')
+        alert('画像生成に失敗しました。')
       }
     } catch (error) {
-      console.error('🎨 [画像生成] エラー:', error)
       alert('画像生成中にエラーが発生しました。')
     } finally {
       setIsTyping(false)
     }
   }
 
-  // 現在時刻の取得
-  const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString('ja-JP', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
+
+  // エラー表示
+  if (relationshipError && !isLoadingRelationship) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-purple-100 to-pink-100">
+        <div className="text-center">
+          <div className="mb-4">
+            <span className="text-red-500 text-4xl">⚠️</span>
+          </div>
+          <p className="text-red-600 mb-4">{relationshipError}</p>
+          <button
+            onClick={() => {
+              clearError()
+              window.location.reload()
+            }}
+            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full hover:opacity-90 transition-opacity"
+          >
+            再試行
+          </button>
+        </div>
+      </div>
+    )
   }
 
-  if (loading) {
+  if (loading || isLoadingRelationship) {
+    console.log('[DEBUG] Loading state:', { loading, isLoadingRelationship, hasLoadedMessages, partner: !!partner })
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-purple-100 to-pink-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">読み込み中...</p>
+          <p className="text-xs text-gray-500 mt-2">
+            loading: {String(loading)}, isLoadingRelationship: {String(isLoadingRelationship)}
+          </p>
+          {relationshipError && (
+            <p className="text-red-500 text-sm mt-2">データ読み込み中に問題が発生しました</p>
+          )}
         </div>
       </div>
     )
@@ -839,9 +711,17 @@ export default function HomePage() {
               <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm opacity-90">
                 <span className="text-green-400 text-xs animate-pulse">●</span>
                 <span className="hidden sm:inline">会話中</span>
+                {currentLocation && (
+                  <span className="ml-1 md:ml-2 px-1 md:px-2 py-1 bg-white/20 rounded-full text-xs flex items-center gap-1">
+                    <span>📍</span>
+                    <span className="hidden sm:inline">{currentLocation.name}</span>
+                    <span className="sm:hidden">{currentLocation.name.slice(0, 5)}...</span>
+                  </span>
+                )}
                 {relationshipMetrics && (
                   <span className="ml-1 md:ml-2 px-1 md:px-2 py-1 bg-white/20 rounded-full text-xs">
                     <span className="hidden sm:inline">親密度 </span>{relationshipMetrics.intimacyLevel}%
+                    {console.log('[Home] 親密度表示レンダリング:', relationshipMetrics.intimacyLevel)}
                   </span>
                 )}
               </div>
@@ -856,40 +736,6 @@ export default function HomePage() {
               title="場所変更"
             >
               📍
-            </button>
-            <button
-              onClick={() => {
-                console.log('🎨 [背景変更] ボタンがクリックされました')
-                console.log('🎨 [背景変更] isLoadingBackground:', isLoadingBackground)
-                console.log('🎨 [背景変更] currentBackground:', currentBackground)
-                console.log('🎨 [背景変更] cycleThroughBackgrounds function:', cycleThroughBackgrounds)
-                console.log('🎨 [背景変更] 関数呼び出し開始...')
-                cycleThroughBackgrounds()
-                  .then(() => {
-                    console.log('🎨 [背景変更] 関数呼び出し完了')
-                  })
-                  .catch((error) => {
-                    console.error('🎨 [背景変更] エラー:', error)
-                  })
-              }}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
-              title="背景変更"
-              disabled={isLoadingBackground}
-            >
-              🎨
-            </button>
-            <button
-              onClick={() => {
-                // 最新の10メッセージを自動選択
-                const recentMessages = messages.slice(-10)
-                setSelectedMessages(recentMessages)
-                setShowMemoryDialog(true)
-              }}
-              className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors text-sm md:text-base"
-              title="思い出を作成"
-              disabled={messages.length === 0}
-            >
-              💝
             </button>
             <button
               onClick={generateImage}
@@ -944,63 +790,12 @@ export default function HomePage() {
         >
           <div className="max-w-none md:max-w-3xl mx-auto space-y-3 md:space-y-4">
           {messages && Array.isArray(messages) && messages.length > 0 ? messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender === MessageSender.USER ? 'justify-end' : 'justify-start'} animate-fade-in`}
-            >
-              {message.sender === MessageSender.PARTNER && partner && (
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-purple-200 mr-1 md:mr-2 flex-shrink-0 overflow-hidden">
-                  {partner.appearance?.generatedImageUrl ? (
-                    <img 
-                      src={partner.appearance.generatedImageUrl} 
-                      alt={partner.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                      <span className="text-white font-bold text-xs">
-                        {partner.name.charAt(0)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              <div className={`max-w-[85%] md:max-w-[70%]`}>
-                <div
-                  className={`
-                    px-3 py-2 md:px-4 md:py-3 rounded-2xl shadow-sm text-sm md:text-base
-                    ${message.sender === MessageSender.USER 
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white' 
-                      : 'bg-gray-100 text-gray-800'
-                    }
-                  `}
-                >
-                  {message.context?.imageUrl ? (
-                    <div>
-                      <img 
-                        src={message.context.imageUrl} 
-                        alt="Generated" 
-                        className="rounded-lg mb-2 max-w-full w-full max-w-xs"
-                        onError={(e) => {
-                          console.error('画像読み込みエラー:', message.context?.imageUrl);
-                          e.currentTarget.src = '/images/placeholder.jpg'; // フォールバック画像
-                        }}
-                      />
-                      <p>{message.content}</p>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  )}
-                </div>
-                <p className={`
-                  text-xs text-gray-500 mt-1
-                  ${message.sender === MessageSender.USER ? 'text-right' : 'text-left'}
-                `}>
-                  {formatTime(message.createdAt)}
-                </p>
-              </div>
-            </div>
+            <MessageItem 
+              key={message.id} 
+              message={message} 
+              partner={partner} 
+              formatTime={formatTime}
+            />
           )) : (
             <div className="text-center py-8">
               <p className="text-gray-500">まだメッセージがありません。最初のメッセージを送信してみましょう！</p>
@@ -1025,7 +820,7 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
-              <div className="bg-gray-100 px-3 py-2 md:px-4 md:py-3 rounded-2xl">
+              <div className="bg-white px-3 py-2 md:px-4 md:py-3 rounded-2xl shadow-md border border-gray-100">
                 <div className="flex gap-1">
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
@@ -1045,7 +840,7 @@ export default function HomePage() {
               関係性
             </h3>
             
-            {loadingMetrics ? (
+            {isLoadingRelationship ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
                 <p className="text-gray-500 text-sm">読み込み中...</p>
@@ -1078,7 +873,7 @@ export default function HomePage() {
                     {(relationshipMetrics?.intimacyLevel ?? 0) < 20 ? '👋 知り合い' :
                      (relationshipMetrics?.intimacyLevel ?? 0) < 40 ? '🤝 友達' :
                      (relationshipMetrics?.intimacyLevel ?? 0) < 60 ? '💕 親しい関係' :
-                     (relationshipMetrics?.intimacyLevel ?? 0) < 80 ? '💖 恋人' : '💑 深い絆'}
+                     (relationshipMetrics?.intimacyLevel ?? 0) < 80 ? '💖 恋人' : '💑 唯一無二の存在'}
                   </div>
                 </div>
 
@@ -1087,7 +882,7 @@ export default function HomePage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
                     📊 統計情報
                     <button
-                      onClick={() => partner && loadRelationshipMetrics(partner.id)}
+                      onClick={() => refreshMetrics()}
                       className="ml-auto text-xs text-purple-600 hover:text-purple-700"
                       title="統計を更新"
                     >
@@ -1123,7 +918,7 @@ export default function HomePage() {
                         {(relationshipMetrics?.intimacyLevel ?? 0) < 20 ? '初対面' :
                          (relationshipMetrics?.intimacyLevel ?? 0) < 40 ? '友人関係' :
                          (relationshipMetrics?.intimacyLevel ?? 0) < 60 ? '親密な関係' :
-                         (relationshipMetrics?.intimacyLevel ?? 0) < 80 ? '恋人関係' : 'パートナー'}
+                         (relationshipMetrics?.intimacyLevel ?? 0) < 80 ? '恋人関係' : '唯一無二の存在'}
                       </span>
                     </div>
                   </div>
@@ -1131,7 +926,7 @@ export default function HomePage() {
 
                 {/* 更新ボタン */}
                 <button
-                  onClick={() => partner && loadRelationshipMetrics(partner.id)}
+                  onClick={() => refreshMetrics()}
                   className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-4 rounded-lg hover:opacity-90 transition-opacity text-sm"
                 >
                   🔄 メトリクス更新
@@ -1331,100 +1126,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 思い出作成ダイアログ */}
-      {showMemoryDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center">
-                <span className="mr-2">💝</span>
-                思い出を作成
-              </h2>
-              
-              {/* タイトル入力 */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  タイトル
-                </label>
-                <input
-                  type="text"
-                  value={memoryTitle}
-                  onChange={(e) => setMemoryTitle(e.target.value)}
-                  placeholder="例: 初めてのデート計画"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  maxLength={50}
-                />
-              </div>
-              
-              {/* 説明入力 */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  思い出の説明
-                </label>
-                <textarea
-                  value={memoryDescription}
-                  onChange={(e) => setMemoryDescription(e.target.value)}
-                  placeholder="この会話の特別な瞬間について書いてください..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  rows={3}
-                  maxLength={200}
-                />
-              </div>
-              
-              {/* 選択されたメッセージのプレビュー */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  保存する会話（最新10件）
-                </label>
-                <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto text-sm">
-                  {selectedMessages.map((msg, index) => (
-                    <div key={msg.id || index} className="mb-2 last:mb-0">
-                      <span className={`font-medium ${
-                        msg.sender === MessageSender.USER ? 'text-purple-600' : 'text-pink-600'
-                      }`}>
-                        {msg.sender === MessageSender.USER ? 'あなた' : partner?.name}:
-                      </span>
-                      <span className="ml-2 text-gray-700">
-                        {msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* アクションボタン */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setShowMemoryDialog(false)
-                    setMemoryTitle('')
-                    setMemoryDescription('')
-                    setSelectedMessages([])
-                  }}
-                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  disabled={savingMemory}
-                >
-                  キャンセル
-                </button>
-                <button
-                  onClick={saveAsMemory}
-                  disabled={!memoryTitle.trim() || savingMemory}
-                  className={`px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {savingMemory ? (
-                    <span className="flex items-center">
-                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></span>
-                      保存中...
-                    </span>
-                  ) : (
-                    '思い出として保存'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 場所選択モーダル */}
       <LocationSelector

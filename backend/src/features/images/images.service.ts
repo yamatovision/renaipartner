@@ -94,14 +94,27 @@ export class ImagesService {
       }
 
       // プロンプト構築（場所連動対応）
+      console.log('[画像生成] プロンプト構築開始:', {
+        partnerId: request.partnerId,
+        requestPrompt: request.prompt,
+        context: request.context,
+        emotion: request.emotion,
+        background: request.background
+      });
       const finalPrompt = await this.buildLocationAwareChatPrompt(request, partner);
+      console.log('[画像生成] 最終プロンプト:', finalPrompt);
 
       // Leonardo AI API呼び出し（小サイズで高速化）
+      console.log('[画像生成] API呼び出し前の確認:', {
+        prompt: finalPrompt,
+        hasUndefined: finalPrompt.includes('undefined'),
+        promptLength: finalPrompt.length
+      });
       const imageUrl = await this.callLeonardoAPI({
         prompt: finalPrompt,
         modelId: request.modelId || LEONARDO_AI_CONSTRAINTS.ANIME_MODELS.DEFAULT_ANIME_MODEL,
         width: 512,
-        height: 512,
+        height: 768,
         guidanceScale: 5,
         numImages: 1,
       });
@@ -136,14 +149,15 @@ export class ImagesService {
    * アバター用プロンプトを構築
    */
   private async buildAvatarPrompt(request: ImageGenerationRequest, partner: Partner | null): Promise<string> {
-    let prompt = request.prompt;
+    // promptがundefinedまたは空の場合のデフォルト値を設定
+    let prompt = request.prompt || 'character portrait';
 
     // パートナー外見特徴を追加
     if (request.useAppearance && partner?.appearance) {
       const appearance = partner.appearance;
       const appearanceDetails = [
-        appearance.hairColor && `${appearance.hairColor} hair`,
-        appearance.hairStyle && `${appearance.hairStyle} hairstyle`,
+        (appearance.hairColor && appearance.hairStyle) && `${appearance.hairColor} ${appearance.hairStyle} hair`,
+        (!appearance.hairColor && appearance.hairStyle) && `${appearance.hairStyle} hair`,
         appearance.eyeColor && `${appearance.eyeColor} eyes`,
         appearance.bodyType && `${appearance.bodyType} body`,
       ].filter(Boolean).join(', ');
@@ -178,9 +192,91 @@ export class ImagesService {
    * 場所連動チャット用プロンプトを構築
    */
   private async buildLocationAwareChatPrompt(request: ImageGenerationRequest, partner: Partner): Promise<string> {
-    let prompt = `anime style ${request.prompt}`;
+    console.log('[画像生成] buildLocationAwareChatPrompt 開始:', {
+      requestPrompt: request.prompt,
+      locationId: request.locationId,
+      emotion: request.emotion,
+      intimacyLevel: partner.intimacyLevel
+    });
+    
+    // 1. 基本形 + 性別
+    const genderStr = partner.gender === 'boyfriend' ? 'young man' : 'young woman';
+    let prompt = `anime style ${genderStr}`;
+    
+    // 2. 外見特徴（髪色、髪型、目の色）
+    if (partner.appearance) {
+      const appearance = partner.appearance;
+      const appearancePrompts: string[] = [];
+      
+      if (appearance.hairColor && appearance.hairStyle) {
+        appearancePrompts.push(`${appearance.hairColor} ${appearance.hairStyle} hair`);
+      } else if (!appearance.hairColor && appearance.hairStyle) {
+        appearancePrompts.push(`${appearance.hairStyle} hair`);
+      } else if (appearance.hairColor && !appearance.hairStyle) {
+        appearancePrompts.push(`${appearance.hairColor} hair`);
+      }
+      if (appearance.eyeColor) {
+        appearancePrompts.push(`${appearance.eyeColor} eyes`);
+      }
+      
+      if (appearancePrompts.length > 0) {
+        prompt = `${prompt}, ${appearancePrompts.join(', ')}`;
+      }
+    }
+    
+    // 3. 性格（personality typeから抽出）
+    const personalityMap: { [key: string]: string } = {
+      'gentle': 'gentle',
+      'cool': 'cool',
+      'cheerful': 'cheerful',
+      'tsundere': 'tsundere',
+      'sweet': 'sweet',
+      'reliable': 'reliable',
+      'clingy': 'clingy',
+      'genius': 'genius',
+      'childhood': 'childhood friend',
+      'sports': 'sporty',
+      'artist': 'artistic',
+      'cooking': 'cooking enthusiast',
+      'mysterious': 'mysterious',
+      'prince': 'princely',
+      'otaku': 'otaku',
+      'younger': 'younger',
+      'band': 'band member'
+    };
+    const personalityPrompt = personalityMap[partner.personalityType] || partner.personalityType;
+    prompt = `${prompt}, ${personalityPrompt} personality`;
+    
+    // 4. 感情表現
+    if (request.emotion) {
+      const emotionMap: { [key: string]: string } = {
+        'happy': 'happy expression with warm expressive',
+        'sad': 'sad expression with gentle melancholic',
+        'excited': 'excited expression with energetic vibrant',
+        'calm': 'calm expression with peaceful serene',
+        'loving': 'loving expression with tender affectionate',
+        'amused': 'amused expression with playful cheerful',
+        'confused': 'confused expression with puzzled uncertain',
+        'curious': 'curious expression with interested attentive',
+        'frustrated': 'frustrated expression with troubled annoyed',
+        'neutral': 'neutral expression with relaxed natural',
+        'surprised': 'surprised expression with astonished wide-eyed'
+      };
+      const emotionPrompt = emotionMap[request.emotion] || `${request.emotion} expression`;
+      prompt = `${prompt}, ${emotionPrompt}`;
+    }
+    
+    // 5. 親密度による表現
+    const intimacyLevel = partner.intimacyLevel || 0;
+    if (intimacyLevel < 40) {
+      prompt = `${prompt}, polite respectful gaze, formal posture`;
+    } else if (intimacyLevel < 70) {
+      prompt = `${prompt}, direct friendly gaze, open comfortable posture`;
+    } else {
+      prompt = `${prompt}, loving intimate gaze, relaxed close posture`;
+    }
 
-    // 場所情報に基づく服装・背景要素の追加
+    // 6. 服装（場所に対応）
     if (request.locationId) {
       try {
         const location = await LocationsService.getLocationById(request.locationId);
@@ -191,42 +287,34 @@ export class ImagesService {
             gender: request.gender || partner.gender,
             season: request.season
           });
-
-          // 場所の背景要素を取得
-          const backgroundElements = ClothingPromptsService.getLocationBackgroundElements(
-            request.locationId,
-            location.timeOfDay || 'afternoon'
-          );
-
-          // プロンプトに場所要素を統合
-          prompt = `${prompt}, ${clothingPrompt.prompt}`;
-          if (!request.background) {
-            prompt = `${prompt}, ${backgroundElements}`;
-          }
-
-          console.log(`[画像生成] 場所連動プロンプト適用 - 場所: ${location.name}, 服装: ${location.clothing}, 季節調整: ${clothingPrompt.isSeasonallyAdjusted}`);
+          
+          // wearing 句として追加
+          prompt = `${prompt}, wearing ${clothingPrompt.prompt}`;
+          
+          // 7. 場所設定
+          prompt = `${prompt}, in ${request.locationId} setting`;
+          
+          console.log(`[画像生成] 場所連動プロンプト適用 - 場所: ${location.name}, 服装: ${location.clothing}`);
         }
       } catch (error) {
         console.error('[画像生成] 場所情報の取得に失敗:', error);
         // エラーが発生してもベース処理を継続
       }
     }
-
-    // 感情表現の追加
-    if (request.emotion) {
-      prompt = `${prompt}, ${request.emotion} mood`;
+    
+    // 8. 親密度による雰囲気
+    if (intimacyLevel < 40) {
+      prompt = `${prompt}, professional formal atmosphere`;
+    } else if (intimacyLevel < 70) {
+      prompt = `${prompt}, warm and trusting atmosphere`;
+    } else {
+      prompt = `${prompt}, intimate loving atmosphere`;
     }
 
-    // 明示的な背景指定がある場合は優先
-    if (request.background) {
-      prompt = `${prompt}, ${request.background} background`;
-    }
+    // 9. 品質指定（固定）
+    prompt = `${prompt}, high quality anime artwork, consistent character design`;
 
-    // 明示的な服装指定がある場合は追加
-    if (request.clothing) {
-      prompt = `${prompt}, wearing ${request.clothing}`;
-    }
-
+    console.log('[画像生成] buildLocationAwareChatPrompt 最終プロンプト:', prompt);
     return prompt;
   }
 
@@ -269,14 +357,24 @@ export class ImagesService {
           modelId: params.modelId,
           width: params.width,
           height: params.height,
-          guidanceScale: params.guidanceScale,
           num_images: params.numImages,
           public: false,
         }),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
         console.error('[画像生成] Leonardo AI APIエラー:', response.status, response.statusText);
+        console.error('[画像生成] エラー詳細:', errorText);
+        
+        // エラーの詳細を解析
+        try {
+          const errorData = JSON.parse(errorText);
+          console.error('[画像生成] エラーデータ:', JSON.stringify(errorData, null, 2));
+        } catch {
+          console.error('[画像生成] エラーレスポンスのパースに失敗');
+        }
+        
         throw new Error(`Leonardo AI API呼び出し失敗: ${response.status}`);
       }
 

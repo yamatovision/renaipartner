@@ -4,7 +4,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import UserLayout from '@/layouts/UserLayout'
-import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality, PERSONALITY_PRESETS, EpisodeMemory } from '@/types'
+import { Partner, PartnerUpdate, PersonalityType, SpeechStyle, PresetPersonality, PERSONALITY_PRESETS, EpisodeMemory, HairStyle, EyeColor } from '@/types'
 import { partnersService, memoryService, imagesService } from '@/services'
 
 function EditPartnerContent() {
@@ -503,9 +503,96 @@ function EditPartnerContent() {
                       )}
                     </div>
                     <div>
+                      {/* 髪色選択 */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">髪の色</label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {[
+                            { value: '#000000', label: 'black', japanese: '黒' },
+                            { value: '#3B2F2F', label: 'dark brown', japanese: 'ダークブラウン' },
+                            { value: '#8B4513', label: 'brown', japanese: 'ブラウン' },
+                            { value: '#FFD700', label: 'blonde', japanese: 'ブロンド' },
+                            { value: '#FF6B6B', label: 'pink', japanese: 'ピンク' },
+                            { value: '#4ECDC4', label: 'light blue', japanese: '水色' },
+                            { value: '#95E1D3', label: 'mint green', japanese: 'ミントグリーン' },
+                            { value: '#C7CEEA', label: 'lavender', japanese: 'ラベンダー' },
+                            { value: '#FFEAA7', label: 'light gold', japanese: 'ライトゴールド' },
+                            { value: '#636E72', label: 'silver', japanese: 'シルバー' }
+                          ].map((color) => (
+                            <button
+                              key={color.value}
+                              onClick={() => setFormData({ 
+                                ...formData, 
+                                appearance: { 
+                                  ...formData.appearance, 
+                                  hairColor: color.label 
+                                } 
+                              })}
+                              className={`
+                                relative w-full h-10 rounded-lg border-2 transition-all
+                                ${formData.appearance?.hairColor === color.label 
+                                  ? 'border-pink-500 scale-110 shadow-lg' 
+                                  : 'border-gray-300 hover:scale-105'
+                                }
+                              `}
+                              style={{ backgroundColor: color.value }}
+                              title={color.japanese}
+                            >
+                              {formData.appearance?.hairColor === color.label && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="text-white text-sm drop-shadow-md">✓</span>
+                                </div>
+                              )}
+                              <span className="sr-only">{color.japanese}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 髪型選択 */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">髪型</label>
+                        <select
+                          value={formData.appearance?.hairStyle || 'medium'}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            appearance: { 
+                              ...formData.appearance, 
+                              hairStyle: e.target.value as HairStyle 
+                            } 
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
+                        >
+                          <option value="short">ショート</option>
+                          <option value="medium">ミディアム</option>
+                          <option value="long">ロング</option>
+                        </select>
+                      </div>
+
+                      {/* 目の色選択 */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">目の色</label>
+                        <select
+                          value={formData.appearance?.eyeColor || 'brown'}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            appearance: { 
+                              ...formData.appearance, 
+                              eyeColor: e.target.value as EyeColor 
+                            } 
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
+                        >
+                          <option value="brown">ブラウン</option>
+                          <option value="black">ブラック</option>
+                          <option value="blue">ブルー</option>
+                          <option value="green">グリーン</option>
+                        </select>
+                      </div>
+
                       <h4 className="text-sm font-medium text-gray-700 mb-3">外見プリセット</h4>
                       <div className="space-y-3">
-                        {['髪型', '目の色', '体型', '服装スタイル'].map((item) => (
+                        {['体型', '服装スタイル'].map((item) => (
                           <div key={item}>
                             <label className="block text-xs text-gray-600 mb-1">{item}</label>
                             <select className="w-full p-2 border border-gray-300 rounded focus:border-pink-500">

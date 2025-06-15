@@ -21,12 +21,12 @@ class PartnerModel {
           user_id, name, gender, personality_type, speech_style, 
           system_prompt, avatar_description, hair_style, hair_color, eye_color, 
           body_type, clothing_style, generated_image_url, hobbies, 
-          intimacy_level, base_image_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          intimacy_level, base_image_url, current_location_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id, user_id, name, gender, personality_type, speech_style,
                   system_prompt, avatar_description, hair_style, hair_color, eye_color,
                   body_type, clothing_style, generated_image_url, hobbies,
-                  intimacy_level, base_image_url, created_at, updated_at
+                  intimacy_level, base_image_url, current_location_id, created_at, updated_at
       `;
       
       const values = [
@@ -45,7 +45,8 @@ class PartnerModel {
         partnerData.appearance.generatedImageUrl || null,
         JSON.stringify(partnerData.hobbies),
         partnerData.intimacyLevel || 0,
-        null // base_image_url は後で設定
+        null, // base_image_url は後で設定
+        partnerData.currentLocationId || 'school_classroom' // デフォルトは教室
       ];
       
       const result = await client.query(query, values);
@@ -75,7 +76,7 @@ class PartnerModel {
         SELECT id, user_id, name, gender, personality_type, speech_style,
                system_prompt, avatar_description, hair_style, hair_color, eye_color,
                body_type, clothing_style, generated_image_url, hobbies,
-               intimacy_level, base_image_url, created_at, updated_at
+               intimacy_level, base_image_url, current_location_id, created_at, updated_at
         FROM partners 
         WHERE user_id = $1
       `;
@@ -102,7 +103,7 @@ class PartnerModel {
         SELECT id, user_id, name, gender, personality_type, speech_style,
                system_prompt, avatar_description, hair_style, hair_color, eye_color,
                body_type, clothing_style, generated_image_url, hobbies,
-               intimacy_level, base_image_url, created_at, updated_at
+               intimacy_level, base_image_url, current_location_id, created_at, updated_at
         FROM partners 
         WHERE id = $1
       `;
@@ -203,6 +204,12 @@ class PartnerModel {
         paramIndex++;
       }
       
+      if (updateData.currentLocationId !== undefined) {
+        updateFields.push(`current_location_id = $${paramIndex}`);
+        values.push(updateData.currentLocationId);
+        paramIndex++;
+      }
+      
       if (updateFields.length === 0) {
         // 更新する項目がない場合は現在のパートナー情報を返す
         return this.findById(id);
@@ -218,7 +225,7 @@ class PartnerModel {
         RETURNING id, user_id, name, gender, personality_type, speech_style,
                   system_prompt, avatar_description, hair_style, hair_color, eye_color,
                   body_type, clothing_style, generated_image_url, hobbies,
-                  intimacy_level, base_image_url, created_at, updated_at
+                  intimacy_level, base_image_url, current_location_id, created_at, updated_at
       `;
       
       const result = await client.query(query, values);
@@ -269,6 +276,46 @@ class PartnerModel {
       `;
       
       const result = await client.query(query, [imageUrl, id]);
+      
+      return result.rowCount === 1;
+      
+    } finally {
+      client.release();
+    }
+  }
+
+  // 生成画像URL更新
+  static async updateGeneratedImageUrl(id: ID, imageUrl: string): Promise<boolean> {
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        UPDATE partners 
+        SET generated_image_url = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      
+      const result = await client.query(query, [imageUrl, id]);
+      
+      return result.rowCount === 1;
+      
+    } finally {
+      client.release();
+    }
+  }
+
+  // 現在地更新
+  static async updateCurrentLocation(id: ID, locationId: string): Promise<boolean> {
+    const client = await pool.connect();
+    
+    try {
+      const query = `
+        UPDATE partners 
+        SET current_location_id = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      
+      const result = await client.query(query, [locationId, id]);
       
       return result.rowCount === 1;
       
@@ -393,6 +440,7 @@ class PartnerModel {
       hobbies: Array.isArray(row.hobbies) ? row.hobbies : JSON.parse(row.hobbies || '[]'),
       intimacyLevel: row.intimacy_level,
       baseImageUrl: row.base_image_url,
+      currentLocationId: row.current_location_id,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     };

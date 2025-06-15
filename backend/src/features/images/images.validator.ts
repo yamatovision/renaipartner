@@ -134,8 +134,8 @@ export const validateBackgroundList: ValidationChain[] = [
   
   query('limit')
     .optional()
-    .isInt({ min: 1, max: 50 })
-    .withMessage('取得件数は1-50の間で指定してください'),
+    .isInt({ min: 1, max: 100 })
+    .withMessage('取得件数は1-100の間で指定してください'),
 ];
 
 /**

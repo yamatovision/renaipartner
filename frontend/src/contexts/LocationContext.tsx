@@ -1,11 +1,11 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { LocationData, RelationshipMetrics, SeasonalEvent, ID } from '@/types'
+import { LocationData, SeasonalEvent, ID } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { useRelationshipMetrics } from '@/contexts/RelationshipMetricsContext'
 import { partnersApiService } from '@/services/api/partners.api'
 import { locationsApi } from '@/services/api/locations.api'
-import { memoryApiService } from '@/services/api/memory.api'
 
 // 場所解放通知の型定義
 interface LocationUnlockNotification {
@@ -36,6 +36,8 @@ interface LocationContextType {
   refreshLocations: () => Promise<void>
   // 読み込み中フラグ
   isLoading: boolean
+  // 関係性メトリクス（互換性のため）
+  relationshipMetrics?: any
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined)
@@ -69,13 +71,13 @@ const isDateInRange = (
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth()
+  const { relationshipMetrics } = useRelationshipMetrics()
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null)
   const [availableLocations, setAvailableLocations] = useState<LocationData[]>([])
   const [seasonalEvents, setSeasonalEvents] = useState<SeasonalEvent[]>([])
   const [newUnlocks, setNewUnlocks] = useState<LocationUnlockNotification[]>([])
   const [previousUnlocks, setPreviousUnlocks] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [relationshipMetrics, setRelationshipMetrics] = useState<RelationshipMetrics | null>(null)
 
   // 季節イベントが利用可能かチェック
   const isSeasonalEventAvailable = useCallback((event: SeasonalEvent): boolean => {
@@ -99,67 +101,89 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // 場所が解放されているかチェック
   const isLocationUnlocked = useCallback((location: LocationData, intimacyLevel: number): boolean => {
-    return intimacyLevel >= location.unlockIntimacy
+    const result = intimacyLevel >= location.unlockIntimacy
+    console.log(`[LocationContext] isLocationUnlocked: ${location.name} - current: ${intimacyLevel}, required: ${location.unlockIntimacy}, result: ${result}`)
+    return result
   }, [])
 
   // 全場所データを取得
   const fetchLocations = useCallback(async () => {
-    if (!user) return
+    console.log('[LocationContext] fetchLocations called, user:', user)
+    if (!user) {
+      console.log('[LocationContext] No user found, skipping fetch')
+      return
+    }
     
     try {
       setIsLoading(true)
       
       // パートナー情報を取得
+      console.log('[LocationContext] Fetching partner info...')
       const partnerResponse = await partnersApiService.getPartner()
-      if (!partnerResponse.success || !partnerResponse.data) return
+      console.log('[LocationContext] Partner response:', partnerResponse)
+      if (!partnerResponse.success || !partnerResponse.data) {
+        console.error('[LocationContext] Failed to get partner data')
+        return
+      }
       
       const partner = partnerResponse.data
       
-      // 関係性メトリクスを取得
-      const metricsResponse = await memoryApiService.getRelationshipMetrics(partner.id)
-      if (metricsResponse.success && metricsResponse.data) {
-        setRelationshipMetrics(metricsResponse.data)
-      }
+      // 関係性メトリクスはRelationshipMetricsContextから取得
       
       // 場所データを取得
+      console.log('[LocationContext] Fetching locations data...')
       const locationsData = await locationsApi.getAllLocations()
-      setAvailableLocations(locationsData.locations)
-      setSeasonalEvents(locationsData.seasonalEvents)
+      console.log('[LocationContext] Locations data received:', locationsData)
+      setAvailableLocations(locationsData.locations || [])
+      setSeasonalEvents(locationsData.seasonalEvents || [])
       
       // デフォルトは教室（パートナーオブジェクトにはcurrentLocationIdが含まれていないため）
       const defaultLocation = locationsData.locations.find(l => l.id === 'school_classroom')
       if (defaultLocation) {
+        console.log('[LocationContext] Setting default location to:', defaultLocation)
         setCurrentLocation(defaultLocation)
         // 初回設定時のみlocation APIを呼び出し（必要に応じて）
         // await locationsApi.updateCurrentLocation(partner.id, 'school_classroom')
       }
       
       // 解放済み場所を記録（メトリクスが取得できた場合のみ）
-      if (metricsResponse.success && metricsResponse.data) {
-        const metrics = metricsResponse.data
+      if (relationshipMetrics) {
         const unlockedLocationIds = locationsData.locations
-          .filter(loc => isLocationUnlocked(loc, metrics.intimacyLevel))
+          .filter(loc => isLocationUnlocked(loc, relationshipMetrics.intimacyLevel))
           .map(loc => loc.id)
         setPreviousUnlocks(unlockedLocationIds)
       }
       
     } catch (error) {
-      console.error('Failed to fetch locations:', error)
+      console.error('[LocationContext] Failed to fetch locations:', error)
     } finally {
       setIsLoading(false)
+      console.log('[LocationContext] Loading complete')
     }
-  }, [user, isLocationUnlocked])
+  }, [user, relationshipMetrics?.intimacyLevel, isLocationUnlocked])
 
   // 場所を変更
   const changeLocation = useCallback(async (locationId: string) => {
-    if (!user || !relationshipMetrics) return
+    console.log('[LocationContext] changeLocation called with:', locationId)
+    console.log('[LocationContext] user:', user?.id)
+    console.log('[LocationContext] relationshipMetrics:', relationshipMetrics)
+    
+    if (!user || !relationshipMetrics) {
+      console.warn('[LocationContext] Missing user or relationshipMetrics')
+      return
+    }
     
     const location = availableLocations.find(l => l.id === locationId)
-    if (!location) return
+    if (!location) {
+      console.warn('[LocationContext] Location not found:', locationId)
+      return
+    }
+    
+    console.log('[LocationContext] Found location:', location)
     
     // 解放チェック
     if (!isLocationUnlocked(location, relationshipMetrics.intimacyLevel)) {
-      console.warn('Location is locked:', locationId)
+      console.warn(`Location is locked: ${locationId} (required: ${location.unlockIntimacy}, current: ${relationshipMetrics.intimacyLevel})`)
       return
     }
     
@@ -170,10 +194,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const partner = partnerResponse.data
       
       // バックエンドに保存
+      console.log('[LocationContext] Calling updateCurrentLocation API...')
       await locationsApi.updateCurrentLocation(partner.id, locationId)
+      console.log('[LocationContext] API call completed')
       
       // ローカル状態を更新
+      console.log('[LocationContext] Updating local currentLocation state to:', location)
       setCurrentLocation(location)
+      console.log('[LocationContext] Local state updated')
       
     } catch (error) {
       console.error('Failed to change location:', error)
@@ -231,7 +259,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     newUnlocks,
     clearUnlockNotifications,
     refreshLocations,
-    isLoading
+    isLoading,
+    relationshipMetrics
   }
 
   return (

@@ -6,10 +6,13 @@ export class LocationsController {
   static async getAllLocations(req: Request, res: Response) {
     try {
       const data = await LocationsService.getAllLocations()
-      return res.json(data)
+      return res.json(data)  // LocationsServiceが既に正しい形式で返している
     } catch (error) {
-      console.error('[Locations.controller] Error getting all locations:', error)
-      return res.status(500).json({ error: '場所データの取得に失敗しました' })
+      console.error('[LocationsController] Error getting all locations:', error)
+      return res.status(500).json({ 
+        success: false, 
+        error: '場所データの取得に失敗しました' 
+      })
     }
   }
 

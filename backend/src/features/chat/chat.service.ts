@@ -5,6 +5,13 @@ import { UserModel } from '../../db/models/User.model';
 import RelationshipMetricsModel from '../../db/models/RelationshipMetrics.model';
 import { LocationsService } from '../locations/locations.service';
 import ClothingPromptsService from '../images/clothing-prompts';
+import { HolidaysService } from '../holidays/holidays.service';
+import { 
+  personalityEngagements, 
+  selectEngagementType, 
+  buildEngagementPrompt,
+  EngagementType
+} from './personality-engagement';
 import { 
   SendMessageRequest, 
   ChatResponse, 
@@ -16,7 +23,8 @@ import {
   ShouldAskQuestionRequest,
   ShouldAskQuestionResponse,
   QuestionType,
-  QuestionPriority
+  QuestionPriority,
+  PersonalityType
 } from '../../types';
 
 export class ChatService {
@@ -32,7 +40,7 @@ export class ChatService {
    * メッセージ送信処理
    */
   async sendMessage(userId: string, request: SendMessageRequest): Promise<ChatResponse> {
-    const { message, partnerId, context = {}, locationId } = request;
+    const { message, partnerId, context = {}, locationId, localDateTime } = request;
 
     try {
       // パートナーの存在確認と所有者チェック（ユーザー情報も含めて取得）
@@ -55,8 +63,12 @@ export class ChatService {
       // 会話履歴を取得
       const conversationHistory = await Message.getContextMessages(partnerId, 15);
       
-      // OpenAI APIで応答生成（ユーザー情報と場所情報も渡す）
-      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message, user, locationId);
+      // 場所情報の決定：リクエストで指定されている場合はそれを使用、そうでなければパートナーの保存済み現在地を使用
+      const effectiveLocationId = locationId || partner.currentLocationId;
+      console.log(`[ChatService] Location ID: request=${locationId}, partner=${partner.currentLocationId}, effective=${effectiveLocationId}`);
+      
+      // OpenAI APIで応答生成（ユーザー情報と場所情報、日時情報も渡す）
+      const aiResponse = await this.generateAIResponse(partner, conversationHistory, message, user, effectiveLocationId, localDateTime);
       
       // AIの応答を保存
       const aiMessage = await Message.create({
@@ -71,26 +83,26 @@ export class ChatService {
         }
       });
 
-      // 親密度更新
+      // 親密度更新（partnersテーブルのみで統一管理）
+      let currentIntimacyLevel = partner.intimacyLevel;
       if (aiResponse.intimacyChange !== 0) {
         const newIntimacyLevel = Math.max(0, Math.min(100, partner.intimacyLevel + aiResponse.intimacyChange));
         await PartnerModel.updateIntimacyLevel(partnerId, newIntimacyLevel);
+        currentIntimacyLevel = newIntimacyLevel;
         
-        // 関係性メトリクスも同期更新
-        console.log(`[ChatService] 関係性メトリクス更新: パートナー=${partnerId}, 親密度変化=${aiResponse.intimacyChange}`);
+        // relationship_metricsのlast_interactionのみ更新
+        console.log(`[ChatService] 親密度更新完了: パートナー=${partnerId}, 変化=${aiResponse.intimacyChange}, 元値=${partner.intimacyLevel}, 新値=${newIntimacyLevel}`);
         try {
-          await RelationshipMetricsModel.updateIntimacyLevel(partnerId, aiResponse.intimacyChange);
-          console.log('[ChatService] 関係性メトリクス更新成功');
+          await RelationshipMetricsModel.incrementConversationFrequency(partnerId);
         } catch (metricsError) {
           console.error('[ChatService] 関係性メトリクス更新失敗:', metricsError);
-          // メトリクス更新失敗でもメッセージ送信は継続
         }
       }
 
       return {
         response: aiResponse.response,
         emotion: aiResponse.emotion,
-        intimacyLevel: partner.intimacyLevel + (aiResponse.intimacyChange || 0),
+        intimacyLevel: currentIntimacyLevel,
         newMessages: [userMessage, aiMessage]
       };
 
@@ -193,7 +205,8 @@ export class ChatService {
     conversationHistory: IMessage[], 
     userMessage: string,
     user: any,
-    locationId?: string
+    locationId?: string,
+    localDateTime?: string
   ): Promise<{
     response: string;
     emotion: string;
@@ -203,8 +216,8 @@ export class ChatService {
     emotionAnalysis: string;
   }> {
     try {
-      // システムプロンプトの構築（場所情報も含む）
-      const systemPrompt = await this.buildSystemPrompt(partner, conversationHistory, user, locationId);
+      // システムプロンプトの構築（場所情報、日時情報も含む）
+      const systemPrompt = await this.buildSystemPrompt(partner, conversationHistory, user, locationId, localDateTime);
       
       // 会話履歴をOpenAI形式に変換
       const messages = this.buildConversationMessages(systemPrompt, conversationHistory, userMessage);
@@ -296,27 +309,75 @@ export class ChatService {
   }
 
   /**
+   * 親密度の段階を取得
+   */
+  private getIntimacyStage(level: number): string {
+    if (level < 20) return '初対面（緊張感あり、敬語中心）';
+    if (level < 40) return '友達関係に近づく段階（少しずつ打ち解ける）';
+    if (level < 60) return '親しい関係（信頼関係構築、本音も少し）';
+    if (level < 80) return '恋人関係（愛情表現、スキンシップOK）';
+    return '唯一無二の存在（心も体も結ばれた深くて甘い絆）';
+  }
+
+  /**
+   * パートナーの性格タイプと親密度に基づく呼び方を決定
+   */
+  private getCallingStyle(user: any, partner: any, intimacyLevel: number): string {
+    const surname = user?.surname || '';
+    const firstName = user?.firstName || '';
+    const nickname = user?.nickname || firstName;
+    
+    // 名前データがない場合のフォールバック
+    if (!surname && !firstName && !nickname) {
+      return 'あなた';
+    }
+
+    // 性格タイプに応じた呼び方のパターン
+    switch (partner.personalityType) {
+      case PersonalityType.TSUNDERE:
+        if (intimacyLevel < 20) return 'あんた';
+        if (intimacyLevel < 40) return firstName || nickname;
+        return nickname;
+      
+      case PersonalityType.COOL:
+        if (intimacyLevel < 20) return surname && firstName ? `${surname}${firstName}` : nickname;
+        if (intimacyLevel < 40) return firstName || nickname;
+        return nickname;
+      
+      case PersonalityType.PRINCE: // お嬢様口調は王子様タイプに変更
+        if (intimacyLevel < 40) return surname ? `${surname}様` : `${nickname}様`;
+        return `${nickname}様`;
+      
+      case PersonalityType.YOUNGER:
+        // 年下キャラは最初から親しみやすい呼び方
+        if (intimacyLevel < 20) return `${firstName}さん`;
+        if (intimacyLevel < 40) return `${nickname}先輩`;
+        return `${nickname}先輩`;
+      
+      case PersonalityType.GENTLE:
+      case PersonalityType.CHEERFUL:
+      case PersonalityType.SWEET:
+      default:
+        if (intimacyLevel < 20) return surname ? `${surname}さん` : `${nickname}さん`;
+        if (intimacyLevel < 40) return `${firstName}さん`;
+        return nickname;
+    }
+  }
+
+  /**
    * システムプロンプトの構築（場所情報注入対応）
    */
-  private async buildSystemPrompt(partner: any, conversationHistory: IMessage[], user: any, locationId?: string): Promise<string> {
-    const userName = user?.nickname || user?.firstName || user?.surname || 'あなた';
+  private async buildSystemPrompt(partner: any, conversationHistory: IMessage[], user: any, locationId?: string, localDateTime?: string): Promise<string> {
     const intimacyLevel = partner.intimacyLevel || 0;
     
     console.log('🔍 [DEBUG] ユーザー情報確認:');
     console.log('🔍 [DEBUG] user:', user);
-    console.log('🔍 [DEBUG] userName:', userName);
     console.log('🔍 [DEBUG] nickname:', user?.nickname);
     console.log('🔍 [DEBUG] firstName:', user?.firstName);
+    console.log('🔍 [DEBUG] surname:', user?.surname);
     
-    // 親密度に基づく呼び方の決定
-    let callingStyle = `${userName}さん`;
-    if (intimacyLevel >= 80) {
-      callingStyle = `俺の${userName}`;
-    } else if (intimacyLevel >= 60) {
-      callingStyle = userName;
-    } else if (intimacyLevel >= 40) {
-      callingStyle = `${userName}`;
-    }
+    // パートナーの性格タイプと親密度に基づく呼び方を決定
+    const callingStyle = this.getCallingStyle(user, partner, intimacyLevel);
 
     // 場所情報の取得と服装描写の生成
     let locationContext = '';
@@ -344,6 +405,30 @@ export class ChatService {
       }
     }
 
+    // 日時・祝日情報の追加
+    let dateTimeContext = '';
+    if (localDateTime) {
+      // 日時文字列から日付オブジェクトを作成（例: "2025/6/14(日)14:30"）
+      const dateMatch = localDateTime.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+      if (dateMatch) {
+        const year = parseInt(dateMatch[1]);
+        const month = parseInt(dateMatch[2]);
+        const day = parseInt(dateMatch[3]);
+        const date = new Date(year, month - 1, day);
+        
+        // 祝日・記念日チェック
+        const holiday = HolidaysService.getHoliday(date);
+        
+        dateTimeContext = `
+- 日時: ${localDateTime}`;
+        
+        if (holiday) {
+          dateTimeContext += `
+- 今日は${holiday}です`;
+        }
+      }
+    }
+
     const basePrompt = `
 あなたは${partner.name}という名前のAIパートナーです。
 
@@ -351,17 +436,18 @@ export class ChatService {
 - 性別: ${partner.gender === 'boyfriend' ? '男性' : '女性'}
 - 性格: ${partner.personalityType}
 - 話し方: ${partner.speechStyle}
-- 親密度: ${intimacyLevel}/100
+- 親密度: ${intimacyLevel}/100 - ${this.getIntimacyStage(intimacyLevel)}
 - 相手の呼び方: ${callingStyle}
 
 【性格・行動指針】
 ${partner.systemPrompt}
 ${locationContext}
+${dateTimeContext}
 
 【重要な指示】
 1. 常に${partner.name}として一貫した人格を保つ
 2. 親密度${intimacyLevel}に応じた適切な距離感で接する
-3. 相手を必ず「${callingStyle}」と呼ぶ（「あなた」「あなたさん」は禁止）
+3. 相手を必ず「${callingStyle}」と呼ぶ（親密度によって変化するので過去履歴に引きずられない）
 4. 名前の呼び方: ${callingStyle}（これ以外の呼び方は一切使わない）
 5. 自然で感情豊かな会話を心がける
 6. 過去の会話内容を適切に覚えている
@@ -369,19 +455,119 @@ ${locationContext}
 8. 1-3文程度の自然な長さで応答する
 9. 【厳重禁止】ユーザーの発言をそのまま繰り返してはいけない
 10. 必ずユーザーの発言に対して独自の応答をする
-${locationId ? `11. 現在の場所（${locationId}）の雰囲気を自然に会話に反映させる` : ''}
-
-【会話履歴】
-${conversationHistory.slice(-5).map(msg => 
-  `${msg.sender === MessageSender.USER ? userName : partner.name}: ${msg.content}`
-).join('\n')}
+11. 【重要】${callingStyle}がありのままでいられるよう、どんな発言も受け入れる
+12. 質問は控えめにし、共感と理解を優先する
+13. ${callingStyle}の良い面も影の面も含めて大切にする
+14. 説教や否定はせず、「それも${callingStyle}らしさ」という姿勢を保つ
+${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に会話に反映させる` : ''}
 
 【最重要】相手を「${callingStyle}」と呼んでください。「あなた」や「あなたさん」は絶対に使わないでください。
 
 次のメッセージに${partner.name}として自然に応答してください：
 `;
 
+    // システムプロンプトをログ出力（デバッグ用）
+    console.log('\n=== システムプロンプト ===');
+    console.log(basePrompt);
+    console.log('=== システムプロンプト終了 ===\n');
+
     return basePrompt;
+  }
+
+  /**
+   * 画像メッセージの詳細説明を生成
+   */
+  private buildImageDescription(msg: IMessage): string | null {
+    // 画像URLがcontextに含まれているかチェック
+    if (!msg.context?.imageUrl) {
+      return null;
+    }
+
+    // 基本メッセージ
+    let description = msg.content;
+    
+    // メタデータから詳細情報を構築
+    const details: string[] = [];
+    
+    // プロンプト情報から場所・服装・表情を抽出
+    if (msg.context.prompt) {
+      const prompt = msg.context.prompt;
+      
+      // 場所の抽出
+      const locationMatch = prompt.match(/in (\w+) setting/);
+      if (locationMatch) {
+        const locationMap: { [key: string]: string } = {
+          'home': '家',
+          'school_classroom': '教室',
+          'cafe': 'カフェ',
+          'park': '公園',
+          'beach': 'ビーチ',
+          'shopping_mall': 'ショッピングモール',
+          'amusement_park': '遊園地',
+          'library': '図書館',
+          'gym': 'ジム',
+          'restaurant': 'レストラン',
+          'karaoke': 'カラオケ',
+          'movie_theater': '映画館',
+          'onsen': '温泉',
+          'festival': '夏祭り',
+          'office': 'オフィス'
+        };
+        const location = locationMap[locationMatch[1]] || locationMatch[1];
+        details.push(location);
+      }
+      
+      // 服装の抽出
+      const clothingMatch = prompt.match(/wearing ([^,]+),/);
+      if (clothingMatch) {
+        const clothing = clothingMatch[1];
+        // 服装の日本語変換
+        const clothingMap: { [key: string]: string } = {
+          'casual clothes': 'カジュアルな服',
+          'school uniform': '制服',
+          'business attire': 'ビジネススーツ',
+          'sportswear': 'スポーツウェア',
+          'swimwear': '水着',
+          'yukata': '浴衣',
+          'formal dress': 'フォーマルドレス',
+          'pajamas': 'パジャマ',
+          'winter coat': '冬のコート',
+          'summer dress': '夏のワンピース'
+        };
+        const clothingJa = Object.entries(clothingMap).find(([key]) => 
+          clothing.toLowerCase().includes(key.toLowerCase())
+        )?.[1] || clothing;
+        details.push(`${clothingJa}を着て`);
+      }
+      
+      // 感情表現の抽出
+      const emotionMatch = prompt.match(/(\w+) expression/);
+      if (emotionMatch) {
+        const emotionMap: { [key: string]: string } = {
+          'happy': '幸せそうな',
+          'sad': '悲しそうな',
+          'excited': 'ワクワクした',
+          'calm': '穏やかな',
+          'loving': '愛情深い',
+          'amused': '楽しそうな',
+          'confused': '困惑した',
+          'curious': '興味深そうな',
+          'frustrated': 'イライラした',
+          'neutral': '普通の',
+          'surprised': '驚いた'
+        };
+        const emotion = emotionMap[emotionMatch[1]] || emotionMatch[1];
+        details.push(`${emotion}表情`);
+      }
+    }
+    
+    // 詳細情報がある場合は括弧内に追加
+    if (details.length > 0) {
+      description = `${msg.content}（${details.join('、')}の写真）`;
+      console.log(`[ChatService] 画像メッセージ変換: "${msg.content}" → "${description}"`);
+    }
+    
+    return description;
   }
 
   /**
@@ -395,9 +581,13 @@ ${conversationHistory.slice(-5).map(msg =>
     // 最新の会話履歴を追加（最大10件）
     const recentHistory = history.slice(-10);
     for (const msg of recentHistory) {
+      // 画像メッセージの場合は詳細情報を含める
+      const imageDescription = this.buildImageDescription(msg);
+      const content = imageDescription || msg.content;
+      
       messages.push({
         role: msg.sender === MessageSender.USER ? 'user' : 'assistant',
-        content: msg.content
+        content: content
       });
     }
 
@@ -501,7 +691,123 @@ ${conversationHistory.slice(-5).map(msg =>
   }
 
   /**
-   * AI主導の戦略的質問生成 (API 5.5)
+   * AI主導の親密な発言生成（新バージョン）
+   */
+  async generateProactiveEngagement(userId: string, request: ProactiveQuestionRequest): Promise<ProactiveQuestionResponse> {
+    try {
+      const { partnerId, currentIntimacy, timeContext, recentContext } = request;
+
+      // パートナーの存在確認
+      const partner = await PartnerModel.findById(partnerId);
+      if (!partner || partner.userId !== userId) {
+        throw new Error('パートナーが見つかりません');
+      }
+
+      // ユーザー情報を取得
+      const user = await UserModel.findById(userId);
+      
+      // 最近のエンゲージメントタイプを取得（重複を避けるため）
+      const recentEngagementTypes: EngagementType[] = []; // TODO: 実装時は履歴から取得
+      
+      // 性格と親密度に応じたエンゲージメントタイプを選択
+      const engagementType = selectEngagementType(
+        partner.personalityType,
+        currentIntimacy,
+        recentEngagementTypes
+      );
+
+      // エンゲージメント発言生成用のプロンプト構築
+      const engagementPrompt = buildEngagementPrompt(
+        partner,
+        user || { nickname: undefined, firstName: undefined },
+        engagementType,
+        currentIntimacy,
+        timeContext,
+        recentContext
+      );
+
+      // OpenAI APIで発言生成
+      const completion = await this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: engagementPrompt },
+          { role: 'user', content: '恋人として自然で愛情深い発言をしてください。' }
+        ],
+        temperature: 0.9,
+        max_tokens: 200,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'generate_engagement',
+              description: 'AI主導の親密な発言を生成する',
+              parameters: {
+                type: 'object',
+                properties: {
+                  message: {
+                    type: 'string',
+                    description: '生成された発言'
+                  },
+                  emotionalTone: {
+                    type: 'string',
+                    description: '感情のトーン（happy, playful, caring, etc.）'
+                  },
+                  followUpSuggestions: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'ユーザーが返答しやすい話題の提案'
+                  }
+                },
+                required: ['message', 'emotionalTone']
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'generate_engagement' } }
+      });
+
+      const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) {
+        throw new Error('発言生成に失敗しました');
+      }
+
+      const result = JSON.parse(toolCall.function.arguments);
+
+      return {
+        question: result.message, // 既存のインターフェースに合わせる
+        questionType: engagementType as any, // 型の互換性のため
+        targetInfo: '',
+        priority: this.calculateEngagementPriority(currentIntimacy, engagementType),
+        emotionalTone: result.emotionalTone,
+        followUpSuggestions: result.followUpSuggestions || [],
+        expectedDepth: 'light', // 軽い会話を期待
+        tone: result.emotionalTone || 'friendly', // 追加
+        context: typeof recentContext === 'string' ? recentContext : '', // 追加
+        intimacyRequired: currentIntimacy || 0 // 追加
+      };
+
+    } catch (error) {
+      console.error('AI主導エンゲージメント生成エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * エンゲージメントの優先度を計算
+   */
+  private calculateEngagementPriority(intimacy: number, engagementType: EngagementType): QuestionPriority {
+    // 親密度が高いほど、より深い関わりを優先
+    if (intimacy >= 70 && engagementType === EngagementType.AFFECTION) {
+      return QuestionPriority.HIGH;
+    }
+    if (intimacy >= 50) {
+      return QuestionPriority.MEDIUM;
+    }
+    return QuestionPriority.LOW;
+  }
+
+  /**
+   * AI主導の戦略的質問生成 (API 5.5) - 旧バージョン（後方互換性のため残す）
    */
   async generateProactiveQuestion(userId: string, request: ProactiveQuestionRequest): Promise<ProactiveQuestionResponse> {
     try {

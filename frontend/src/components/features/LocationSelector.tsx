@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { LocationData, SeasonalEvent } from '@/types'
 import { useLocation } from '@/contexts/LocationContext'
+import { useRelationshipMetrics } from '@/contexts/RelationshipMetricsContext'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface LocationSelectorProps {
@@ -26,21 +27,27 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
     isSeasonalEventAvailable,
     isLoading
   } = useLocation()
+  
+  const { relationshipMetrics } = useRelationshipMetrics()
 
   const [selectedCategory, setSelectedCategory] = useState<'normal' | 'seasonal'>('normal')
 
-  // パートナーの親密度を取得（モック）
-  const intimacyLevel = 85 // TODO: 実際の親密度を取得
+  // 実際の親密度を取得
+  const intimacyLevel = relationshipMetrics?.intimacyLevel || 0
+  console.log('[LocationSelector] Current intimacy level:', intimacyLevel)
 
   if (!isOpen) return null
 
   const handleLocationSelect = async (locationId: string) => {
+    console.log('[LocationSelector] handleLocationSelect called with:', locationId)
     try {
+      console.log('[LocationSelector] Calling changeLocation...')
       await changeLocation(locationId)
+      console.log('[LocationSelector] changeLocation completed')
       onLocationChange(locationId)
       onClose()
     } catch (error) {
-      console.error('場所変更エラー:', error)
+      console.error('[LocationSelector] 場所変更エラー:', error)
     }
   }
 
@@ -110,6 +117,8 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
                   normalLocations.map((location) => {
                     const isUnlocked = isLocationUnlocked(location, intimacyLevel)
                     const isCurrent = currentLocation?.id === location.id
+                    
+                    console.log(`[LocationSelector] ${location.name} (${location.id}): required=${location.unlockIntimacy}, current=${intimacyLevel}, unlocked=${isUnlocked}`)
                     
                     return (
                       <button

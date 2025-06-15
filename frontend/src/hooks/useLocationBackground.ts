@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { useLocation } from '@/contexts/LocationContext'
 import { useBackground } from '@/hooks/useBackground'
+import { debugPoolBackground } from '@/debug/testPoolBackground'
 
 /**
  * 場所と背景の連携を管理するカスタムフック
@@ -26,32 +27,44 @@ export const useLocationBackground = () => {
     }
 
     // 場所IDに対応する背景IDのマッピング
+    // バックエンドのlocation-background-map.tsに完全に一致させる
     const locationBackgroundMap: Record<string, string> = {
       // 通常の場所
       'school_classroom': 'school_classroom',
       'cafe': 'cafe',
       'beach': 'beach',
       'office': 'office',
-      'home': 'home',
+      'school_library': 'school_library',
       'park': 'park',
       'museum': 'museum',
       'amusement_park': 'amusement_park',
+      'pool': 'pool',
       'gym': 'gym',
       'restaurant': 'restaurant',
       'karaoke': 'karaoke',
+      'spa': 'spa',
+      'jewelry_shop': 'jewelry_shop',
+      'camping': 'camping',
+      'jazz_bar': 'jazz_bar',
+      'sports_bar': 'sports_bar',
+      'home_living': 'home_living',
       'night_view': 'night_view',
-      'hot_spring': 'hot_spring',
+      'private_beach_sunset': 'private_beach_sunset',
+      'bedroom_night': 'bedroom_night',
+      'onsen': 'onsen',
       'luxury_hotel': 'luxury_hotel',
       
       // 季節イベント
-      'cherry_blossom': 'cherry_blossom',
+      'cherry_blossoms': 'cherry_blossoms',
       'fireworks_festival': 'fireworks_festival',
       'summer_festival': 'summer_festival',
-      'halloween': 'halloween',
+      'beach_house': 'beach_house',
       'autumn_leaves': 'autumn_leaves',
-      'christmas': 'christmas',
+      'halloween_party': 'halloween_party',
+      'christmas_illumination': 'christmas_illumination',
+      'christmas_party': 'christmas_party',
       'new_year_shrine': 'new_year_shrine',
-      'valentine': 'valentine',
+      'valentine_date': 'valentine_date',
       'ski_resort': 'ski_resort'
     }
 
@@ -61,22 +74,66 @@ export const useLocationBackground = () => {
       return
     }
 
-    // 背景が存在するか確認
-    const targetBackground = getBackgroundById(targetBackgroundId)
-    if (!targetBackground) {
-      console.warn(`背景 ${targetBackgroundId} が見つかりません`)
+    // 時間帯に応じた背景選択（バックエンドのロジックと同様）
+    const currentHour = new Date().getHours()
+    let timeOfDaySuffix = 'afternoon' // デフォルト
+    
+    if (currentHour >= 6 && currentHour < 12) {
+      timeOfDaySuffix = 'morning'
+    } else if (currentHour >= 12 && currentHour < 17) {
+      timeOfDaySuffix = 'afternoon'
+    } else if (currentHour >= 17 && currentHour < 21) {
+      timeOfDaySuffix = 'evening'
+    } else {
+      timeOfDaySuffix = 'night'
+    }
+
+    // デバッグログ追加
+    console.log('背景変更リクエスト - 場所ID:', locationId)
+    console.log('マッピングされた背景ID:', targetBackgroundId)
+    console.log('利用可能な背景リスト:', availableBackgrounds)
+    console.log('利用可能な背景ID一覧:', availableBackgrounds.map(bg => bg.id))
+    
+    // Pool背景の詳細デバッグ
+    if (locationId === 'pool') {
+      debugPoolBackground(availableBackgrounds)
+    }
+    
+    // その場所で利用可能な背景を全て取得
+    const availableBackgroundsForLocation = availableBackgrounds.filter(bg => {
+      const isMatch = bg.id.startsWith(`${targetBackgroundId}_`)
+      console.log(`背景ID確認: ${bg.id} - 条件 "${targetBackgroundId}_"で始まる: ${isMatch}`)
+      return isMatch
+    })
+    
+    if (availableBackgroundsForLocation.length === 0) {
+      console.warn(`場所 ${locationId} に対応する背景が見つかりません`)
+      console.warn('探していた背景パターン:', `${targetBackgroundId}_`)
+      console.warn('poolで始まる背景:', availableBackgrounds.filter(bg => bg.id.includes('pool')))
       return
     }
 
+    // 時間帯に最適な背景を探す
+    let targetBackground = availableBackgroundsForLocation.find(bg => 
+      bg.id === `${targetBackgroundId}_${timeOfDaySuffix}`
+    )
+    
+    // 見つからない場合は利用可能な最初の背景を使用
+    if (!targetBackground) {
+      targetBackground = availableBackgroundsForLocation[0]
+    }
+    
+    const finalBackgroundId = targetBackground.id
+
     // 現在の背景と同じ場合はスキップ
-    if (currentBackground?.id === targetBackgroundId) {
-      console.log(`背景 ${targetBackgroundId} は既に設定されています`)
+    if (currentBackground?.id === finalBackgroundId) {
+      console.log(`背景 ${finalBackgroundId} は既に設定されています`)
       return
     }
 
     try {
-      await changeBackground(targetBackgroundId)
-      console.log(`場所 ${locationId} に対応する背景 ${targetBackgroundId} に変更しました`)
+      await changeBackground(finalBackgroundId)
+      console.log(`場所 ${locationId} に対応する背景 ${finalBackgroundId} に変更しました`)
     } catch (error) {
       console.error('背景変更エラー:', error)
     }

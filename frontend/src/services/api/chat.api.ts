@@ -13,13 +13,20 @@ import {
   ShouldAskQuestionResponse
 } from '@/types'
 import { api } from './client'
+import { getFormattedLocalDateTime } from '@/utils/date.utils'
 
 // 実チャットAPIサービス
 export const chatApiService = {
   // メッセージ送信
   sendMessage: async (request: ChatMessageRequest): Promise<ApiResponse<ChatMessageResponse>> => {
     try {
-      const response = await api.post<any>(API_PATHS.CHAT.SEND_MESSAGE, request)
+      // ローカル日時を追加
+      const requestWithDateTime = {
+        ...request,
+        localDateTime: getFormattedLocalDateTime()
+      };
+      
+      const response = await api.post<any>(API_PATHS.CHAT.SEND_MESSAGE, requestWithDateTime)
       
       // APIレスポンスが既に{success, data}形式の場合はそのまま返す
       if (response && (response as any).success !== undefined) {
@@ -109,12 +116,13 @@ export const chatApiService = {
   },
 
   // 画像生成
-  generateImage: async (partnerId: string, context: string, emotion?: string): Promise<ApiResponse<{ imageUrl: string }>> => {
+  generateImage: async (partnerId: string, context: string, emotion?: string, locationId?: string): Promise<ApiResponse<{ imageUrl: string }>> => {
     try {
       const response = await api.post<any>(API_PATHS.CHAT.GENERATE_IMAGE, {
         partnerId,
         context,
-        emotion
+        emotion,
+        ...(locationId && { situation: locationId }) // バックエンドはsituationとして受け取る
       })
       
       console.log('[CHAT API] generateImage raw response:', response)
@@ -152,8 +160,8 @@ export const chatApiService = {
     try {
       const queryParams = new URLSearchParams({
         partnerId: params.partnerId,
-        ...(params.silenceDuration && { silenceDuration: params.silenceDuration.toString() }),
-        ...(params.currentIntimacy && { currentIntimacy: params.currentIntimacy.toString() }),
+        silenceDuration: (params.silenceDuration || 0).toString(), // 常に送信、デフォルトは0
+        ...(params.currentIntimacy !== undefined && { currentIntimacy: params.currentIntimacy.toString() }),
         ...(params.timeContext && {
           'timeContext.hour': params.timeContext.hour.toString(),
           'timeContext.dayOfWeek': params.timeContext.dayOfWeek,

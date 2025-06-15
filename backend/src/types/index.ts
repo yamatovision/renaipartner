@@ -233,7 +233,8 @@ export type ClothingStyle = 'casual' | 'formal' | 'sporty' | 'elegant' |
   'yoga_wear' | 'devil_costume' | 'santa_costume' | 'pajamas' | 
   'spring_dress' | 'winter_dress' | 'autumn_coat' | 'competition_swimsuit' | 
   'premium_swimsuit' | 'towel_wrap' | 'casual_date' | 'casual_outdoor' | 
-  'casual_yukata' | 'office_suit' | 'ski_wear';
+  'casual_yukata' | 'office_suit' | 'ski_wear' | 'elegant_dress' | 'bathrobe' |
+  'casual_elegant' | 'sportswear' | 'outdoor_gear' | 'beach_wear';
 
 export interface AppearanceSettings {
   hairStyle: HairStyle;
@@ -255,11 +256,13 @@ export interface PartnerBase {
   hobbies: string[];
   intimacyLevel: number;
   interests?: string[]; // ユーザーの興味・関心事項
+  currentLocationId?: string; // 現在の場所ID
 }
 
 export interface PartnerCreate extends PartnerBase {
   userId: ID;
   createdViaOnboarding?: boolean;
+  currentLocationId?: string; // 現在の場所ID
 }
 
 export interface Partner extends PartnerBase, Timestamps {
@@ -267,6 +270,7 @@ export interface Partner extends PartnerBase, Timestamps {
   userId: ID;
   baseImageUrl?: string;
   personality?: PersonalityType; // テスト互換性のためのエイリアス
+  currentLocationId?: string; // 現在の場所ID
 }
 
 export interface PartnerUpdate {
@@ -277,6 +281,7 @@ export interface PartnerUpdate {
   avatarDescription?: string;
   appearance?: Partial<AppearanceSettings>;
   hobbies?: string[];
+  currentLocationId?: string; // 現在の場所ID
 }
 
 export interface PartnerCreateRequest extends PartnerBase {
@@ -455,6 +460,7 @@ export interface SendMessageRequest {
   partnerId: ID;
   context?: Record<string, any>;
   locationId?: string; // 現在の場所ID（AI会話への場所情報注入用）
+  localDateTime?: string; // ユーザーのローカル日時（例: "2025/6/14(日)14:30"）
 }
 
 export interface ChatMessageRequest {
@@ -462,6 +468,7 @@ export interface ChatMessageRequest {
   partnerId: ID;
   context?: Record<string, any>;
   locationId?: string; // 現在の場所ID（AI会話への場所情報注入用）
+  localDateTime?: string; // ユーザーのローカル日時（例: "2025/6/14(日)14:30"）
 }
 
 export interface ChatMessageResponse {
@@ -1037,6 +1044,7 @@ export const API_PATHS = {
     VALIDATE_PROMPT: '/api/partners/validate-prompt',
     PREVIEW: '/api/partners/preview',
     APPLY_PRESET: '/api/partners/apply-preset',
+    UPDATE_INTIMACY: (partnerId: string) => `/api/partners/${partnerId}/intimacy`,
     EXISTS: '/api/partners/exists',
   },
   

@@ -9,11 +9,13 @@ interface LocationsResponse {
 export const locationsApi = {
   // 全場所データを取得
   getAllLocations: async (): Promise<LocationsResponse> => {
+    console.log('[LocationsAPI] Fetching all locations from:', API_PATHS.LOCATIONS.BASE)
     try {
       const response = await api.get<LocationsResponse>(API_PATHS.LOCATIONS.BASE)
+      console.log('[LocationsAPI] Response received:', response)
       return response
     } catch (error) {
-      console.error('Failed to fetch locations:', error)
+      console.error('[LocationsAPI] Failed to fetch locations:', error)
       throw error
     }
   },
@@ -31,13 +33,15 @@ export const locationsApi = {
 
   // 現在地を更新
   updateCurrentLocation: async (partnerId: ID, locationId: string): Promise<void> => {
+    console.log('[LocationsAPI] Updating location:', { partnerId, locationId, path: API_PATHS.LOCATIONS.SET_CURRENT })
     try {
       await api.put(API_PATHS.LOCATIONS.SET_CURRENT, {
         partnerId,
         locationId
       })
+      console.log('[LocationsAPI] Location updated successfully')
     } catch (error) {
-      console.error('Failed to update current location:', error)
+      console.error('[LocationsAPI] Failed to update current location:', error)
       throw error
     }
   },

@@ -185,4 +185,20 @@ export const partnersApiService = {
       }
     }
   },
+
+  // 親密度更新
+  updateIntimacyLevel: async (partnerId: string, intimacyChange: number): Promise<ApiResponse<{ intimacyLevel: number }>> => {
+    try {
+      const response = await api.patch<any>(
+        API_PATHS.PARTNERS.UPDATE_INTIMACY(partnerId),
+        { intimacyChange }
+      )
+      return response
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || '親密度の更新に失敗しました',
+      }
+    }
+  },
 }

@@ -215,6 +215,30 @@ export class ClothingPromptsService {
       ski_wear: {
         male: 'ski jacket, ski pants, winter sports gear, mountain style',
         female: 'ski jacket, ski pants, winter sports gear, cute mountain style'
+      },
+      elegant_dress: {
+        male: 'formal evening wear, black tuxedo, bow tie, dress shoes, sophisticated night style',
+        female: 'elegant evening gown, cocktail dress, high heels, sparkling jewelry, romantic glamorous night style'
+      },
+      bathrobe: {
+        male: 'luxurious bathrobe, spa robe, comfortable spa slippers, relaxed spa atmosphere',
+        female: 'luxurious bathrobe, spa robe, comfortable spa slippers, relaxed spa atmosphere, elegant spa style'
+      },
+      casual_elegant: {
+        male: 'smart casual outfit, refined shirt, dress pants, leather loafers, sophisticated casual style',
+        female: 'elegant casual dress, stylish blouse and skirt, comfortable heels, refined casual style'
+      },
+      sportswear: {
+        male: 'athletic t-shirt, training shorts, sports shoes, gym workout style',
+        female: 'fitted sports top, athletic leggings, training shoes, gym workout style'
+      },
+      outdoor_gear: {
+        male: 'outdoor jacket, cargo pants, hiking boots, camping gear, rugged outdoor style',
+        female: 'outdoor jacket, hiking pants, trail boots, camping gear, practical outdoor style'
+      },
+      beach_wear: {
+        male: 'beach shorts, casual tank top, flip flops, relaxed beach style',
+        female: 'beach dress over swimsuit, sandals, sun hat, beach vacation style'
       }
     };
 
@@ -235,11 +259,13 @@ export class ClothingPromptsService {
     // 場所に基づく基本的な服装マッピング
     const locationClothingMap: Record<string, ClothingStyle> = {
       'school_classroom': 'school_uniform',
+      'school_library': 'school_uniform',
       'cafe': 'casual_date',
       'beach': 'swimsuit',
+      'pool': 'competition_swimsuit',
       'office': 'office_suit',
       'home_living': 'loungewear',
-      'bedroom': 'pajamas',
+      'bedroom_night': 'pajamas',
       'park': 'casual_outdoor',
       'museum': 'casual',
       'amusement_park': 'casual',
@@ -255,8 +281,7 @@ export class ClothingPromptsService {
       'onsen': 'towel_wrap',
       'luxury_hotel': 'elegant',
       'ski_resort': 'ski_wear',
-      'private_beach_sunset': 'premium_swimsuit',
-      'bedroom_night': 'pajamas'
+      'private_beach_sunset': 'premium_swimsuit'
     };
 
     // 季節イベント用の特別な服装

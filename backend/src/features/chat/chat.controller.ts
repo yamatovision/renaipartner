@@ -9,8 +9,10 @@ import {
   ProactiveQuestionRequest,
   ProactiveQuestionResponse,
   ShouldAskQuestionRequest,
-  ShouldAskQuestionResponse
+  ShouldAskQuestionResponse,
+  MessageSender
 } from '../../types';
+import { Message } from '../../db/models/Message.model';
 import { ImagesService } from '../images/images.service';
 
 export class ChatController {
@@ -42,7 +44,8 @@ export class ChatController {
         message: req.body.message,
         partnerId: req.body.partnerId,
         context: req.body.context,
-        locationId: req.body.locationId // 現在の場所ID（場所情報注入用）
+        locationId: req.body.locationId, // 現在の場所ID（場所情報注入用）
+        localDateTime: req.body.localDateTime // ユーザーのローカル日時
       };
 
       console.log(`[${new Date().toISOString()}] ▶️ メッセージ送信開始 - ユーザー: ${userId}, パートナー: ${messageRequest.partnerId}`);
@@ -245,15 +248,37 @@ export class ChatController {
       // 実際の画像生成サービスを呼び出す
       const generatedImage = await this.imagesService.generateChatImage({
         partnerId,
+        prompt: message || context || '愛してるよ💕', // promptプロパティを追加
         context: message || context || '愛してるよ💕',
         emotion,
-        background: situation,
+        locationId: situation, // situationをlocationIdとして渡す
         useReference
       });
 
       console.log(`[${new Date().toISOString()}] ✅ 画像生成完了 - ID: ${generatedImage.id}`);
       console.log(`[${new Date().toISOString()}] 🖼️ 画像URL: ${generatedImage.imageUrl}`);
       console.log(`[${new Date().toISOString()}] 📊 一貫性スコア: ${generatedImage.consistencyScore}`);
+
+      // 画像付きメッセージをデータベースに保存
+      try {
+        const imageMessage = await Message.create({
+          partnerId,
+          content: message || context || '君のこと思って、こんな画像を作ってみたよ💕',
+          sender: MessageSender.PARTNER,
+          emotion: emotion || 'happy',
+          context: {
+            imageUrl: generatedImage.imageUrl,
+            isGenerated: true,
+            imageId: generatedImage.id,
+            prompt: generatedImage.prompt
+          }
+        });
+
+        console.log(`[${new Date().toISOString()}] 💬 画像メッセージ保存完了 - ID: ${imageMessage.id}`);
+      } catch (messageError) {
+        console.error(`[${new Date().toISOString()}] ❌ 画像メッセージ保存エラー:`, messageError);
+        // 画像生成は成功したので、メッセージ保存失敗でもレスポンスは返す
+      }
 
       res.status(200).json({
         success: true,

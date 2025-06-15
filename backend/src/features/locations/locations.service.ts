@@ -6,10 +6,13 @@ import { RelationshipMetricsModel } from '@/db/models/RelationshipMetrics.model'
 export class LocationsService {
   // 全場所データを取得
   static async getAllLocations(): Promise<{ locations: LocationData[], seasonalEvents: SeasonalEvent[] }> {
-    return {
+    const result = {
       locations: locationsData,
       seasonalEvents: seasonalEventsData
     }
+    // 詳細な場所データのログ出力を削除（ログが長すぎるため）
+    // console.log('[LocationsService] Returning:', result)
+    return result
   }
 
   // 単一の場所を取得
@@ -53,34 +56,26 @@ export class LocationsService {
     // パートナーの親密度を確認（存在しない場合は作成）
     let metrics = await RelationshipMetricsModel.findByPartnerId(partnerId)
     if (!metrics) {
-      console.log(`[Locations] 関係性メトリクスが見つからないため作成します: partnerId=${partnerId}`)
+      // 関係性メトリクスが見つからないため作成
       // デフォルトメトリクスを作成
       metrics = await RelationshipMetricsModel.create(partnerId)
-      console.log(`[Locations] 作成したメトリクス親密度: ${metrics.intimacyLevel}`)
-    }
-
-    // テスト環境または必要な親密度が不足している場合は親密度を上げる
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' || metrics.intimacyLevel < location.unlockIntimacy) {
-      const targetIntimacy = Math.max(50, location.unlockIntimacy + 10); // 必要な親密度+10
-      const currentIntimacy = metrics.intimacyLevel;
-      const intimacyIncrease = targetIntimacy - currentIntimacy;
-      console.log(`[Locations] 親密度を${currentIntimacy}から${targetIntimacy}に設定（+${intimacyIncrease}）: partnerId=${partnerId}`)
-      
-      if (intimacyIncrease > 0) {
-        metrics = await RelationshipMetricsModel.updateIntimacyLevel(partnerId, intimacyIncrease)
-        console.log(`[Locations] 更新後の親密度: ${metrics.intimacyLevel}`)
-      }
+      // メトリクス作成完了
     }
 
     // 場所が解放されているか確認
     if (metrics.intimacyLevel < location.unlockIntimacy) {
-      console.log(`[Locations] 親密度不足: ${metrics.intimacyLevel} < ${location.unlockIntimacy}`)
-      throw new Error('この場所はまだ解放されていません')
+      // 親密度不足
+      throw new Error(`この場所はまだ解放されていません。必要な親密度: ${location.unlockIntimacy}`)
     }
+    
+    // 親密度チェックOK
 
-    // パートナーの現在地を更新（実際のDB更新は後で実装）
-    // await PartnerModel.updateLocation(partnerId, locationId)
-    console.log(`Partner ${partnerId} location updated to ${locationId}`)
+    // パートナーの現在地を更新
+    const updateSuccess = await PartnerModel.updateCurrentLocation(partnerId, locationId)
+    if (!updateSuccess) {
+      throw new Error('パートナーの現在地更新に失敗しました')
+    }
+    // Partner location updated
   }
 
   // 場所に応じた服装を取得

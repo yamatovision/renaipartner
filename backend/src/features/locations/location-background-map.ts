@@ -26,7 +26,7 @@ export const locationBackgroundMap: Record<string, string[]> = {
   'pool': ['pool_afternoon'],
   'gym': ['gym_morning', 'gym_afternoon'],
   'restaurant': ['restaurant_evening', 'restaurant_night'],
-  'karaoke': ['karaoke_evening', 'karaoke_evening'],
+  'karaoke': ['karaoke_evening'],
   'spa': ['spa_afternoon', 'spa_evening'],
   'jewelry_shop': ['jewelry_shop_afternoon'],
   'camping': ['camping_afternoon', 'camping_evening', 'camping_night'],

@@ -17,16 +17,15 @@ class RelationshipMetricsModel {
       }
       const query = `
         INSERT INTO relationship_metrics (
-          partner_id, intimacy_level, trust_level, emotional_connection,
+          partner_id, trust_level, emotional_connection,
           communication_frequency, last_interaction, shared_experiences
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, partner_id, trust_level, emotional_connection,
                   communication_frequency, last_interaction, shared_experiences
       `;
       
       const initialValues = [
         partnerId,
-        0,                          // intimacy_level: 初期値0
         50,                         // trust_level: 初期値50（中立）
         0,                          // emotional_connection: 初期値0
         0,                          // communication_frequency: 初期値0
@@ -37,10 +36,15 @@ class RelationshipMetricsModel {
       const result = await client.query(query, initialValues);
       const row = result.rows[0];
       
+      // partnersテーブルから親密度を取得
+      const partnerQuery = 'SELECT intimacy_level FROM partners WHERE id = $1';
+      const partnerResult = await client.query(partnerQuery, [partnerId]);
+      const intimacyLevel = partnerResult.rows[0]?.intimacy_level || 0;
+      
       return {
         id: row.id,
         partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
+        intimacyLevel,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -59,10 +63,11 @@ class RelationshipMetricsModel {
     
     try {
       const query = `
-        SELECT id, partner_id, intimacy_level, trust_level, emotional_connection,
-               communication_frequency, last_interaction, shared_experiences
-        FROM relationship_metrics 
-        WHERE partner_id = $1
+        SELECT rm.id, rm.partner_id, p.intimacy_level, rm.trust_level, rm.emotional_connection,
+               rm.communication_frequency, rm.last_interaction, rm.shared_experiences
+        FROM relationship_metrics rm
+        JOIN partners p ON rm.partner_id = p.id
+        WHERE rm.partner_id = $1
       `;
       
       const result = await client.query(query, [partnerId]);
@@ -75,7 +80,7 @@ class RelationshipMetricsModel {
       return {
         id: row.id,
         partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
+        intimacyLevel: row.intimacy_level, // partnersテーブルから取得
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -88,64 +93,38 @@ class RelationshipMetricsModel {
     }
   }
 
-  // 親密度更新
+  // 親密度更新（partnersテーブルに委譲）
   static async updateIntimacyLevel(partnerId: ID, intimacyChange: number): Promise<RelationshipMetrics> {
     const client = await pool.connect();
     
     try {
-      const query = `
-        UPDATE relationship_metrics 
-        SET 
-          intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $1)),
-          last_interaction = CURRENT_TIMESTAMP
-        WHERE partner_id = $2
-        RETURNING id, partner_id, intimacy_level,
-                  communication_frequency, last_interaction, shared_experiences
+      // partnersテーブルの親密度を更新
+      const updatePartnerQuery = `
+        UPDATE partners 
+        SET intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $1))
+        WHERE id = $2
       `;
+      await client.query(updatePartnerQuery, [intimacyChange, partnerId]);
       
-      const result = await client.query(query, [intimacyChange, partnerId]);
+      // relationship_metricsのlast_interactionのみ更新
+      const updateMetricsQuery = `
+        UPDATE relationship_metrics 
+        SET last_interaction = CURRENT_TIMESTAMP
+        WHERE partner_id = $1
+      `;
+      await client.query(updateMetricsQuery, [partnerId]);
       
-      if (result.rows.length === 0) {
-        // 関係性メトリクスが存在しない場合は作成
-        console.log(`[RelationshipMetrics.model] メトリクスが存在しないため作成: ${partnerId}`);
-        const createQuery = `
-          INSERT INTO relationship_metrics (partner_id, intimacy_level)
-          VALUES ($1, GREATEST(0, LEAST(100, $2)))
-          RETURNING id, partner_id, intimacy_level,
-                    communication_frequency, last_interaction, shared_experiences
-        `;
-        const createResult = await client.query(createQuery, [partnerId, intimacyChange]);
-        if (createResult.rows.length === 0) {
-          throw new Error('関係性メトリクスの作成に失敗しました');
-        }
-        const row = createResult.rows[0];
-        return {
-          id: row.id,
-          partnerId: row.partner_id,
-          intimacyLevel: row.intimacy_level,
-          conversationFrequency: row.communication_frequency,
-          lastInteraction: new Date(row.last_interaction),
-          sharedMemories: row.shared_experiences
-        };
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
-        conversationFrequency: row.communication_frequency,
-        lastInteraction: new Date(row.last_interaction),
-        sharedMemories: row.shared_experiences
+      // 更新後の関係性メトリクスを取得
+      return await this.findByPartnerId(partnerId) || {
+        id: '',
+        partnerId,
+        intimacyLevel: 0,
+        conversationFrequency: 0,
+        lastInteraction: new Date(),
+        sharedMemories: 0
       };
     } catch (error) {
       console.error('[RelationshipMetrics.model] 親密度更新エラー:', error);
-      console.error('[RelationshipMetrics.model] エラー詳細:', {
-        partnerId,
-        intimacyChange,
-        errorMessage: (error as any).message,
-        errorCode: (error as any).code
-      });
       throw new Error('親密度の更新に失敗しました');
     } finally {
       client.release();
@@ -169,7 +148,7 @@ class RelationshipMetricsModel {
           communication_frequency = communication_frequency + 1,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+        RETURNING id, partner_id, trust_level, emotional_connection,
                   communication_frequency, last_interaction, shared_experiences
       `;
       
@@ -179,11 +158,16 @@ class RelationshipMetricsModel {
         throw new Error('関係性メトリクスが見つかりません');
       }
       
+      // partnersテーブルから親密度を取得
+      const partnerQuery = 'SELECT intimacy_level FROM partners WHERE id = $1';
+      const partnerResult = await client.query(partnerQuery, [partnerId]);
+      const intimacyLevel = partnerResult.rows[0]?.intimacy_level || 0;
+      
       const row = result.rows[0];
       return {
         id: row.id,
         partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
+        intimacyLevel: intimacyLevel,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -208,7 +192,7 @@ class RelationshipMetricsModel {
           shared_experiences = shared_experiences + 1,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+        RETURNING id, partner_id, trust_level, emotional_connection,
                   communication_frequency, last_interaction, shared_experiences
       `;
       
@@ -218,10 +202,10 @@ class RelationshipMetricsModel {
       if (result.rows.length === 0) {
         const insertQuery = `
           INSERT INTO relationship_metrics (
-            partner_id, intimacy_level, trust_level, emotional_connection,
+            partner_id, trust_level, emotional_connection,
             communication_frequency, last_interaction, shared_experiences
-          ) VALUES ($1, 30, 30, 30, 1, CURRENT_TIMESTAMP, 1)
-          RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+          ) VALUES ($1, 30, 30, 1, CURRENT_TIMESTAMP, 1)
+          RETURNING id, partner_id, trust_level, emotional_connection,
                     communication_frequency, last_interaction, shared_experiences
         `;
         
@@ -229,10 +213,16 @@ class RelationshipMetricsModel {
       }
       
       const row = result.rows[0];
+      
+      // partnersテーブルから親密度を取得
+      const partnerQuery = 'SELECT intimacy_level FROM partners WHERE id = $1';
+      const partnerResult = await client.query(partnerQuery, [partnerId]);
+      const intimacyLevel = partnerResult.rows[0]?.intimacy_level || 0;
+      
       return {
         id: row.id,
         partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
+        intimacyLevel,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences
@@ -259,23 +249,32 @@ class RelationshipMetricsModel {
     const client = await pool.connect();
     
     try {
+      // 親密度の更新はpartnersテーブルで行う
+      if (updates.intimacyChange) {
+        const partnerQuery = `
+          UPDATE partners 
+          SET intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $1))
+          WHERE id = $2
+        `;
+        await client.query(partnerQuery, [updates.intimacyChange, partnerId]);
+      }
+      
+      // その他のメトリクスはrelationship_metricsで更新
       let query = `
         UPDATE relationship_metrics 
         SET 
-          intimacy_level = GREATEST(0, LEAST(100, intimacy_level + $2)),
-          trust_level = GREATEST(0, LEAST(100, trust_level + $3)),
-          emotional_connection = GREATEST(0, LEAST(100, emotional_connection + $4)),
-          communication_frequency = communication_frequency + $5,
-          shared_experiences = shared_experiences + $6,
+          trust_level = GREATEST(0, LEAST(100, trust_level + $2)),
+          emotional_connection = GREATEST(0, LEAST(100, emotional_connection + $3)),
+          communication_frequency = communication_frequency + $4,
+          shared_experiences = shared_experiences + $5,
           last_interaction = CURRENT_TIMESTAMP
         WHERE partner_id = $1
-        RETURNING id, partner_id, intimacy_level, trust_level, emotional_connection,
+        RETURNING id, partner_id, trust_level, emotional_connection,
                   communication_frequency, last_interaction, shared_experiences
       `;
       
       const values = [
         partnerId,
-        updates.intimacyChange || 0,
         updates.trustChange || 0,
         updates.connectionChange || 0,
         updates.incrementFrequency ? 1 : 0,
@@ -289,10 +288,16 @@ class RelationshipMetricsModel {
       }
       
       const row = result.rows[0];
+      
+      // partnersテーブルから親密度を取得
+      const partnerQuery = 'SELECT intimacy_level FROM partners WHERE id = $1';
+      const partnerResult = await client.query(partnerQuery, [partnerId]);
+      const intimacyLevel = partnerResult.rows[0]?.intimacy_level || 0;
+      
       return {
         id: row.id,
         partnerId: row.partner_id,
-        intimacyLevel: row.intimacy_level,
+        intimacyLevel,
         conversationFrequency: row.communication_frequency,
         lastInteraction: new Date(row.last_interaction),
         sharedMemories: row.shared_experiences

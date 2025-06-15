@@ -68,31 +68,6 @@ export class BackgroundSelectionService {
     return events;
   }
 
-  /**
-   * 親密度に基づいてアクセス可能な場所をフィルタリング
-   */
-  filterByIntimacy(backgrounds: BackgroundImage[], intimacyLevel: number): BackgroundImage[] {
-    // 親密度による場所のカテゴリマッピング
-    const accessibleCategories: string[] = [];
-
-    if (intimacyLevel >= 0) {
-      accessibleCategories.push('public');
-    }
-    if (intimacyLevel >= 30) {
-      accessibleCategories.push('semi_private');
-    }
-    if (intimacyLevel >= 60) {
-      accessibleCategories.push('private');
-    }
-    if (intimacyLevel >= 85) {
-      accessibleCategories.push('special');
-    }
-
-    // 季節イベントは親密度に関係なくアクセス可能
-    accessibleCategories.push('seasonal');
-
-    return backgrounds.filter(bg => accessibleCategories.includes(bg.category));
-  }
 
   /**
    * 時間帯に基づいて適切な背景バリアントを選択
@@ -136,7 +111,8 @@ export class BackgroundSelectionService {
   }
 
   /**
-   * 推奨背景を取得（時間帯、季節、親密度を考慮）
+   * 推奨背景を取得（時間帯、季節を考慮）
+   * 注: 親密度によるフィルタリングは場所レベルで既に行われているため不要
    */
   getRecommendedBackgrounds(
     backgrounds: BackgroundImage[],
@@ -146,11 +122,8 @@ export class BackgroundSelectionService {
     const season = this.getCurrentSeason();
     const seasonalEvents = this.getSeasonalEvents();
     
-    // 親密度でフィルタリング
-    const accessible = this.filterByIntimacy(backgrounds, intimacyLevel);
-    
-    // 推奨度スコアを計算
-    const scored = accessible.map(bg => {
+    // すべての背景を対象に推奨度スコアを計算
+    const scored = backgrounds.map(bg => {
       let score = 0;
       
       // 時間帯マッチング
