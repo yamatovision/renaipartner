@@ -195,8 +195,8 @@ function EditPartnerContent() {
         context: context,
         emotion: 'neutral',
         prompt: `beautiful ${partner.gender}, ${partner.avatarDescription || 'attractive'}, high quality portrait`,
-        width: 512,
-        height: 512,
+        width: 1104,
+        height: 1104,
         numImages: 1
       }
 

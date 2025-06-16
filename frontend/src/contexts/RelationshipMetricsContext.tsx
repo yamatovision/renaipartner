@@ -41,7 +41,7 @@ export const RelationshipMetricsProvider: React.FC<{ children: React.ReactNode }
   const { user } = useAuth()
   const [partner, setPartner] = useState<Partner | null>(null)
   const [relationshipMetrics, setRelationshipMetrics] = useState<RelationshipMetrics | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // エラーをクリア
@@ -53,6 +53,7 @@ export const RelationshipMetricsProvider: React.FC<{ children: React.ReactNode }
   const loadPartnerAndMetrics = useCallback(async () => {
     if (!user) {
       console.log('[RelationshipMetrics] No user found')
+      setIsLoading(false)
       return
     }
 
@@ -71,6 +72,7 @@ export const RelationshipMetricsProvider: React.FC<{ children: React.ReactNode }
         // パートナーが存在しない場合はエラーを投げずに終了
         setPartner(null)
         setRelationshipMetrics(null)
+        setIsLoading(false)
         return
       }
 
@@ -220,8 +222,10 @@ export const RelationshipMetricsProvider: React.FC<{ children: React.ReactNode }
 
   // 初期読み込み
   useEffect(() => {
-    loadPartnerAndMetrics()
-  }, [loadPartnerAndMetrics])
+    if (user) {
+      loadPartnerAndMetrics()
+    }
+  }, [user, loadPartnerAndMetrics])
 
   const value: RelationshipMetricsContextType = {
     partner,

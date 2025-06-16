@@ -30,10 +30,7 @@ import { Step10Complete } from './components/Step10Complete'
 export default function OnboardingPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  
-  console.log('Current render state:', { currentStep, loading, user: !!user })
   
   // オンボーディングの進行状況（クライアント側の一時的な状態）
   interface OnboardingState {
@@ -97,24 +94,22 @@ export default function OnboardingPage() {
 
   // ステップの進行（API呼び出しを削除）
   const nextStep = () => {
-    if (currentStep < 8) {
-      const newStep = currentStep + 1
-      setCurrentStep(newStep)
+    if (onboardingData.currentStep < 8) {
+      const newStep = onboardingData.currentStep + 1
       setOnboardingData(prev => ({
         ...prev,
         currentStep: newStep,
-        completedSteps: [...prev.completedSteps, currentStep]
+        completedSteps: [...prev.completedSteps, prev.currentStep]
       }))
     }
   }
 
   // ステップの戻り
   const previousStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+    if (onboardingData.currentStep > 1) {
       setOnboardingData(prev => ({
         ...prev,
-        currentStep: currentStep - 1
+        currentStep: prev.currentStep - 1
       }))
     }
   }
@@ -161,7 +156,7 @@ export default function OnboardingPage() {
   }
 
   // プログレスバーの進行率
-  const progressPercentage = (currentStep / 8) * 100
+  const progressPercentage = (onboardingData.currentStep / 8) * 100
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 to-pink-200">
@@ -173,7 +168,7 @@ export default function OnboardingPage() {
       {/* プログレス表示 */}
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="text-center text-gray-600 mb-4">
-          ステップ {currentStep} / 8
+          ステップ {onboardingData.currentStep} / 8
         </div>
         
         {/* プログレスバー */}
@@ -186,13 +181,13 @@ export default function OnboardingPage() {
 
         {/* ステップコンテンツ */}
         <div className="bg-white rounded-3xl shadow-xl p-8 min-h-[500px]">
-          {currentStep === 1 && (
+          {onboardingData.currentStep === 1 && (
             <Step1Welcome 
               onNext={nextStep}
             />
           )}
           
-          {currentStep === 2 && (
+          {onboardingData.currentStep === 2 && (
             <Step2Gender
               selectedGender={onboardingData.partnerData.gender}
               onSelect={(gender) => updateData({
@@ -203,7 +198,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 3 && (
+          {onboardingData.currentStep === 3 && (
             <Step3UserInfo
               userData={onboardingData.userData}
               onUpdate={(userData) => updateData({ userData })}
@@ -212,7 +207,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 4 && (
+          {onboardingData.currentStep === 4 && (
             <Step4PartnerName
               gender={onboardingData.partnerData.gender}
               selectedName={onboardingData.partnerData.name}
@@ -224,7 +219,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 5 && (
+          {onboardingData.currentStep === 5 && (
             <Step6PresetSelection
               userName={onboardingData.userData.firstName}
               partnerName={onboardingData.partnerData.name}
@@ -243,7 +238,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 6 && (
+          {onboardingData.currentStep === 6 && (
             <Step7Appearance
               partnerName={onboardingData.partnerData.name}
               gender={onboardingData.partnerData.gender}
@@ -257,7 +252,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 7 && (
+          {onboardingData.currentStep === 7 && (
             <Step8Nickname
               partnerName={onboardingData.partnerData.name}
               userName={onboardingData.userData.firstName}
@@ -270,7 +265,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 8 && (
+          {onboardingData.currentStep === 8 && (
             <Step10Complete
               userName={onboardingData.userData.firstName}
               partnerName={onboardingData.partnerData.name}
@@ -280,14 +275,14 @@ export default function OnboardingPage() {
           )}
           
           {/* デフォルトケース - デバッグ用 */}
-          {(currentStep < 1 || currentStep > 8) && (
+          {(onboardingData.currentStep < 1 || onboardingData.currentStep > 8) && (
             <div className="text-center">
               <h2 className="text-xl font-bold mb-4">デバッグ情報</h2>
-              <p>現在のステップ: {currentStep}</p>
+              <p>現在のステップ: {onboardingData.currentStep}</p>
               <p>ユーザー: {user ? 'ログイン済み' : '未ログイン'}</p>
               <p>ローディング: {loading ? 'true' : 'false'}</p>
               <button 
-                onClick={() => setCurrentStep(1)}
+                onClick={() => setOnboardingData(prev => ({ ...prev, currentStep: 1 }))}
                 className="mt-4 px-4 py-2 bg-pink-500 text-white rounded"
               >
                 ステップ1に戻る

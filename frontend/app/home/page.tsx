@@ -123,7 +123,7 @@ export default function HomePage() {
     error: backgroundError 
   } = useBackground()
   const { currentLocation } = useLocation()
-  const { partner, relationshipMetrics, isLoading: isLoadingRelationship, error: relationshipError, updateIntimacyLevel, refreshMetrics, clearError } = useRelationshipMetrics()
+  const { partner, relationshipMetrics, isLoading: isLoadingRelationship, error: relationshipError, updateIntimacyLevel, refreshMetrics, clearError, loadPartnerAndMetrics } = useRelationshipMetrics()
   
   const { changeBackgroundForLocation } = useLocationBackground()
   const [messages, setMessages] = useState<Message[]>([])
@@ -250,6 +250,14 @@ export default function HomePage() {
       }
     }
   }, [user, partner])
+
+  // 初回マウント時にパートナー情報を確実に読み込む
+  useEffect(() => {
+    if (user && !partner && !isLoadingRelationship) {
+      console.log('[DEBUG] パートナー情報が未読み込みのため、再読み込みをトリガー')
+      loadPartnerAndMetrics()
+    }
+  }, [user])
 
   // メッセージの取得
   useEffect(() => {

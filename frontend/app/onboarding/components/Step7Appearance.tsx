@@ -109,7 +109,7 @@ export function Step7Appearance({
     const nameType = getNameType(partnerName)
     const personalityFeatures = personalityAppearanceMap[personality] || personalityAppearanceMap[PersonalityType.GENTLE]
     
-    let prompt = `anime style ${gender === Gender.BOYFRIEND ? 'handsome young man' : 'beautiful young woman'}, `
+    let prompt = `anime style ${gender === Gender.BOYFRIEND ? 'alluring man' : 'beautiful young woman'}, `
     
     // 名前タイプに応じた特徴
     if (nameType === 'western') {
@@ -144,8 +144,8 @@ export function Step7Appearance({
         prompt,
         context: `${partnerName} avatar generation`,
         emotion: 'neutral',
-        width: 512,
-        height: 512,
+        width: 1104,
+        height: 1104,
         // 外見情報を直接送信
         hairColor: appearance.hairColor,
         hairStyle: appearance.hairStyle,
