@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { Message } from '../../db/models/Message.model';
 import { PartnerModel } from '../../db/models/Partner.model';
 import { UserModel } from '../../db/models/User.model';
@@ -27,16 +28,22 @@ import {
   ShouldAskQuestionResponse,
   QuestionType,
   QuestionPriority,
-  PersonalityType
+  PersonalityType,
+  AIModelProvider,
+  AIModelConfig
 } from '../../types';
 
 export class ChatService {
   private openai: OpenAI;
+  private anthropic: Anthropic;
   private memoryService: MemoryService;
 
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
+    });
+    this.anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
     });
     this.memoryService = new MemoryService();
   }
@@ -227,7 +234,39 @@ export class ChatService {
   }
 
   /**
-   * OpenAI APIを使用してAI応答を生成
+   * ユーザーのAIモデル設定を取得
+   */
+  private async getUserAIModelConfig(userId: string): Promise<AIModelConfig> {
+    try {
+      // 設定サービスから実際の設定を取得
+      const { SettingsService } = await import('../settings/settings.service');
+      const userSettings = await SettingsService.getUserSettings(userId);
+      
+      if (userSettings.aiModel) {
+        return userSettings.aiModel;
+      }
+      
+      // デフォルト設定を返す
+      return {
+        provider: AIModelProvider.OPENAI,
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
+        maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000')
+      };
+    } catch (error) {
+      console.error('[ChatService] ユーザー設定取得エラー:', error);
+      // フォールバック
+      return {
+        provider: AIModelProvider.OPENAI,
+        model: 'gpt-4o-mini',
+        temperature: 0.8,
+        maxTokens: 2000
+      };
+    }
+  }
+
+  /**
+   * AI応答を生成（OpenAI/Claude対応）
    */
   private async generateAIResponse(
     partner: any, 
@@ -245,75 +284,21 @@ export class ChatService {
     emotionAnalysis: string;
   }> {
     try {
+      // ユーザーのAIモデル設定を取得
+      const aiConfig = await this.getUserAIModelConfig(user?.id || partner.userId);
+      
       // システムプロンプトの構築（場所情報、日時情報も含む）
       const systemPrompt = await this.buildSystemPrompt(partner, conversationHistory, user, locationId, localDateTime);
       
-      // 会話履歴をOpenAI形式に変換
+      // 会話履歴を形式に変換
       const messages = this.buildConversationMessages(systemPrompt, conversationHistory, userMessage);
 
-      // OpenAI API呼び出し（リトライ付き）
-      const completion = await this.retryWithBackoff(() => this.openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages,
-        temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
-        max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000'),
-        frequency_penalty: 0.7, // 単語の繰り返しを防ぐ
-        presence_penalty: 0.5,  // 同じトピックの繰り返しを防ぐ
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'analyze_response',
-              description: 'AIパートナーの応答と感情分析を提供',
-              parameters: {
-                type: 'object',
-                properties: {
-                  response: {
-                    type: 'string',
-                    description: 'AIパートナーの応答メッセージ'
-                  },
-                  emotion: {
-                    type: 'string',
-                    description: '現在の感情状態 (happy, sad, excited, calm, confused, etc.)'
-                  },
-                  intimacyChange: {
-                    type: 'integer',
-                    description: '親密度の変化 (-10から+10の範囲)'
-                  },
-                  emotionAnalysis: {
-                    type: 'string',
-                    description: '感情分析の詳細'
-                  }
-                },
-                required: ['response', 'emotion', 'intimacyChange', 'emotionAnalysis']
-              }
-            }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'analyze_response' } }
-      }));
-
-      console.log('🔍 [DEBUG] OpenAI Completion Response:', JSON.stringify(completion, null, 2));
-      
-      const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
-      console.log('🔍 [DEBUG] Tool Call:', toolCall);
-      
-      if (!toolCall?.function?.arguments) {
-        console.error('❌ [ERROR] Tool call or arguments missing');
-        console.log('🔍 [DEBUG] Completion message:', completion.choices[0]?.message);
-        throw new Error('AI応答の生成に失敗しました');
+      // AIモデルプロバイダーに応じて処理を分岐
+      if (aiConfig.provider === AIModelProvider.CLAUDE) {
+        return await this.generateClaudeResponse(messages, aiConfig);
+      } else {
+        return await this.generateOpenAIResponse(messages, aiConfig);
       }
-
-      console.log('🔍 [DEBUG] Function Arguments:', toolCall.function.arguments);
-      const result = JSON.parse(toolCall.function.arguments);
-      console.log('🔍 [DEBUG] Parsed Result:', result);
-      
-      return {
-        response: result.response || 'すみません、うまく応答できませんでした。',
-        emotion: result.emotion || 'neutral',
-        intimacyChange: Math.max(-10, Math.min(10, result.intimacyChange || 0)),
-        emotionAnalysis: result.emotionAnalysis || '感情分析なし'
-      };
 
     } catch (error) {
       console.error('AI応答生成エラー:', error);
@@ -335,6 +320,140 @@ export class ChatService {
         emotionAnalysis: 'システムエラーによる感情分析不可'
       };
     }
+  }
+
+  /**
+   * OpenAI APIで応答を生成
+   */
+  private async generateOpenAIResponse(messages: any[], aiConfig: AIModelConfig) {
+    const completion = await this.retryWithBackoff(() => this.openai.chat.completions.create({
+      model: aiConfig.model,
+      messages,
+      temperature: aiConfig.temperature || 0.8,
+      max_tokens: aiConfig.maxTokens || 2000,
+      frequency_penalty: 0.7, // 単語の繰り返しを防ぐ
+      presence_penalty: 0.5,  // 同じトピックの繰り返しを防ぐ
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'analyze_response',
+            description: 'Generate AIパートナーの応答 and provide emotion analysis. You must create a NEW response message as the AIパートナー, NOT repeat or analyze user input.',
+            parameters: {
+              type: 'object',
+              properties: {
+                response: {
+                  type: 'string',
+                  description: 'あなた（AIパートナー）が生成する新しい応答メッセージ。ユーザーの発言を繰り返してはいけません。必ずAIパートナーとして独自の応答を生成してください。'
+                },
+                emotion: {
+                  type: 'string',
+                  description: 'あなた（AIパートナー）の現在の感情状態 (happy, sad, excited, calm, confused, etc.)'
+                },
+                intimacyChange: {
+                  type: 'integer',
+                  description: 'この会話による親密度の変化 (-10から+10の範囲)'
+                },
+                emotionAnalysis: {
+                  type: 'string',
+                  description: 'この会話の感情分析の詳細'
+                }
+              },
+              required: ['response', 'emotion', 'intimacyChange', 'emotionAnalysis']
+            }
+          }
+        }
+      ],
+      tool_choice: { type: 'function', function: { name: 'analyze_response' } }
+    }));
+
+    console.log('🔍 [DEBUG] OpenAI Completion Response:', JSON.stringify(completion, null, 2));
+    
+    const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+    console.log('🔍 [DEBUG] Tool Call:', toolCall);
+    
+    if (!toolCall?.function?.arguments) {
+      console.error('❌ [ERROR] Tool call or arguments missing');
+      console.log('🔍 [DEBUG] Completion message:', completion.choices[0]?.message);
+      throw new Error('AI応答の生成に失敗しました');
+    }
+
+    console.log('🔍 [DEBUG] Function Arguments:', toolCall.function.arguments);
+    const result = JSON.parse(toolCall.function.arguments);
+    console.log('🔍 [DEBUG] Parsed Result:', result);
+    
+    return {
+      response: result.response || 'すみません、うまく応答できませんでした。',
+      emotion: result.emotion || 'neutral',
+      intimacyChange: Math.max(-10, Math.min(10, result.intimacyChange || 0)),
+      emotionAnalysis: result.emotionAnalysis || '感情分析なし'
+    };
+  }
+
+  /**
+   * Claude APIで応答を生成
+   */
+  private async generateClaudeResponse(messages: any[], aiConfig: AIModelConfig) {
+    // Claude APIの場合、system messageを別で処理する必要がある
+    const systemMessage = messages.find(m => m.role === 'system')?.content || '';
+    const conversationMessages = messages.filter(m => m.role !== 'system');
+
+    const response = await this.retryWithBackoff(() => this.anthropic.messages.create({
+      model: aiConfig.model,
+      max_tokens: aiConfig.maxTokens || 2000,
+      temperature: aiConfig.temperature || 0.8,
+      system: systemMessage,
+      messages: conversationMessages,
+      tools: [
+        {
+          name: 'analyze_response',
+          description: 'AIパートナーの応答と感情分析を提供',
+          input_schema: {
+            type: 'object',
+            properties: {
+              response: {
+                type: 'string',
+                description: 'AIパートナーの応答メッセージ'
+              },
+              emotion: {
+                type: 'string',
+                description: '現在の感情状態 (happy, sad, excited, calm, confused, etc.)'
+              },
+              intimacyChange: {
+                type: 'integer',
+                description: '親密度の変化 (-10から+10の範囲)'
+              },
+              emotionAnalysis: {
+                type: 'string',
+                description: '感情分析の詳細'
+              }
+            },
+            required: ['response', 'emotion', 'intimacyChange', 'emotionAnalysis']
+          }
+        }
+      ],
+      tool_choice: { type: 'tool', name: 'analyze_response' }
+    }));
+
+    console.log('🔍 [DEBUG] Claude Response:', JSON.stringify(response, null, 2));
+    
+    const toolUse = response.content.find(block => block.type === 'tool_use');
+    
+    if (!toolUse?.input) {
+      console.error('❌ [ERROR] Claude tool use missing');
+      console.log('🔍 [DEBUG] Claude response content:', response.content);
+      throw new Error('AI応答の生成に失敗しました');
+    }
+
+    const result = toolUse.input as any;
+    console.log('🔍 [DEBUG] Claude Parsed Result:', result);
+    
+    return {
+      response: result.response || 'すみません、うまく応答できませんでした。',
+      emotion: result.emotion || 'neutral',
+      intimacyChange: Math.max(-10, Math.min(10, result.intimacyChange || 0)),
+      emotionAnalysis: result.emotionAnalysis || '感情分析なし'
+    };
   }
 
   /**
@@ -566,6 +685,11 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
 18. 愛情表現を豊かにし、甘えた雰囲気を演出する
 
 【最重要】相手を「${callingStyle}」と呼んでください。「あなた」や「あなたさん」は絶対に使わないでください。
+
+【Tool Call実行時の重要指示】
+- analyze_response関数を使用する際、responseパラメータには必ずあなた（${partner.name}）が生成する新しい応答メッセージを入力してください
+- ユーザーの発言を繰り返したり分析したりしてはいけません
+- 必ず${partner.name}として独自の応答を生成してください
 
 次のメッセージに${partner.name}として自然に応答してください：
 `;
@@ -927,19 +1051,33 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
       // ユーザー情報を取得
       const user = await UserModel.findById(userId);
       
-      // 未収集情報に基づく質問タイプの決定
-      const questionType = this.determineQuestionType(currentIntimacy, uncollectedInfo);
-      const targetInfo = this.selectTargetInfo(questionType, currentIntimacy, uncollectedInfo);
+      // メモリを確認して既知の情報を取得
+      let existingMemories: any[] = [];
+      try {
+        const memoryResults = await this.memoryService.searchMemories({
+          partnerId,
+          query: '',
+          limit: 50
+        });
+        existingMemories = memoryResults.results || [];
+      } catch (error) {
+        console.error('メモリ取得エラー:', error);
+      }
 
-      // 時間コンテキストに基づく適切な質問生成
-      const questionPrompt = this.buildQuestionPrompt(
+      // 未収集情報に基づく質問タイプの決定（メモリ考慮）
+      const questionType = this.determineQuestionTypeWithMemory(currentIntimacy, uncollectedInfo, existingMemories);
+      const targetInfo = this.selectTargetInfoWithMemory(questionType, currentIntimacy, uncollectedInfo, existingMemories);
+
+      // 時間コンテキストに基づく適切な質問生成（メモリ考慮）
+      const questionPrompt = this.buildQuestionPromptWithMemory(
         partner, 
         user, 
         questionType, 
         targetInfo, 
         currentIntimacy, 
         timeContext,
-        recentContext
+        recentContext,
+        existingMemories
       );
 
       // OpenAI APIで質問生成（リトライ付き）
@@ -1101,7 +1239,66 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
   }
 
   /**
-   * 質問タイプを決定（AI主導質問生成用）
+   * 質問タイプを決定（メモリ考慮版）
+   */
+  private determineQuestionTypeWithMemory(intimacy: number, uncollectedInfo?: string[], existingMemories: any[] = []): QuestionType {
+    // メモリから既に質問済みのカテゴリを確認
+    const memoryTags = existingMemories.flatMap(memory => memory.tags || []);
+    const askedTopics = new Set(memoryTags);
+
+    console.log(`[AI質問] 既知のトピック:`, Array.from(askedTopics));
+
+    // 親密度に基づく利用可能タイプ
+    let availableTypes: QuestionType[] = [];
+    
+    if (intimacy >= 75) {
+      availableTypes = [
+        QuestionType.VALUES_FUTURE,
+        QuestionType.DEEP_UNDERSTANDING,
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO,
+        QuestionType.EMOTIONAL_SUPPORT
+      ];
+    } else if (intimacy >= 50) {
+      availableTypes = [
+        QuestionType.DEEP_UNDERSTANDING,
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO
+      ];
+    } else if (intimacy >= 25) {
+      availableTypes = [
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO
+      ];
+    } else {
+      availableTypes = [QuestionType.BASIC_INFO];
+    }
+
+    // 各カテゴリの既知度をチェック
+    const categoryKnowledge: Record<QuestionType, boolean> = {
+      [QuestionType.BASIC_INFO]: ['趣味', '仕事', '年齢', '好き', '音楽', 'スポーツ'].some(tag => askedTopics.has(tag)),
+      [QuestionType.RELATIONSHIP]: ['家族', '友人', '恋愛', '人間関係'].some(tag => askedTopics.has(tag)),
+      [QuestionType.DEEP_UNDERSTANDING]: ['価値観', '考え方', '経験', '過去'].some(tag => askedTopics.has(tag)),
+      [QuestionType.VALUES_FUTURE]: ['将来', '夢', '目標', '老後', '理想'].some(tag => askedTopics.has(tag)),
+      [QuestionType.EMOTIONAL_SUPPORT]: ['感情', '気持ち', '悩み'].some(tag => askedTopics.has(tag)),
+      [QuestionType.FOLLOW_UP]: false // フォローアップは常に未知として扱う
+    };
+
+    // 未知のカテゴリを優先
+    const unknownTypes = availableTypes.filter(type => !categoryKnowledge[type]);
+    
+    if (unknownTypes.length > 0) {
+      console.log(`[AI質問] 未知カテゴリから選択:`, unknownTypes);
+      return unknownTypes[Math.floor(Math.random() * unknownTypes.length)];
+    }
+
+    // 全て既知の場合は、最も古いカテゴリまたはランダム
+    console.log(`[AI質問] 全カテゴリ既知、ランダム選択`);
+    return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+  }
+
+  /**
+   * 質問タイプを決定（AI主導質問生成用・レガシー）
    */
   private determineQuestionType(intimacy: number, uncollectedInfo?: string[]): QuestionType {
     // 未収集情報がある場合はそれに基づく
@@ -1121,15 +1318,82 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
       }
     }
 
-    // 親密度に基づくデフォルト選択
-    if (intimacy >= 75) return QuestionType.VALUES_FUTURE;
-    if (intimacy >= 50) return QuestionType.DEEP_UNDERSTANDING;
-    if (intimacy >= 25) return QuestionType.RELATIONSHIP;
-    return QuestionType.BASIC_INFO;
+    // 親密度に基づく質問タイプの候補を決定
+    let availableTypes: QuestionType[] = [];
+    
+    if (intimacy >= 75) {
+      // 高親密度：全タイプ利用可能
+      availableTypes = [
+        QuestionType.VALUES_FUTURE,
+        QuestionType.DEEP_UNDERSTANDING,
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO,
+        QuestionType.EMOTIONAL_SUPPORT
+      ];
+    } else if (intimacy >= 50) {
+      availableTypes = [
+        QuestionType.DEEP_UNDERSTANDING,
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO
+      ];
+    } else if (intimacy >= 25) {
+      availableTypes = [
+        QuestionType.RELATIONSHIP,
+        QuestionType.BASIC_INFO
+      ];
+    } else {
+      availableTypes = [QuestionType.BASIC_INFO];
+    }
+
+    // ランダムに選択してバリエーションを確保
+    return availableTypes[Math.floor(Math.random() * availableTypes.length)];
   }
 
   /**
-   * ターゲット情報を選択
+   * ターゲット情報を選択（メモリ考慮版）
+   */
+  private selectTargetInfoWithMemory(questionType: QuestionType, intimacy: number, uncollectedInfo?: string[], existingMemories: any[] = []): string {
+    const infoMap = {
+      [QuestionType.BASIC_INFO]: ['名前の由来', '職業', '出身地', '趣味', '日常ルーティン', '好きな食べ物', '好きな音楽', 'スポーツ'],
+      [QuestionType.RELATIONSHIP]: ['家族構成', '親友', '職場の人間関係', '恋愛経験', '大切な人', '友達との思い出'],
+      [QuestionType.DEEP_UNDERSTANDING]: ['幼少期の思い出', '人生の転機', '大切にしている価値観', '影響を受けた人', '人生観'],
+      [QuestionType.VALUES_FUTURE]: ['将来の夢', '人生で大切なこと', '理想の老後', '5年後の目標', '人生の意味'],
+      [QuestionType.FOLLOW_UP]: ['以前の話題の続き'],
+      [QuestionType.EMOTIONAL_SUPPORT]: ['現在の気持ち', '悩み事', 'ストレス', '最近の調子', '心配事']
+    };
+
+    const candidates = infoMap[questionType] || infoMap[QuestionType.BASIC_INFO];
+    
+    // メモリから既に聞いた内容を確認
+    const memoryContents = existingMemories.map(memory => memory.content.toLowerCase());
+    const memoryTags = existingMemories.flatMap(memory => memory.tags || []);
+    
+    // 既に聞いていない情報を優先
+    const unaskedCandidates = candidates.filter(candidate => {
+      const lowerCandidate = candidate.toLowerCase();
+      const isAlreadyAsked = memoryContents.some(content => 
+        content.includes(lowerCandidate) || 
+        candidate.split('').some(char => content.includes(char))
+      ) || memoryTags.some(tag => 
+        tag.includes(candidate) || candidate.includes(tag)
+      );
+      return !isAlreadyAsked;
+    });
+
+    console.log(`[AI質問] ${questionType}カテゴリ - 未質問候補:`, unaskedCandidates);
+
+    // 未質問の情報があればそれを優先
+    if (unaskedCandidates.length > 0) {
+      return unaskedCandidates[Math.floor(Math.random() * unaskedCandidates.length)];
+    }
+
+    // 全て既知の場合は、異なる角度で質問
+    console.log(`[AI質問] ${questionType}カテゴリ - 全て既知、別角度で質問`);
+    return candidates[Math.floor(Math.random() * candidates.length)] + 'の詳細';
+  }
+
+  /**
+   * ターゲット情報を選択（レガシー）
    */
   private selectTargetInfo(questionType: QuestionType, intimacy: number, uncollectedInfo?: string[]): string {
     const infoMap = {
@@ -1155,7 +1419,60 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
   }
 
   /**
-   * 質問生成用のプロンプトを構築
+   * 質問生成用のプロンプトを構築（メモリ考慮版）
+   */
+  private buildQuestionPromptWithMemory(
+    partner: any,
+    user: any,
+    questionType: QuestionType,
+    targetInfo: string,
+    intimacy: number,
+    timeContext?: any,
+    recentContext?: any,
+    existingMemories: any[] = []
+  ): string {
+    // 通常会話と同じ呼称ロジックを使用
+    const userName = this.getCallingStyle(partner, user, intimacy);
+    const timeInfo = timeContext ? `現在時刻: ${timeContext.hour}時, ${timeContext.dayOfWeek}` : '';
+    
+    // 既知情報を整理
+    const knownInfo = existingMemories.length > 0 
+      ? `\n【既に知っている${userName}のこと】\n${existingMemories.slice(0, 5).map(memory => `- ${memory.content}`).join('\n')}\n`
+      : '';
+    
+    return `
+あなたは${partner.name}として、恋人の${userName}に自然で愛情あふれる質問をします。
+
+【基本設定】
+- パートナー名: ${partner.name}
+- 性格: ${partner.personalityType}
+- 話し方: ${partner.speechStyle}
+- 現在の親密度: ${intimacy}/100
+- 質問タイプ: ${questionType}
+- 聞きたい情報: ${targetInfo}
+- ${timeInfo}
+${knownInfo}
+【システムプロンプト】
+${partner.systemPrompt}
+
+【重要な指示】
+1. 恋人として自然な動機で質問する（「君のことをもっと知りたい」）
+2. 質問は1つだけ、1-2文程度の自然な長さ
+3. 親密度${intimacy}に応じた適切な距離感を保つ
+4. 相手を「${userName}」と呼ぶ（「あなた」は禁止）
+5. 愛情表現を7割、情報収集を3割の比重で
+6. 時間帯に適した話題を選ぶ
+7. 「分析」「データ」「効率的」などの表現は絶対に使わない
+8. 【重要】既に知っている情報については別の角度から質問するか、より深く掘り下げる
+
+${recentContext?.lastMessageContent ? `最近の会話: ${recentContext.lastMessageContent}` : ''}
+
+恋人として愛情深く、${targetInfo}について自然に聞いてください。既知の情報がある場合は、それをベースにより深い質問をしてください。
+`;
+  }
+
+  /**
+   * 質問生成用のプロンプトを構築（レガシー）
    */
   private buildQuestionPrompt(
     partner: any,

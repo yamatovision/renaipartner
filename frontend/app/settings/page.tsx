@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import UserLayout from '@/layouts/UserLayout'
 import { usersService, authService, notificationsService, settingsService, imagesService, partnersService } from '@/services'
-import { NotificationSettings, UserSettings, BackgroundImage, Partner } from '@/types'
+import { NotificationSettings, UserSettings, BackgroundImage, Partner, AIModelProvider, AIModelConfig } from '@/types'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -153,7 +153,13 @@ export default function SettingsPage() {
         backgroundImage: 'default',
         soundEnabled: true,
         autoSave: true,
-        dataRetentionDays: 365
+        dataRetentionDays: 365,
+        aiModel: {
+          provider: AIModelProvider.OPENAI,
+          model: 'gpt-4o-mini',
+          temperature: 0.8,
+          maxTokens: 2000
+        }
       })
       
       // 通知設定をAPIから取得
@@ -380,6 +386,30 @@ export default function SettingsPage() {
     }
   }
 
+  const handleAIModelChange = async (newConfig: AIModelConfig) => {
+    try {
+      if (!userSettings) return
+      
+      // AIモデル設定のみを更新（他のフィールドは送信しない）
+      const response = await settingsService.updateSettings({
+        userSettings: {
+          aiModel: newConfig
+        }
+      })
+      
+      if (response.success && response.data) {
+        // ローカル状態を更新
+        setUserSettings(prev => prev ? { ...prev, aiModel: newConfig } : prev)
+        alert(`AIモデルを「${newConfig.provider} - ${newConfig.model}」に変更しました`)
+      } else {
+        throw new Error(response.error || '更新に失敗しました')
+      }
+    } catch (error) {
+      console.error('AIモデル設定に失敗しました:', error)
+      alert('AIモデル設定の更新に失敗しました')
+    }
+  }
+
   const handleExportData = async (includeConversations: boolean) => {
     try {
       const result = await usersService.exportUserData()
@@ -565,6 +595,105 @@ export default function SettingsPage() {
                 <span className="material-icons mr-2">✏️</span>
                 編集
               </button>
+            </div>
+          </section>
+
+          {/* AIモデル設定 */}
+          <section className="mb-8 pb-8 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+              <span className="material-icons mr-2 text-blue-500">🤖</span>
+              AIモデル設定
+            </h2>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-4">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-800 mb-1">AIプロバイダー</div>
+                  <div className="text-sm text-gray-600">会話に使用するAIプロバイダーを選択</div>
+                </div>
+                <select
+                  value={userSettings?.aiModel?.provider || AIModelProvider.OPENAI}
+                  onChange={(e) => {
+                    const provider = e.target.value as AIModelProvider
+                    const defaultModel = provider === AIModelProvider.CLAUDE ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini'
+                    handleAIModelChange({
+                      provider,
+                      model: defaultModel,
+                      temperature: 0.8,
+                      maxTokens: 2000
+                    })
+                  }}
+                  className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base cursor-pointer hover:border-blue-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value={AIModelProvider.OPENAI}>OpenAI</option>
+                  <option value={AIModelProvider.CLAUDE}>Claude (Anthropic)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-800 mb-1">モデル</div>
+                  <div className="text-sm text-gray-600">
+                    {userSettings?.aiModel?.provider === AIModelProvider.CLAUDE 
+                      ? 'Claudeモデルを選択' 
+                      : 'OpenAIモデルを選択'}
+                  </div>
+                </div>
+                <select
+                  value={userSettings?.aiModel?.model || (userSettings?.aiModel?.provider === AIModelProvider.CLAUDE ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini')}
+                  onChange={(e) => {
+                    if (userSettings?.aiModel) {
+                      handleAIModelChange({
+                        ...userSettings.aiModel,
+                        model: e.target.value
+                      })
+                    }
+                  }}
+                  className="bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-base cursor-pointer hover:border-blue-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {userSettings?.aiModel?.provider === AIModelProvider.CLAUDE ? (
+                    <>
+                      <option value="claude-opus-4-20250514">Claude Opus 4 (最新)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (最新)</option>
+                      <option value="claude-3-sonnet-20240229">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between py-4">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-800 mb-1">Temperature</div>
+                  <div className="text-sm text-gray-600">会話の創造性を調整 (0.0-1.0)</div>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={userSettings?.aiModel?.temperature || 0.8}
+                  onChange={(e) => {
+                    if (userSettings?.aiModel) {
+                      handleAIModelChange({
+                        ...userSettings.aiModel,
+                        temperature: parseFloat(e.target.value)
+                      })
+                    }
+                  }}
+                  className="w-24"
+                />
+                <span className="ml-2 text-sm text-gray-600 w-8">
+                  {userSettings?.aiModel?.temperature || 0.8}
+                </span>
+              </div>
             </div>
           </section>
 

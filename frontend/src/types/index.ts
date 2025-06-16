@@ -780,6 +780,19 @@ export interface NotificationSettings {
 
 export type NotificationSettingsResponse = ApiResponse<NotificationSettings>;
 
+// AIモデル関連
+export enum AIModelProvider {
+  OPENAI = 'openai',
+  CLAUDE = 'claude',
+}
+
+export interface AIModelConfig {
+  provider: AIModelProvider;
+  model: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
 export interface UserSettings {
   id: ID;
   userId: ID;
@@ -788,6 +801,7 @@ export interface UserSettings {
   soundEnabled: boolean;
   autoSave: boolean;
   dataRetentionDays: number;
+  aiModel?: AIModelConfig; // AIモデル設定を追加
 }
 
 export interface SettingsResponse {

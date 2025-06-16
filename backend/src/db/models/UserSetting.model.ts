@@ -9,14 +9,15 @@ class UserSettingModel {
     try {
       const query = `
         INSERT INTO user_settings (
-          user_id, theme, background_image, sound_enabled, auto_save, data_retention_days
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          user_id, theme, background_image, sound_enabled, auto_save, data_retention_days, ai_model
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (user_id) DO NOTHING
         RETURNING id, user_id, theme, background_image, sound_enabled, 
-                  auto_save, data_retention_days, created_at, updated_at
+                  auto_save, data_retention_days, ai_model, created_at, updated_at
       `;
       
-      const values = [userId, 'light', 'default', true, true, 365];
+      const defaultAiModel = { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.8, maxTokens: 2000 };
+      const values = [userId, 'light', 'default', true, true, 365, JSON.stringify(defaultAiModel)];
       
       const result = await client.query(query, values);
       
@@ -24,7 +25,7 @@ class UserSettingModel {
         // 既に存在する場合は取得
         const existingQuery = `
           SELECT id, user_id, theme, background_image, sound_enabled,
-                 auto_save, data_retention_days, created_at, updated_at
+                 auto_save, data_retention_days, ai_model, created_at, updated_at
           FROM user_settings
           WHERE user_id = $1
         `;
@@ -49,7 +50,7 @@ class UserSettingModel {
     try {
       const query = `
         SELECT id, user_id, theme, background_image, sound_enabled,
-               auto_save, data_retention_days, created_at, updated_at
+               auto_save, data_retention_days, ai_model, created_at, updated_at
         FROM user_settings
         WHERE user_id = $1
       `;
@@ -75,7 +76,7 @@ class UserSettingModel {
     const client = await pool.connect();
     
     try {
-      const allowedFields = ['theme', 'backgroundImage', 'soundEnabled', 'autoSave', 'dataRetentionDays'];
+      const allowedFields = ['theme', 'backgroundImage', 'soundEnabled', 'autoSave', 'dataRetentionDays', 'aiModel'];
       const updateFields: string[] = [];
       const values: any[] = [];
       let valueIndex = 1;
@@ -85,7 +86,12 @@ class UserSettingModel {
         if (allowedFields.includes(key)) {
           const dbColumn = this.camelToSnake(key);
           updateFields.push(`${dbColumn} = $${valueIndex}`);
-          values.push(value);
+          // aiModelの場合はJSONとして保存
+          if (key === 'aiModel') {
+            values.push(JSON.stringify(value));
+          } else {
+            values.push(value);
+          }
           valueIndex++;
         }
       });
@@ -211,6 +217,26 @@ class UserSettingModel {
 
   // DBレコードをUserSettings型にマッピング
   private static mapDbRowToUserSettings(row: any): UserSettings {
+    let aiModel;
+    try {
+      if (row.ai_model) {
+        // 既にオブジェクトの場合はそのまま使用、文字列の場合はパース
+        if (typeof row.ai_model === 'string') {
+          aiModel = JSON.parse(row.ai_model);
+        } else if (typeof row.ai_model === 'object') {
+          aiModel = row.ai_model;
+        } else {
+          aiModel = undefined;
+        }
+      } else {
+        aiModel = undefined;
+      }
+    } catch (error) {
+      console.error('[UserSetting] aiModel JSON parse error:', error);
+      console.error('[UserSetting] Problematic ai_model value:', row.ai_model);
+      aiModel = undefined;
+    }
+
     return {
       id: row.id,
       userId: row.user_id,
@@ -219,6 +245,7 @@ class UserSettingModel {
       soundEnabled: row.sound_enabled,
       autoSave: row.auto_save,
       dataRetentionDays: row.data_retention_days,
+      aiModel: aiModel,
     };
   }
 
