@@ -44,7 +44,7 @@ async function checkMessages() {
       FROM messages 
       WHERE partner_id = '${partnerId}'
       ORDER BY created_at DESC
-      LIMIT 10
+      LIMIT 20
     `);
 
     console.log('\n最新のメッセージ（新しい順）:');

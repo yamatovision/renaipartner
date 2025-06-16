@@ -6,6 +6,9 @@ import RelationshipMetricsModel from '../../db/models/RelationshipMetrics.model'
 import { LocationsService } from '../locations/locations.service';
 import ClothingPromptsService from '../images/clothing-prompts';
 import { HolidaysService } from '../holidays/holidays.service';
+import { MemoryService } from '../memory/memory.service';
+import MEMORY_CONFIG from '../../config/memory.config';
+import { MemoryType } from '../../types';
 import { 
   personalityEngagements, 
   selectEngagementType, 
@@ -29,11 +32,13 @@ import {
 
 export class ChatService {
   private openai: OpenAI;
+  private memoryService: MemoryService;
 
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
+    this.memoryService = new MemoryService();
   }
 
   /**
@@ -495,6 +500,29 @@ export class ChatService {
       }
     }
 
+    // ユーザーのメモリ情報を取得
+    let memoryContext = '';
+    try {
+      const memories = await this.memoryService.searchMemories({
+        partnerId: partner.id,
+        query: '',  // 全体的な検索
+        memoryTypes: MEMORY_CONFIG.MEMORY_TYPE_PRIORITY.map(type => MemoryType[type as keyof typeof MemoryType]),
+        limit: MEMORY_CONFIG.MAX_MEMORIES_IN_PROMPT,
+        minImportance: MEMORY_CONFIG.MIN_IMPORTANCE
+      });
+
+      if (memories.results && memories.results.length > 0) {
+        memoryContext = `
+## ${callingStyle}についての記憶
+${memories.results.map((memory: any) => `- ${memory.content}`).join('\n')}
+
+これらの情報を自然に会話に活かしてください。`;
+      }
+    } catch (error) {
+      console.error('メモリ取得エラー:', error);
+      // エラーが発生しても処理を継続
+    }
+
     const basePrompt = `
 あなたは${partner.name}という名前のAIパートナーです。
 
@@ -515,6 +543,7 @@ ${partner.systemPrompt}
 - 甘えた感じの表現を適宜織り交ぜる
 ${locationContext}
 ${dateTimeContext}
+${memoryContext}
 
 【重要な指示】
 1. 常に${partner.name}として一貫した人格を保つ
