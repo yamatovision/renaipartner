@@ -30,7 +30,7 @@ export const ENV_CONFIG = {
   
   // OpenAI設定
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini',
   OPENAI_TEMPERATURE: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
   OPENAI_MAX_TOKENS: parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10),
   

@@ -56,9 +56,9 @@ export class ImagesService {
         numImages: request.numImages || 1,
       });
 
-      // 生成結果を保存
+      // 生成結果を保存（オンボーディング時はpartner_idなしで保存）
       const generatedImage = await GeneratedImageModel.create({
-        partnerId: request.partnerId,
+        partnerId: request.partnerId || null,
         imageUrl,
         prompt: request.prompt || 'Generated image',
         context: request.context || 'Avatar generation',
@@ -152,15 +152,40 @@ export class ImagesService {
     // promptがundefinedまたは空の場合のデフォルト値を設定
     let prompt = request.prompt || 'character portrait';
 
-    // パートナー外見特徴を追加
+    // パートナー外見特徴を追加（パートナーがある場合）
     if (request.useAppearance && partner?.appearance) {
       const appearance = partner.appearance;
       const appearanceDetails = [
         (appearance.hairColor && appearance.hairStyle) && `${appearance.hairColor} ${appearance.hairStyle} hair`,
         (!appearance.hairColor && appearance.hairStyle) && `${appearance.hairStyle} hair`,
         appearance.eyeColor && `${appearance.eyeColor} eyes`,
-        appearance.bodyType && `${appearance.bodyType} body`,
+        appearance.bodyType && this.mapBodyTypeToPrompt(appearance.bodyType, partner?.gender),
       ].filter(Boolean).join(', ');
+
+      if (appearanceDetails) {
+        prompt = `${prompt}, ${appearanceDetails}`;
+      }
+    }
+    
+    // オンボーディング時はリクエストから直接外見情報を取得
+    if (!partner && request) {
+      console.log('[画像生成] オンボーディング用外見情報:', {
+        hairColor: request.hairColor,
+        hairStyle: request.hairStyle,
+        eyeColor: request.eyeColor,
+        bodyType: request.bodyType,
+        gender: request.gender
+      });
+      
+      const appearanceDetails = [
+        (request.hairColor && request.hairStyle) && `${request.hairColor} ${request.hairStyle} hair`,
+        (!request.hairColor && request.hairStyle) && `${request.hairStyle} hair`,
+        (request.hairColor && !request.hairStyle) && `${request.hairColor} hair`,
+        request.eyeColor && `${request.eyeColor} eyes`,
+        request.bodyType && this.mapBodyTypeToPrompt(request.bodyType, request.gender),
+      ].filter(Boolean).join(', ');
+      
+      console.log('[画像生成] 構築された外見詳細:', appearanceDetails);
 
       if (appearanceDetails) {
         prompt = `${prompt}, ${appearanceDetails}`;
@@ -184,6 +209,8 @@ export class ImagesService {
 
     // アニメスタイルを強調
     prompt = `anime style, ${prompt}, high quality, detailed`;
+    
+    console.log('[画像生成] 構築されたプロンプト:', prompt);
 
     return prompt;
   }
@@ -196,11 +223,12 @@ export class ImagesService {
       requestPrompt: request.prompt,
       locationId: request.locationId,
       emotion: request.emotion,
-      intimacyLevel: partner.intimacyLevel
+      intimacyLevel: partner.intimacyLevel,
+      partnerAppearance: partner.appearance
     });
     
     // 1. 基本形 + 性別
-    const genderStr = partner.gender === 'boyfriend' ? 'young man' : 'young woman';
+    const genderStr = partner.gender === 'boyfriend' ? 'handsome man' : 'alluring woman';
     let prompt = `anime style ${genderStr}`;
     
     // 2. 外見特徴（髪色、髪型、目の色）
@@ -217,6 +245,11 @@ export class ImagesService {
       }
       if (appearance.eyeColor) {
         appearancePrompts.push(`${appearance.eyeColor} eyes`);
+      }
+      // 温泉とベッドルームの場合は体型を除外（Leonardo AIフィルター対策）
+      const excludeBodyTypeLocations = ['onsen', 'bedroom_night'];
+      if (appearance.bodyType && !excludeBodyTypeLocations.includes(request.locationId || '')) {
+        appearancePrompts.push(this.mapBodyTypeToPrompt(appearance.bodyType, partner.gender));
       }
       
       if (appearancePrompts.length > 0) {
@@ -242,7 +275,18 @@ export class ImagesService {
       'prince': 'princely',
       'otaku': 'otaku',
       'younger': 'younger',
-      'band': 'band member'
+      'band': 'band member',
+      // 新規追加
+      'imouto': 'cute little sister',
+      'oneesan': 'mature older sister',
+      'seiso': 'pure and innocent',
+      'koakuma': 'mischievous',
+      'yandere': 'yandere',
+      'villain': 'villainous',
+      'possessive': 'possessive',
+      'sadistic': 'sadistic dominant',
+      'oresama': 'arrogant confident',
+      'mature': 'mature reliable'
     };
     const personalityPrompt = personalityMap[partner.personalityType] || partner.personalityType;
     prompt = `${prompt}, ${personalityPrompt} personality`;
@@ -391,8 +435,8 @@ export class ImagesService {
 
     } catch (error) {
       console.error('[画像生成] Leonardo AI API呼び出しエラー:', error);
-      // エラー時はモックURLを返す（テスト継続のため）
-      return `/images/generated/mock-${Date.now()}.jpg`;
+      // エラー時は実在するプレースホルダー画像を返す
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuOCqOODqeODvOaZguOBq+WIqeeUqOS4jeWPozwvdGV4dD4KPC9zdmc+';
     }
   }
 
@@ -534,6 +578,60 @@ export class ImagesService {
     }
 
     await GeneratedImageModel.destroy(imageId);
+  }
+
+  /**
+   * 体型を適切な英語表現にマッピング
+   */
+  private mapBodyTypeToPrompt(bodyType: string, gender?: string): string {
+    const bodyTypeMap: { [key: string]: string } = {
+      // 共通
+      'normal': 'average proportioned body',
+      // 性別に応じた athletic の表現
+      'athletic': gender === 'boyfriend' ? 'athletic muscular body' : 'slim athletic body',
+      // 女性用
+      'curvy': 'curvy body',
+      // 男性用
+      'lean': 'lean slender body',
+      // 旧形式対応（互換性のため）
+      'slim': 'slim athletic body',
+      'average': 'average proportioned body'
+    };
+    
+    const result = bodyTypeMap[bodyType] || `${bodyType} body`;
+    console.log(`[画像生成] 体型マッピング: ${bodyType} (${gender}) -> ${result}`);
+    
+    return result;
+  }
+
+  /**
+   * オンボーディング用画像生成（DBに保存しない）
+   */
+  async generateOnboardingImage(request: ImageGenerationRequest): Promise<{ imageUrl: string }> {
+    try {
+      console.log('[画像生成] オンボーディング画像生成開始');
+      
+      // プロンプト構築（パートナー情報なし）
+      const finalPrompt = await this.buildAvatarPrompt(request, null);
+
+      // Leonardo AI API呼び出し
+      const imageUrl = await this.callLeonardoAPI({
+        prompt: finalPrompt,
+        modelId: request.modelId || LEONARDO_AI_CONSTRAINTS.ANIME_MODELS.DEFAULT_ANIME_MODEL,
+        width: request.width || 512,
+        height: request.height || 768,
+        guidanceScale: request.guidanceScale || 7,
+        numImages: request.numImages || 1,
+      });
+
+      console.log('[画像生成] オンボーディング画像生成完了:', imageUrl);
+      
+      // DBに保存せず、URLのみ返却
+      return { imageUrl };
+    } catch (error) {
+      console.error('[画像生成] オンボーディング画像生成エラー:', error);
+      throw new Error('オンボーディング画像生成に失敗しました');
+    }
   }
 
   /**

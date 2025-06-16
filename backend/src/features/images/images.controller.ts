@@ -36,10 +36,19 @@ export class ImagesController {
         height,
         guidanceScale,
         numImages,
+        // 外見情報
+        hairColor,
+        hairStyle,
+        eyeColor,
+        bodyType,
+        gender,
       } = req.body;
 
       const userId = (req as AuthRequest).user?.userId;
       console.log(`[画像生成] オンボーディング画像生成開始 - User: ${userId}`);
+      console.log('[画像生成] 受信したリクエストボディ:', {
+        hairColor, hairStyle, eyeColor, bodyType, gender
+      });
 
       // promptが必須
       if (!prompt) {
@@ -64,9 +73,15 @@ export class ImagesController {
         height: height || 768,
         guidanceScale: guidanceScale || 7,
         numImages: numImages || 1,
+        // 外見情報を追加
+        hairColor,
+        hairStyle,
+        eyeColor,
+        bodyType,
+        gender,
       };
 
-      const result = await this.imagesService.generateAvatarImage(request);
+      const result = await this.imagesService.generateOnboardingImage(request);
 
       res.status(200).json({
         success: true,

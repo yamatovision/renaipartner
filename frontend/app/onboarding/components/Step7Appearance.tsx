@@ -57,7 +57,17 @@ const personalityAppearanceMap: Record<PersonalityType, { style: string; atmosph
   [PersonalityType.PRINCE]: { style: 'elegant noble appearance', atmosphere: 'princely graceful expression' },
   [PersonalityType.OTAKU]: { style: 'casual otaku fashion', atmosphere: 'passionate enthusiastic expression' },
   [PersonalityType.YOUNGER]: { style: 'youthful cute appearance', atmosphere: 'playful innocent expression' },
-  [PersonalityType.BAND]: { style: 'cool musician appearance', atmosphere: 'charismatic rock-star expression' }
+  [PersonalityType.BAND]: { style: 'cool musician appearance', atmosphere: 'charismatic rock-star expression' },
+  [PersonalityType.IMOUTO]: { style: 'cute little sister appearance with ribbons', atmosphere: 'innocent sweet expression' },
+  [PersonalityType.ONEESAN]: { style: 'mature elegant oneesan appearance', atmosphere: 'gentle caring expression' },
+  [PersonalityType.SEISO]: { style: 'pure and elegant appearance', atmosphere: 'modest refined expression' },
+  [PersonalityType.KOAKUMA]: { style: 'mischievous cute appearance', atmosphere: 'playful teasing expression' },
+  [PersonalityType.YANDERE]: { style: 'sweet but intense appearance', atmosphere: 'obsessive loving expression' },
+  [PersonalityType.VILLAIN]: { style: 'dark and charismatic appearance', atmosphere: 'confident dominant expression' },
+  [PersonalityType.POSSESSIVE]: { style: 'intense and devoted appearance', atmosphere: 'deeply affectionate expression' },
+  [PersonalityType.SADISTIC]: { style: 'dominant and teasing appearance', atmosphere: 'mischievous sadistic expression' },
+  [PersonalityType.ORESAMA]: { style: 'confident and commanding appearance', atmosphere: 'arrogant but caring expression' },
+  [PersonalityType.MATURE]: { style: 'sophisticated adult appearance', atmosphere: 'wise mature expression' }
 }
 
 // プレースホルダーコンポーネント
@@ -129,17 +139,40 @@ export function Step7Appearance({
       console.log('Generating image with prompt:', prompt)
       
       // オンボーディング用のエンドポイントを使用（partnerIdなし）
-      const response = await imagesService.generateOnboardingImage({
+      const requestData = {
         partnerId: '', // オンボーディング時はpartnerIdがまだない
         prompt,
         context: `${partnerName} avatar generation`,
         emotion: 'neutral',
         width: 512,
-        height: 512
-      })
+        height: 512,
+        // 外見情報を直接送信
+        hairColor: appearance.hairColor,
+        hairStyle: appearance.hairStyle,
+        eyeColor: appearance.eyeColor,
+        bodyType: appearance.bodyType,
+        gender: gender
+      }
+      
+      console.log('[デバッグ] 送信するリクエストデータ:', requestData)
+      
+      const response = await imagesService.generateOnboardingImage(requestData)
+      
+      console.log('[デバッグ] 画像生成レスポンス:', response)
+      console.log('[デバッグ] response.data:', response.data)
+      console.log('[デバッグ] response.dataのキー:', Object.keys(response.data || {}))
       
       if (response.success && response.data) {
-        const newImage = response.data.imageUrl
+        // レスポンスが二重にネストされている場合の処理
+        const imageUrl = response.data.data?.imageUrl || response.data.imageUrl
+        console.log('[デバッグ] 生成された画像URL:', imageUrl)
+        
+        const newImage = imageUrl
+        
+        if (!newImage) {
+          throw new Error('画像URLが空です')
+        }
+        
         const newHistory = [...imageHistory, newImage]
         setImageHistory(newHistory)
         setCurrentImageIndex(newHistory.length - 1)
@@ -214,7 +247,7 @@ export function Step7Appearance({
       {/* アバタープレビュー */}
       <div className="relative">
         <div className="flex justify-center mb-4">
-          {imageHistory.length > 0 ? (
+          {imageHistory.length > 0 && imageHistory[currentImageIndex] ? (
             <div className="relative">
               <Image
                 src={imageHistory[currentImageIndex]}
@@ -223,6 +256,9 @@ export function Step7Appearance({
                 height={256}
                 className="rounded-full border-4 border-pink-500 shadow-lg"
                 unoptimized // 一時的にNext.jsの画像最適化を無効化
+                onError={(e) => {
+                  console.error('[デバッグ] 画像読み込みエラー:', imageHistory[currentImageIndex])
+                }}
               />
               
               {/* 生成回数バッジ */}
@@ -337,13 +373,25 @@ export function Step7Appearance({
           <div className="bg-gray-50 p-4 rounded-xl">
             <label className="block text-sm font-medium text-gray-700 mb-2">体型</label>
             <select
-              value={appearance.bodyType || 'average'}
+              value={appearance.bodyType || 'normal'}
               onChange={(e) => handleChange('bodyType', e.target.value as any)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
             >
-              <option value="slim">スリム</option>
-              <option value="average">普通</option>
-              <option value="athletic">アスリート</option>
+              {gender === Gender.BOYFRIEND ? (
+                // 男性用体型選択肢
+                <>
+                  <option value="normal">標準的</option>
+                  <option value="athletic">筋肉質</option>
+                  <option value="lean">細身</option>
+                </>
+              ) : (
+                // 女性用体型選択肢
+                <>
+                  <option value="normal">標準的</option>
+                  <option value="athletic">スリム</option>
+                  <option value="curvy">メリハリ</option>
+                </>
+              )}
             </select>
           </div>
           

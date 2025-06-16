@@ -62,10 +62,16 @@ export const RelationshipMetricsProvider: React.FC<{ children: React.ReactNode }
       
       console.log('[RelationshipMetrics] Loading partner and metrics...')
       
-      // 1. パートナー情報を取得
-      const partnerResponse = await partnersService.getPartner()
+      // 1. パートナー情報を取得（PartnerGuardと同じAPIを使用）
+      const partnerResponse = await partnersApiService.getPartner()
+      console.log('[RelationshipMetrics] Partner API response:', partnerResponse)
+      
       if (!partnerResponse.success || !partnerResponse.data) {
-        throw new Error('パートナー情報の取得に失敗しました')
+        console.log('[RelationshipMetrics] No partner found, skipping metrics load')
+        // パートナーが存在しない場合はエラーを投げずに終了
+        setPartner(null)
+        setRelationshipMetrics(null)
+        return
       }
 
       const partnerData = partnerResponse.data

@@ -119,10 +119,19 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       // パートナー情報を取得
       console.log('[LocationContext] Fetching partner info...')
-      const partnerResponse = await partnersApiService.getPartner()
-      console.log('[LocationContext] Partner response:', partnerResponse)
+      let partnerResponse
+      try {
+        partnerResponse = await partnersApiService.getPartner()
+        console.log('[LocationContext] Partner response:', partnerResponse)
+      } catch (partnerError) {
+        console.log('[LocationContext] Partner API error (expected for new users):', partnerError)
+        // 新規ユーザーの場合は認証エラーやパートナー未作成エラーが正常
+        return
+      }
+      
       if (!partnerResponse.success || !partnerResponse.data) {
-        console.error('[LocationContext] Failed to get partner data')
+        console.log('[LocationContext] No partner found, skipping location fetch')
+        // パートナーが存在しない場合は処理をスキップ
         return
       }
       

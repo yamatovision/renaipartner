@@ -19,6 +19,13 @@ const appearanceSchema = Joi.object({
       'any.only': '髪型は short, medium, long のいずれかを選択してください',
       'any.required': '髪型は必須です'
     }),
+  hairColor: Joi.string()
+    .valid('black', 'dark brown', 'brown', 'blonde', 'pink', 'light blue', 'mint green', 'lavender', 'light gold', 'silver')
+    .required()
+    .messages({
+      'any.only': '髪の色は有効な色を選択してください',
+      'any.required': '髪の色は必須です'
+    }),
   eyeColor: Joi.string()
     .valid('brown', 'black', 'blue', 'green')
     .required()
@@ -27,10 +34,10 @@ const appearanceSchema = Joi.object({
       'any.required': '目の色は必須です'
     }),
   bodyType: Joi.string()
-    .valid('slim', 'average', 'athletic')
+    .valid('normal', 'athletic', 'curvy', 'lean', 'slim', 'average')
     .required()
     .messages({
-      'any.only': '体型は slim, average, athletic のいずれかを選択してください',
+      'any.only': '体型は normal, athletic, curvy, lean のいずれかを選択してください',
       'any.required': '体型は必須です'
     }),
   clothingStyle: Joi.string()
@@ -170,6 +177,12 @@ export const updatePartnerSchema = Joi.object({
       .messages({
         'any.only': '髪型は short, medium, long のいずれかを選択してください'
       }),
+    hairColor: Joi.string()
+      .valid('black', 'dark brown', 'brown', 'blonde', 'pink', 'light blue', 'mint green', 'lavender', 'light gold', 'silver')
+      .optional()
+      .messages({
+        'any.only': '髪の色は有効な色を選択してください'
+      }),
     eyeColor: Joi.string()
       .valid('brown', 'black', 'blue', 'green')
       .optional()
@@ -177,10 +190,10 @@ export const updatePartnerSchema = Joi.object({
         'any.only': '目の色は brown, black, blue, green のいずれかを選択してください'
       }),
     bodyType: Joi.string()
-      .valid('slim', 'average', 'athletic')
+      .valid('normal', 'athletic', 'curvy', 'lean', 'slim', 'average')
       .optional()
       .messages({
-        'any.only': '体型は slim, average, athletic のいずれかを選択してください'
+        'any.only': '体型は normal, athletic, curvy, lean のいずれかを選択してください'
       }),
     clothingStyle: Joi.string()
       .valid('casual', 'formal', 'sporty', 'elegant')

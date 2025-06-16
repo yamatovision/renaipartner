@@ -723,7 +723,6 @@ export default function HomePage() {
                 {relationshipMetrics && (
                   <span className="ml-1 md:ml-2 px-1 md:px-2 py-1 bg-white/20 rounded-full text-xs">
                     <span className="hidden sm:inline">親密度 </span>{relationshipMetrics.intimacyLevel}%
-                    {console.log('[Home] 親密度表示レンダリング:', relationshipMetrics.intimacyLevel)}
                   </span>
                 )}
               </div>
@@ -791,14 +790,18 @@ export default function HomePage() {
           style={getCurrentBackgroundStyle()}
         >
           <div className="max-w-none md:max-w-3xl mx-auto space-y-3 md:space-y-4">
-          {messages && Array.isArray(messages) && messages.length > 0 ? messages.map((message) => (
-            <MessageItem 
-              key={message.id} 
-              message={message} 
-              partner={partner} 
-              formatTime={formatTime}
-            />
-          )) : (
+          {messages && Array.isArray(messages) && messages.length > 0 ? (
+            <>
+              {messages.map((message) => (
+                <MessageItem 
+                  key={message.id} 
+                  message={message} 
+                  partner={partner} 
+                  formatTime={formatTime}
+                />
+              ))}
+            </>
+          ) : (
             <div className="text-center py-8">
               <p className="text-gray-500">まだメッセージがありません。最初のメッセージを送信してみましょう！</p>
             </div>

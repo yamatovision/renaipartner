@@ -90,8 +90,8 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
         }
       }
     } catch (err) {
-      console.error('ユーザー背景設定の取得に失敗:', err);
-      // エラーが発生してもデフォルト背景を継続使用
+      console.log('[BackgroundContext] Settings API error (expected for new users):', err);
+      // 新規ユーザーの場合は認証エラーが正常。デフォルト背景を継続使用
     }
   };
 

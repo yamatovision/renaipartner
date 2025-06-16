@@ -41,12 +41,6 @@ export function Step1Welcome({ onNext }: Step1WelcomeProps) {
       >
         始める
       </button>
-      
-      <div className="mt-4">
-        <a href="/create-partner" className="text-gray-500 text-sm hover:text-pink-500 transition-colors">
-          上級者向け作成はこちら
-        </a>
-      </div>
     </div>
   )
 }

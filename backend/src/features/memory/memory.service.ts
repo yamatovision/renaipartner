@@ -90,7 +90,7 @@ export class MemoryService {
       
       const completion = await Promise.race([
         this.openai.chat.completions.create({
-          model: 'gpt-4-turbo-preview',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: analysisPrompt },
             { role: 'user', content: conversationText }
@@ -694,7 +694,7 @@ export class MemoryService {
       // OpenAI APIで質問応答分析・メモリ抽出
       const completion = await Promise.race([
         this.openai.chat.completions.create({
-          model: 'gpt-4-turbo-preview',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: analysisPrompt },
             { role: 'user', content: `質問: ${question}\n\nユーザーの回答: ${userResponse}` }

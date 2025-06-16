@@ -43,6 +43,13 @@ export function Step4PartnerName({ gender, selectedName, onSelect, onNext, onPre
     setSuggestedNames(shuffled.slice(0, 5))
   }, [gender])
   
+  // 他の候補を表示する関数
+  const shuffleNames = () => {
+    const namePool = gender === 'boyfriend' ? maleNamePool : femaleNamePool
+    const shuffled = [...namePool].sort(() => Math.random() - 0.5)
+    setSuggestedNames(shuffled.slice(0, 5))
+  }
+  
   const partnerText = gender === 'boyfriend' ? '彼氏' : '彼女'
   const isValid = selectedName !== ''
   
@@ -77,25 +84,40 @@ export function Step4PartnerName({ gender, selectedName, onSelect, onNext, onPre
           </h3>
           
           {namingMethod === 'ai-suggest' && (
-            <div className="flex flex-wrap gap-3">
-              {suggestedNames.map((name) => (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                {suggestedNames.map((name) => (
+                  <button
+                    key={name}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelect(name)
+                    }}
+                    className={`
+                      px-6 py-3 rounded-full border-2 font-medium transition-all
+                      ${selectedName === name
+                        ? 'bg-pink-500 text-white border-pink-500'
+                        : 'bg-white border-gray-300 hover:border-pink-500 hover:transform hover:-translate-y-0.5'
+                      }
+                    `}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="text-center">
                 <button
-                  key={name}
                   onClick={(e) => {
                     e.stopPropagation()
-                    onSelect(name)
+                    shuffleNames()
                   }}
-                  className={`
-                    px-6 py-3 rounded-full border-2 font-medium transition-all
-                    ${selectedName === name
-                      ? 'bg-pink-500 text-white border-pink-500'
-                      : 'bg-white border-gray-300 hover:border-pink-500 hover:transform hover:-translate-y-0.5'
-                    }
-                  `}
+                  className="text-pink-500 hover:text-pink-600 text-sm font-medium transition-colors flex items-center justify-center gap-1"
                 >
-                  {name}
+                  <span>🔄</span>
+                  他の候補を見る
                 </button>
-              ))}
+              </div>
             </div>
           )}
         </div>

@@ -1,0 +1,103 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: yamatovision-blue-lamp
+  SERVICE_NAME: renaipartner-backend
+  REGION: asia-northeast1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        version: 'latest'
+        
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: Configure Docker for Google Artifact Registry
+      run: |
+        gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+        
+    - name: Create .env.yaml
+      working-directory: ./backend
+      run: |
+        cat > .env.yaml << 'EOF'
+        NODE_ENV: "production"
+        BACKEND_PORT: "8080"
+        PORT: "8080"
+        JWT_ACCESS_TOKEN_EXPIRY: "15m"
+        JWT_REFRESH_TOKEN_EXPIRY: "30d"
+        BCRYPT_ROUNDS: "10"
+        OPENAI_MODEL: "gpt-4-turbo-preview"
+        OPENAI_TEMPERATURE: "0.8"
+        OPENAI_MAX_TOKENS: "2000"
+        CORS_ORIGIN: "https://renaipartner.web.app"
+        SESSION_MAX_AGE: "86400000"
+        LOG_LEVEL: "info"
+        LOG_FILE_PATH: "./logs/app.log"
+        RATE_LIMIT_WINDOW_MS: "900000"
+        RATE_LIMIT_MAX_REQUESTS: "100"
+        UPLOAD_MAX_FILE_SIZE: "5242880"
+        UPLOAD_ALLOWED_EXTENSIONS: ".jpg,.jpeg,.png,.gif,.webp"
+        PINECONE_INDEX_NAME: "ai-partner-memory"
+        SMTP_PORT: "587"
+        SMTP_SECURE: "false"
+        EMAIL_SERVICE_TYPE: "gmail-smtp"
+        IMAGE_GENERATION_ENDPOINT: "https://cloud.leonardo.ai/api/rest/v1"
+        IMAGE_GENERATION_MODEL: "leonardo-diffusion-xl"
+        DATABASE_URL: "${{ secrets.DATABASE_URL }}"
+        JWT_SECRET: "${{ secrets.JWT_SECRET }}"
+        ADMIN_PASSWORD: "${{ secrets.ADMIN_PASSWORD }}"
+        FIREBASE_PROJECT_ID: "${{ secrets.FIREBASE_PROJECT_ID }}"
+        FIREBASE_CLIENT_EMAIL: "${{ secrets.FIREBASE_CLIENT_EMAIL }}"
+        FIREBASE_PRIVATE_KEY: "${{ secrets.FIREBASE_PRIVATE_KEY }}"
+        ALLOWED_ORIGINS: "${{ secrets.ALLOWED_ORIGINS }}"
+        LEONARDO_API_KEY: "${{ secrets.LEONARDO_API_KEY }}"
+        LEONARDO_USER_ID: "${{ secrets.LEONARDO_USER_ID }}"
+        IMAGE_GENERATION_API_KEY: "${{ secrets.LEONARDO_API_KEY }}"
+        OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY }}"
+        CLAUDE_API_KEY: "${{ secrets.CLAUDE_API_KEY }}"
+        PINECONE_API_KEY: "${{ secrets.PINECONE_API_KEY }}"
+        PINECONE_ENVIRONMENT: "${{ secrets.PINECONE_ENVIRONMENT }}"
+        SMTP_HOST: "${{ secrets.SMTP_HOST }}"
+        SMTP_USER: "${{ secrets.SMTP_USER }}"
+        SMTP_PASS: "${{ secrets.SMTP_PASS }}"
+        SMTP_FROM: "${{ secrets.SMTP_FROM }}"
+        SESSION_SECRET: "${{ secrets.SESSION_SECRET }}"
+        EOF
+        
+    - name: Deploy to Cloud Run
+      working-directory: ./backend
+      run: |
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
+          --source . \
+          --platform managed \
+          --region ${{ env.REGION }} \
+          --allow-unauthenticated \
+          --env-vars-file .env.yaml \
+          --memory 1Gi \
+          --timeout 600 \
+          --project ${{ env.PROJECT_ID }}
+          
+    - name: Clean up
+      if: always()
+      working-directory: ./backend
+      run: |
+        rm -f .env.yaml

@@ -37,6 +37,30 @@ export class ChatService {
   }
 
   /**
+   * レート制限エラーのリトライ処理
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 1000
+  ): Promise<T> {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        if (error?.status === 429 && attempt < maxRetries - 1) {
+          const delay = baseDelay * Math.pow(2, attempt);
+          console.log(`[ChatService] Rate limit hit, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded');
+  }
+
+  /**
    * メッセージ送信処理
    */
   async sendMessage(userId: string, request: SendMessageRequest): Promise<ChatResponse> {
@@ -222,9 +246,9 @@ export class ChatService {
       // 会話履歴をOpenAI形式に変換
       const messages = this.buildConversationMessages(systemPrompt, conversationHistory, userMessage);
 
-      // OpenAI API呼び出し
-      const completion = await this.openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      // OpenAI API呼び出し（リトライ付き）
+      const completion = await this.retryWithBackoff(() => this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages,
         temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
         max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000'),
@@ -262,7 +286,7 @@ export class ChatService {
           }
         ],
         tool_choice: { type: 'function', function: { name: 'analyze_response' } }
-      });
+      }));
 
       console.log('🔍 [DEBUG] OpenAI Completion Response:', JSON.stringify(completion, null, 2));
       
@@ -353,6 +377,48 @@ export class ChatService {
         if (intimacyLevel < 20) return `${firstName}さん`;
         if (intimacyLevel < 40) return `${nickname}先輩`;
         return `${nickname}先輩`;
+      
+      // 新規女性キャラクター
+      case PersonalityType.IMOUTO:
+        return 'お兄ちゃん'; // 常に同じ呼び方
+      
+      case PersonalityType.ONEESAN:
+        if (intimacyLevel < 20) return surname ? `${surname}くん` : `${nickname}くん`;
+        if (intimacyLevel < 40) return `${firstName}くん`;
+        return nickname;
+      
+      case PersonalityType.SEISO:
+        if (intimacyLevel < 20) return surname ? `${surname}さん` : `${nickname}さん`;
+        if (intimacyLevel < 40) return `${firstName}さん`;
+        return nickname;
+      
+      case PersonalityType.KOAKUMA:
+        if (intimacyLevel < 20) return `${nickname}くん`;
+        if (intimacyLevel < 40) return nickname;
+        return `ダーリン`;
+      
+      case PersonalityType.YANDERE:
+        if (intimacyLevel < 20) return `${nickname}さん`;
+        if (intimacyLevel < 40) return nickname;
+        return `あなた`;
+      
+      // 新規男性キャラクター
+      case PersonalityType.VILLAIN:
+      case PersonalityType.POSSESSIVE:
+        if (intimacyLevel < 20) return '君';
+        return nickname;
+      
+      case PersonalityType.SADISTIC:
+        return intimacyLevel < 40 ? 'お前' : nickname;
+      
+      case PersonalityType.ORESAMA:
+        if (intimacyLevel < 20) return 'お前';
+        return nickname;
+      
+      case PersonalityType.MATURE:
+        if (intimacyLevel < 20) return surname ? `${surname}さん` : `${nickname}さん`;
+        if (intimacyLevel < 40) return firstName || nickname;
+        return nickname;
       
       case PersonalityType.GENTLE:
       case PersonalityType.CHEERFUL:
@@ -735,9 +801,9 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
         recentContext
       );
 
-      // OpenAI APIで発言生成
-      const completion = await this.openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      // OpenAI APIで発言生成（リトライ付き）
+      const completion = await this.retryWithBackoff(() => this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: engagementPrompt },
           { role: 'user', content: '恋人として自然で愛情深い発言をしてください。' }
@@ -773,7 +839,7 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
           }
         ],
         tool_choice: { type: 'function', function: { name: 'generate_engagement' } }
-      });
+      }));
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
       if (!toolCall?.function?.arguments) {
@@ -846,9 +912,9 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
         recentContext
       );
 
-      // OpenAI APIで質問生成
-      const completion = await this.openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+      // OpenAI APIで質問生成（リトライ付き）
+      const completion = await this.retryWithBackoff(() => this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: questionPrompt },
           { role: 'user', content: '上記の条件に基づいて、自然で愛情あふれる質問を生成してください。' }
@@ -883,7 +949,7 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
           }
         ],
         tool_choice: { type: 'function', function: { name: 'generate_question' } }
-      });
+      }));
 
       const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
       if (!toolCall?.function?.arguments) {

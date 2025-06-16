@@ -22,11 +22,9 @@ import { Step1Welcome } from './components/Step1Welcome'
 import { Step2Gender } from './components/Step2Gender'
 import { Step3UserInfo } from './components/Step3UserInfo'
 import { Step4PartnerName } from './components/Step4PartnerName'
-import { Step5Personality } from './components/Step5Personality'
 import { Step6PresetSelection } from './components/Step6PresetSelection'
 import { Step7Appearance } from './components/Step7Appearance'
 import { Step8Nickname } from './components/Step8Nickname'
-import { Step9InitialChat } from './components/Step9InitialChat'
 import { Step10Complete } from './components/Step10Complete'
 
 export default function OnboardingPage() {
@@ -47,7 +45,6 @@ export default function OnboardingPage() {
       birthday: string
     }
     partnerData: PartnerData
-    personalityAnswers: PersonalityQuestion[]
     completed: boolean
   }
   
@@ -68,13 +65,13 @@ export default function OnboardingPage() {
       nickname: '',
       appearance: {
         hairStyle: 'short',
+        hairColor: 'brown',
         eyeColor: 'brown',
         bodyType: 'average',
         clothingStyle: 'casual',
         generatedImageUrl: undefined
       }
     },
-    personalityAnswers: [],
     completed: false
   })
 
@@ -100,7 +97,7 @@ export default function OnboardingPage() {
 
   // ステップの進行（API呼び出しを削除）
   const nextStep = () => {
-    if (currentStep < 10) {
+    if (currentStep < 8) {
       const newStep = currentStep + 1
       setCurrentStep(newStep)
       setOnboardingData(prev => ({
@@ -164,7 +161,7 @@ export default function OnboardingPage() {
   }
 
   // プログレスバーの進行率
-  const progressPercentage = (currentStep / 10) * 100
+  const progressPercentage = (currentStep / 8) * 100
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-100 to-pink-200">
@@ -176,7 +173,7 @@ export default function OnboardingPage() {
       {/* プログレス表示 */}
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="text-center text-gray-600 mb-4">
-          ステップ {currentStep} / 10
+          ステップ {currentStep} / 8
         </div>
         
         {/* プログレスバー */}
@@ -228,19 +225,9 @@ export default function OnboardingPage() {
           )}
           
           {currentStep === 5 && (
-            <Step5Personality
-              answers={onboardingData.personalityAnswers}
-              onAnswer={(answers) => updateData({ personalityAnswers: answers })}
-              onNext={nextStep}
-              onPrevious={previousStep}
-            />
-          )}
-          
-          {currentStep === 6 && (
             <Step6PresetSelection
               userName={onboardingData.userData.firstName}
               partnerName={onboardingData.partnerData.name}
-              personalityAnswers={onboardingData.personalityAnswers}
               selectedPreset={onboardingData.partnerData.personality}
               gender={onboardingData.partnerData.gender}
               onSelect={(personality, speechStyle, prompt) => updateData({
@@ -256,7 +243,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 7 && (
+          {currentStep === 6 && (
             <Step7Appearance
               partnerName={onboardingData.partnerData.name}
               gender={onboardingData.partnerData.gender}
@@ -270,7 +257,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 8 && (
+          {currentStep === 7 && (
             <Step8Nickname
               partnerName={onboardingData.partnerData.name}
               userName={onboardingData.userData.firstName}
@@ -283,16 +270,7 @@ export default function OnboardingPage() {
             />
           )}
           
-          {currentStep === 9 && (
-            <Step9InitialChat
-              partnerData={onboardingData.partnerData}
-              userName={onboardingData.userData.firstName}
-              onNext={nextStep}
-              onPrevious={previousStep}
-            />
-          )}
-          
-          {currentStep === 10 && (
+          {currentStep === 8 && (
             <Step10Complete
               userName={onboardingData.userData.firstName}
               partnerName={onboardingData.partnerData.name}
@@ -302,7 +280,7 @@ export default function OnboardingPage() {
           )}
           
           {/* デフォルトケース - デバッグ用 */}
-          {(currentStep < 1 || currentStep > 10) && (
+          {(currentStep < 1 || currentStep > 8) && (
             <div className="text-center">
               <h2 className="text-xl font-bold mb-4">デバッグ情報</h2>
               <p>現在のステップ: {currentStep}</p>

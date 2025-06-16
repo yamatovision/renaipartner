@@ -10,7 +10,7 @@ export class GeneratedImageModel {
    * 画像生成レコードを作成
    */
   static async create(imageData: {
-    partnerId: ID;
+    partnerId?: ID | null;
     imageUrl: string;
     thumbnailUrl?: string;
     prompt: string;
@@ -34,7 +34,7 @@ export class GeneratedImageModel {
       `;
       
       const values = [
-        imageData.partnerId,
+        imageData.partnerId || null,
         imageData.imageUrl,
         imageData.thumbnailUrl || null,
         imageData.prompt,

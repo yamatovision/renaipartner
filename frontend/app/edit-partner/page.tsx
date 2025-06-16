@@ -50,12 +50,8 @@ function EditPartnerContent() {
         console.log('Response Data Type:', typeof response.data)
         console.log('Response Data Keys:', response.data ? Object.keys(response.data) : 'null')
         
-        // レスポンス構造の確認と修正 - data.data構造の可能性を確認
-        let partnerData = response.data
-        if (response.data && response.data.data) {
-          console.log('Nested data structure detected')
-          partnerData = response.data.data
-        }
+        // APIレスポンスから直接パートナーデータを取得
+        const partnerData = response.data
         
         console.log('=== 最終パートナーデータ ===')
         console.log('Actual Partner Data:', partnerData)
