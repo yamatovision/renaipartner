@@ -19,9 +19,14 @@ export const authApiService = {
       
       // バックエンドが既にApiResponse形式で返している場合
       if (response && typeof response === 'object' && 'success' in response) {
-        // アクセストークンをlocalStorageに保存
-        if (response.success && response.data && response.data.accessToken) {
-          localStorage.setItem('access_token', response.data.accessToken)
+        // トークンをlocalStorageに保存
+        if (response.success && response.data) {
+          if (response.data.accessToken) {
+            localStorage.setItem('access_token', response.data.accessToken)
+          }
+          if (response.data.refreshToken) {
+            localStorage.setItem('refresh_token', response.data.refreshToken)
+          }
         }
         return response
       }
@@ -30,6 +35,9 @@ export const authApiService = {
       const loginResponse = response as LoginResponse
       if (loginResponse.accessToken) {
         localStorage.setItem('access_token', loginResponse.accessToken)
+      }
+      if (loginResponse.refreshToken) {
+        localStorage.setItem('refresh_token', loginResponse.refreshToken)
       }
       
       return {
@@ -151,3 +159,6 @@ export const authApiService = {
     }
   },
 }
+
+// 個別エクスポート（token-manager.tsから使用するため）
+export const { refresh } = authApiService

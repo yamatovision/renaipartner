@@ -80,6 +80,13 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
   // ユーザー設定から現在の背景を取得
   const loadUserBackground = async () => {
     try {
+      // 認証トークンがあるかチェック
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (!token) {
+        console.log('[BackgroundContext] No auth token, skipping user settings');
+        return;
+      }
+
       const settings = await settingsApiService.getSettings();
       if (settings.data?.userSettings?.backgroundImage && availableBackgrounds.length > 0) {
         const savedBackground = availableBackgrounds.find(
@@ -116,13 +123,19 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
       // UIの即座反映
       setCurrentBackground(newBackground);
 
-      console.log('🔧 [BackgroundContext] サーバーに保存中...')
-      // サーバーに保存
-      await settingsApiService.updateSettings({
-        userSettings: { backgroundImage: backgroundId }
-      });
-      
-      console.log('🔧 [BackgroundContext] 背景変更完了')
+      // 認証トークンがある場合のみサーバーに保存
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (token) {
+        console.log('🔧 [BackgroundContext] サーバーに保存中...')
+        // サーバーに保存
+        await settingsApiService.updateSettings({
+          userSettings: { backgroundImage: backgroundId }
+        });
+        
+        console.log('🔧 [BackgroundContext] 背景変更完了')
+      } else {
+        console.log('🔧 [BackgroundContext] No auth token, skipping server save')
+      }
 
     } catch (err) {
       console.error('🔧 [BackgroundContext] 背景変更に失敗:', err);
@@ -136,7 +149,11 @@ export const BackgroundProvider: React.FC<BackgroundProviderProps> = ({ children
   // 背景一覧を再取得
   const refreshBackgrounds = async () => {
     await loadBackgrounds();
-    await loadUserBackground();
+    // 認証トークンがある場合のみユーザー設定を読み込み
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (token) {
+      await loadUserBackground();
+    }
   };
 
   // 初期化

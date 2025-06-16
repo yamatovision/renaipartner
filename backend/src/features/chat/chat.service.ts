@@ -798,7 +798,8 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
         engagementType,
         currentIntimacy,
         timeContext,
-        recentContext
+        recentContext,
+        this.getCallingStyle.bind(this)
       );
 
       // OpenAI APIで発言生成（リトライ付き）
@@ -959,6 +960,23 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
       const result = JSON.parse(toolCall.function.arguments);
       const priority = this.calculateQuestionPriority(currentIntimacy, recentContext?.silenceDuration || 0);
 
+      // AI自発メッセージをデータベースに保存
+      const aiMessage = await Message.create({
+        partnerId,
+        content: result.question,
+        sender: MessageSender.PARTNER,
+        emotion: result.tone || 'happy',
+        context: {
+          isProactiveQuestion: true,
+          questionType,
+          targetInfo,
+          priority,
+          expectedDepth: result.context
+        }
+      });
+
+      console.log(`[${new Date().toISOString()}] ✅ AI自発メッセージをDB保存 - ID: ${aiMessage.id}, 質問タイプ: ${questionType}`);
+
       return {
         question: result.question,
         questionType,
@@ -966,7 +984,8 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
         priority,
         tone: result.tone,
         context: result.context,
-        intimacyRequired: this.getRequiredIntimacyForInfo(targetInfo)
+        intimacyRequired: this.getRequiredIntimacyForInfo(targetInfo),
+        messageId: aiMessage.id // フロントエンドで使用するためのメッセージID
       };
 
     } catch (error) {
@@ -1118,7 +1137,8 @@ ${locationId ? `15. 現在の場所（${locationId}）の雰囲気を自然に�
     timeContext?: any,
     recentContext?: any
   ): string {
-    const userName = user?.nickname || user?.firstName || 'あなた';
+    // 通常会話と同じ呼称ロジックを使用
+    const userName = this.getCallingStyle(partner, user, intimacy);
     const timeInfo = timeContext ? `現在時刻: ${timeContext.hour}時, ${timeContext.dayOfWeek}` : '';
     
     return `

@@ -1,5 +1,6 @@
 // APIクライアント基盤（実API用）
 import { API_PATHS } from '@/types'
+import { refreshAccessToken } from '@/lib/token-manager'
 
 // APIベースURL
 // 環境変数が空の場合の対処
@@ -23,7 +24,8 @@ const API_BASE_URL = getApiBaseUrl()
 // 共通のfetchラッパー
 export async function apiClient<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry: boolean = false
 ): Promise<T> {
   const token = localStorage.getItem('access_token')
   
@@ -32,7 +34,7 @@ export async function apiClient<T>(
   console.log('Path:', path)
   console.log('URL:', `${API_BASE_URL}${path}`)
   console.log('Token exists:', !!token)
-  console.log('Token preview:', token ? `${token.substring(0, 10)}...` : 'none')
+  console.log('Is Retry:', isRetry)
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -42,8 +44,6 @@ export async function apiClient<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  
-  console.log('Headers:', headers)
   
   let response;
   try {
@@ -63,7 +63,40 @@ export async function apiClient<T>(
   console.log('=== API Response Debug ===')
   console.log('Status:', response.status)
   console.log('Status Text:', response.statusText)
-  console.log('Headers:', Object.fromEntries(response.headers.entries()))
+  
+  // 401エラー（認証エラー）の処理
+  if (response.status === 401 && !isRetry) {
+    console.log('[APIClient] 401エラーを検出。トークンのリフレッシュを試みます...')
+    
+    // リフレッシュAPIへのリクエストは除外（無限ループ防止）
+    if (!path.includes('/auth/refresh')) {
+      const refreshSuccess = await refreshAccessToken()
+      
+      if (refreshSuccess) {
+        console.log('[APIClient] トークンリフレッシュ成功。リクエストをリトライします...')
+        // 新しいトークンでリトライ
+        return apiClient<T>(path, options, true)
+      } else {
+        console.log('[APIClient] トークンリフレッシュ失敗。')
+        // リフレッシュ失敗時はログインページへ
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('user')
+        
+        // ログインページ、登録ページ、公開ページでは401エラーでもリダイレクトしない
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname
+          const publicPaths = ['/login', '/register', '/', '/onboarding']
+          
+          if (!publicPaths.includes(currentPath)) {
+            console.log('[APIClient] 認証が必要なページから公開ページへリダイレクトします...')
+            window.location.href = '/login'
+          }
+        }
+        throw new Error('認証が必要です。再度ログインしてください。')
+      }
+    }
+  }
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'エラーが発生しました' }))

@@ -497,9 +497,13 @@ export function buildEngagementPrompt(
   engagementType: EngagementType,
   intimacy: number,
   timeContext?: any,
-  recentContext?: { lastMessageContent?: string }
+  recentContext?: { lastMessageContent?: string },
+  getCallingStyle?: (partner: any, user: any, intimacy: number) => string
 ): string {
-  const userName = user?.nickname || user?.firstName || 'あなた';
+  // getCallingStyleが渡されていれば使用、なければフォールバック
+  const userName = getCallingStyle 
+    ? getCallingStyle(partner, user, intimacy)
+    : user?.nickname || user?.firstName || 'あなた';
   
   // 定義されていない性格タイプの場合はデフォルトの例を使用
   const personalityKey = partner.personalityType as PersonalityType;

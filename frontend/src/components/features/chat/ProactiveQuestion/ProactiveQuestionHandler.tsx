@@ -128,9 +128,9 @@ const ProactiveQuestionHandler = React.forwardRef<
       });
 
       if (response.success && response.data) {
-        // AIからの質問メッセージを追加
+        // バックエンドで既にDBに保存されたメッセージを使用
         const aiQuestion: Message = {
-          id: `ai-question-${Date.now()}`,
+          id: response.data.messageId || `ai-question-${Date.now()}`,
           partnerId: partner.id,
           content: response.data.question,
           sender: MessageSender.PARTNER,
@@ -144,6 +144,7 @@ const ProactiveQuestionHandler = React.forwardRef<
           updatedAt: new Date()
         };
 
+        // フロントエンドの状態を更新（バックエンドで既に保存済み）
         onNewMessage(aiQuestion);
 
         // 次の質問候補を保存

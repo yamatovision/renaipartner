@@ -1,9 +1,10 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react'
 import { User, LoginRequest, RegisterRequest, UserRole } from '@/types'
 import { authService } from '@/services'
 import { useRouter } from 'next/navigation'
+import { refreshAccessToken } from '@/lib/token-manager'
 
 interface AuthContextType {
   user: User | null
@@ -22,10 +23,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // SSRとCSRで一貫性を保つため、初期値をfalseに設定
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // トークンの自動更新をスケジュール
+  const scheduleTokenRefresh = (accessToken: string) => {
+    try {
+      // 既存のタイマーをクリア
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+
+      // JWTトークンのペイロードを解析
+      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      const expiresAt = payload.exp * 1000 // ミリ秒に変換
+      const now = Date.now()
+      
+      // 有効期限の5分前にリフレッシュ（最小1分前）
+      const refreshTime = Math.max(expiresAt - now - 5 * 60 * 1000, 60 * 1000)
+      
+      console.log('[AUTH] トークン自動更新をスケジュール:', {
+        expiresAt: new Date(expiresAt).toLocaleString(),
+        refreshAt: new Date(now + refreshTime).toLocaleString(),
+        minutesUntilRefresh: Math.round(refreshTime / 1000 / 60)
+      })
+
+      refreshTimerRef.current = setTimeout(async () => {
+        console.log('[AUTH] トークン自動更新を実行中...')
+        const success = await refreshAccessToken()
+        
+        if (success) {
+          console.log('[AUTH] トークン自動更新成功')
+          // 新しいトークンで再度スケジュール
+          const newToken = localStorage.getItem('access_token')
+          if (newToken) {
+            scheduleTokenRefresh(newToken)
+          }
+        } else {
+          console.log('[AUTH] トークン自動更新失敗。ログアウトします。')
+          await logout()
+        }
+      }, refreshTime)
+    } catch (error) {
+      console.error('[AUTH] トークン更新スケジュールエラー:', error)
+    }
+  }
 
   // 初期認証チェック
   useEffect(() => {
     console.log('[AUTH PROVIDER] useEffect triggered, typeof window:', typeof window)
+    
+    // 公開ページでは認証チェックをスキップ
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname
+      const publicPaths = ['/login', '/register', '/', '/onboarding']
+      
+      if (publicPaths.includes(currentPath)) {
+        console.log('[AUTH PROVIDER] Skipping auth check on public page:', currentPath)
+        setLoading(false)
+        return
+      }
+    }
+    
     // クライアントサイドでのみ認証チェックを実行
     console.log('[AUTH PROVIDER] Window is defined, calling checkAuth')
     setLoading(true) // 認証チェック開始時にのみtrueに設定
@@ -37,7 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }, 3000) // 3秒後に強制的にloadingをfalseに
     
-    return () => clearTimeout(timeout)
+    return () => {
+      clearTimeout(timeout)
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
   }, [])
 
   const checkAuth = async () => {
@@ -74,6 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.success && response.data) {
           console.log('Setting user to:', response.data)
           setUser(response.data)
+          
+          // トークンの自動更新をスケジュール
+          scheduleTokenRefresh(token)
         } else if (response.error === 'トークンの有効期限が切れています') {
           console.log('[AUTH DEBUG] Server reported token expired, clearing storage')
           localStorage.removeItem('access_token')
@@ -116,6 +182,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setUser(user)
       
+      // トークンの自動更新をスケジュール
+      scheduleTokenRefresh(accessToken)
+      
       // ログイン成功処理
       
       // ユーザーのロールに応じてリダイレクト先を決定
@@ -132,6 +201,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    // トークン更新タイマーをクリア
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+    
     await authService.logout()
     
     // トークン削除

@@ -67,7 +67,7 @@ export default function OnboardingPage() {
         hairStyle: 'short',
         hairColor: 'brown',
         eyeColor: 'brown',
-        bodyType: 'average',
+        bodyType: 'normal',
         clothingStyle: 'casual',
         generatedImageUrl: undefined
       }

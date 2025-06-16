@@ -9,7 +9,9 @@ import { useBackground } from '@/hooks/useBackground'
 import { useLocation } from '@/contexts/LocationContext'
 import { useRelationshipMetrics } from '@/contexts/RelationshipMetricsContext'
 import { LocationSelector } from '@/components/features/LocationSelector'
+import { IntimacyChangeModal } from '@/components/IntimacyChangeModal'
 import { useLocationBackground } from '@/hooks/useLocationBackground'
+import { ProactiveQuestionHandler } from '@/components/features/chat/ProactiveQuestion/ProactiveQuestionHandler'
 import { 
   Message, 
   Partner, 
@@ -139,6 +141,11 @@ export default function HomePage() {
   const [loadingTopics, setLoadingTopics] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showLocationSelector, setShowLocationSelector] = useState(false)
+  const [intimacyModal, setIntimacyModal] = useState<{
+    isOpen: boolean
+    previousLevel: number
+    currentLevel: number
+  }>({ isOpen: false, previousLevel: 0, currentLevel: 0 })
   
   // AI主導エンゲージメント機能のstate
   const [showQuestionSuggestion, setShowQuestionSuggestion] = useState<{
@@ -160,6 +167,7 @@ export default function HomePage() {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const proactiveQuestionHandlerRef = useRef<{ extractMemoryFromResponse: (question: string, userResponse: string, questionType?: string) => Promise<void> }>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   // モックインジケーター表示は layout.tsx で処理
@@ -410,6 +418,14 @@ export default function HomePage() {
             new: actualData.intimacyLevel,
             change: actualData.intimacyLevel - (partner?.intimacyLevel || 0)
           })
+          
+          // モーダル表示
+          setIntimacyModal({
+            isOpen: true,
+            previousLevel: partner?.intimacyLevel || 0,
+            currentLevel: actualData.intimacyLevel
+          })
+          
           // RelationshipMetricsContext経由で親密度を即座に更新
           updateIntimacyLevel(actualData.intimacyLevel)
         }
@@ -721,8 +737,17 @@ export default function HomePage() {
                   </span>
                 )}
                 {relationshipMetrics && (
-                  <span className="ml-1 md:ml-2 px-1 md:px-2 py-1 bg-white/20 rounded-full text-xs">
-                    <span className="hidden sm:inline">親密度 </span>{relationshipMetrics.intimacyLevel}%
+                  <span className="ml-1 md:ml-2 px-1 md:px-2 py-1 bg-white/20 rounded-full text-xs flex items-center gap-1">
+                    <span className="hidden sm:inline">親密度:</span>
+                    <span className="sm:hidden">親密度:</span>
+                    <span>{relationshipMetrics.intimacyLevel}</span>
+                    <span className="flex items-center">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <span key={i} className={i < Math.floor(relationshipMetrics.intimacyLevel / 10) ? 'text-pink-400' : 'text-gray-400'}>
+                          {i < Math.floor(relationshipMetrics.intimacyLevel / 10) ? '■' : '□'}
+                        </span>
+                      ))}
+                    </span>
                   </span>
                 )}
               </div>
@@ -1132,6 +1157,26 @@ export default function HomePage() {
       </div>
 
 
+      {/* ProactiveQuestionHandler - AI自発発言機能 */}
+      <ProactiveQuestionHandler
+        ref={proactiveQuestionHandlerRef}
+        partner={partner}
+        messages={messages}
+        isTyping={isTyping}
+        onNewMessage={(message) => {
+          setMessages(prev => [...prev, message])
+          setLastAIQuestion(message)
+          setLastQuestionTime(new Date())
+        }}
+        onPartnerUpdate={(updatedPartner) => {
+          // パートナー情報を更新
+          if (updatedPartner.intimacyLevel !== partner?.intimacyLevel) {
+            updateIntimacyLevel(updatedPartner.intimacyLevel)
+          }
+        }}
+        onTypingStateChange={setIsTyping}
+      />
+
       {/* 場所選択モーダル */}
       <LocationSelector
         isOpen={showLocationSelector}
@@ -1174,6 +1219,14 @@ export default function HomePage() {
           animation: float-up 2s ease-out forwards;
         }
       `}</style>
+
+      {/* 親密度変化モーダル */}
+      <IntimacyChangeModal
+        isOpen={intimacyModal.isOpen}
+        previousLevel={intimacyModal.previousLevel}
+        currentLevel={intimacyModal.currentLevel}
+        onClose={() => setIntimacyModal({ ...intimacyModal, isOpen: false })}
+      />
     </div>
   )
 }

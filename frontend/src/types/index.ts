@@ -565,6 +565,7 @@ export interface ProactiveQuestionResponse {
   emotionalTone?: string;
   expectedDepth?: string;
   followUpSuggestions?: string[];
+  messageId?: string;
 }
 
 export interface ShouldAskQuestionRequest {

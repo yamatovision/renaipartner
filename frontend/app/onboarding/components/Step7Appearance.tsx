@@ -164,7 +164,8 @@ export function Step7Appearance({
       
       if (response.success && response.data) {
         // レスポンスが二重にネストされている場合の処理
-        const imageUrl = response.data.data?.imageUrl || response.data.imageUrl
+        const responseData = response.data as any
+        const imageUrl = responseData.data?.imageUrl || responseData.imageUrl
         console.log('[デバッグ] 生成された画像URL:', imageUrl)
         
         const newImage = imageUrl

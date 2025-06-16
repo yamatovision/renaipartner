@@ -13,8 +13,8 @@ router.post('/login', AuthController.login);
 // トークンリフレッシュ（認証不要）
 router.post('/refresh', AuthController.refresh);
 
-// ログアウト（認証必要）
-router.post('/logout', requireAuth, AuthController.logout);
+// ログアウト（認証不要 - リフレッシュトークンで処理）
+router.post('/logout', AuthController.logout);
 
 // 現在のユーザー情報取得（認証必要）
 router.get('/me', requireAuth, AuthController.getCurrentUser);

@@ -11,7 +11,7 @@ export const ENV_CONFIG = {
   
   // JWT設定
   JWT_SECRET: process.env.JWT_SECRET || '',
-  JWT_ACCESS_TOKEN_EXPIRY: process.env.JWT_ACCESS_TOKEN_EXPIRY || '15m',
+  JWT_ACCESS_TOKEN_EXPIRY: process.env.JWT_ACCESS_TOKEN_EXPIRY || '1h',
   JWT_REFRESH_TOKEN_EXPIRY: process.env.JWT_REFRESH_TOKEN_EXPIRY || '30d',
   
   // パスワード設定
